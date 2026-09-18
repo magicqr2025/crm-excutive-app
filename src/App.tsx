@@ -4,6 +4,7 @@ import { RequireAuth } from '@/features/auth/RequireAuth'
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { CampaignsPage } from '@/features/campaigns/CampaignsPage'
 import { CampaignLeadsPage } from '@/features/campaigns/CampaignLeadsPage'
+import { LeadCallingPage } from '@/features/calling/LeadCallingPage'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route element={<RequireAuth />}>
           <Route path="/campaigns" element={<CampaignsPage />} />
           <Route path="/campaigns/:campaignId/leads" element={<CampaignLeadsPage />} />
+          <Route path="/campaigns/:campaignId/call/:leadId" element={<LeadCallingPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/campaigns" replace />} />
       </Routes>
