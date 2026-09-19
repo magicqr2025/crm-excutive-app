@@ -1,7 +1,7 @@
 import { type ButtonHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/lib/utils'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' | 'call'
 type Size = 'sm' | 'md' | 'icon'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,11 +11,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary: 'bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)]',
+  primary: 'bg-[var(--accent)] text-[var(--ink)] hover:bg-[var(--accent-strong)]',
   secondary: 'bg-[var(--surface)] text-[var(--text-h)] border border-[var(--border)] hover:bg-[var(--surface-hover)]',
   ghost: 'bg-transparent text-[var(--text)] hover:bg-[var(--surface-hover)]',
   outline: 'bg-transparent text-[var(--accent)] border border-[var(--accent-border)] hover:bg-[var(--accent-bg)]',
   danger: 'bg-[var(--error)] text-white hover:opacity-90',
+  call: 'bg-[var(--success)] text-[var(--ink)] hover:brightness-110',
 }
 
 const sizeClasses: Record<Size, string> = {

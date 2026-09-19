@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Calendar, Pause, Play, X } from 'lucide-react'
+import { Calendar, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
@@ -38,8 +38,8 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
   const createCallLog = useCreateCallLog()
   const { show } = useToast()
 
-  const [timerRunning, setTimerRunning] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [timerStopped, setTimerStopped] = useState(false)
   const [outcome, setOutcome] = useState<CallOutcome | null>(null)
   const [reason, setReason] = useState('')
   const [stageTypeId, setStageTypeId] = useState('')
@@ -51,8 +51,8 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
   // Reset the form whenever a new lead is loaded (sequential auto-advance
   // reuses this component across leads rather than remounting it).
   useEffect(() => {
-    setTimerRunning(false)
     setElapsed(0)
+    setTimerStopped(false)
     setOutcome(null)
     setReason('')
     setStageTypeId('')
@@ -62,18 +62,20 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
     setCustomDateTime('')
   }, [lead.id])
 
-  // Manual timer -- no CTI/telephony integration exists, so the executive
-  // starts/stops it themselves around their own phone call.
+  // Timer runs automatically from when the lead is opened until submit -- no
+  // CTI/telephony integration exists, so this is the closest proxy for call
+  // duration around the executive's own phone call.
   useEffect(() => {
-    if (!timerRunning) return
+    if (timerStopped) return
     const id = setInterval(() => setElapsed((s) => s + 1), 1000)
     return () => clearInterval(id)
-  }, [timerRunning])
+  }, [lead.id, timerStopped])
 
   const valid = outcome === 'connected' ? leadStatusId.length > 0 : outcome === 'not_connected' ? reason.length > 0 : false
 
   function submit() {
     if (!outcome || !valid) return
+    setTimerStopped(true)
     let followupDate: string | undefined
     let followupTime: string | undefined
     if (quickHours !== null) {
@@ -109,19 +111,12 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
 
   return (
     <div className="space-y-4 rounded-2xl border border-[var(--border)] p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[15px] font-semibold text-[var(--text-h)]">Call Status</p>
-          <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">Time elapsed {formatElapsed(elapsed)}</p>
+      <div>
+        <p className="text-[15px] font-semibold text-[var(--text-h)]">Call Status</p>
+        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse motion-reduce:animate-none" />
+          <span className="font-mono-num text-[13px] font-semibold text-[var(--accent-strong)]">{formatElapsed(elapsed)}</span>
         </div>
-        <button
-          type="button"
-          onClick={() => setTimerRunning((r) => !r)}
-          className="flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 text-[12.5px] font-medium text-[var(--text-h)] hover:bg-[var(--surface-hover)]"
-        >
-          {timerRunning ? <Pause size={14} /> : <Play size={14} />}
-          {timerRunning ? 'Pause' : 'Start'} timer
-        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">

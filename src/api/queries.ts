@@ -8,7 +8,18 @@ import {
   createCallLog,
   fetchMyCallLogs,
   fetchMyActiveFollowups,
+  fetchCallLogsForLead,
+  searchContacts,
+  fetchDeals,
+  createDeal,
+  fetchMeetings,
+  createMeeting,
+  fetchPayments,
+  createPayment,
   type CreateCallLogInput,
+  type CreateDealInput,
+  type CreateMeetingInput,
+  type CreatePaymentInput,
 } from '@/api/crmApi'
 
 export function useMyLeadCampaigns() {
@@ -58,4 +69,56 @@ export function useMyCallLogs(staffId: string) {
 
 export function useMyActiveFollowups(staffId: string) {
   return useQuery({ queryKey: ['my-followups', staffId], queryFn: () => fetchMyActiveFollowups(staffId), enabled: Boolean(staffId) })
+}
+
+export function useCallLogsForLead(leadId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['call-logs-for-lead', leadId],
+    queryFn: () => fetchCallLogsForLead(leadId as string),
+    enabled: Boolean(leadId),
+  })
+}
+
+export function useContactSearch(search: string) {
+  return useQuery({
+    queryKey: ['contact-search', search],
+    queryFn: () => searchContacts(search),
+    enabled: search.trim().length > 1,
+  })
+}
+
+export function useDeals() {
+  return useQuery({ queryKey: ['deals'], queryFn: fetchDeals })
+}
+
+export function useCreateDeal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateDealInput) => createDeal(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
+  })
+}
+
+export function useMeetings() {
+  return useQuery({ queryKey: ['meetings'], queryFn: fetchMeetings })
+}
+
+export function useCreateMeeting() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateMeetingInput) => createMeeting(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meetings'] }),
+  })
+}
+
+export function usePayments() {
+  return useQuery({ queryKey: ['payments'], queryFn: fetchPayments })
+}
+
+export function useCreatePayment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreatePaymentInput) => createPayment(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payments'] }),
+  })
 }

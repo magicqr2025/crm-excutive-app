@@ -1,8 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, PhoneCall } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useLeadsForCampaign, useMyLeadCampaigns } from '@/api/queries'
 
@@ -59,14 +58,6 @@ export function CampaignLeadsPage() {
           </div>
         )}
       </div>
-
-      {leads.length > 0 && (
-        <div className="border-t border-[var(--border)] p-4">
-          <Button className="w-full justify-center" onClick={() => navigate(`/campaigns/${campaignId}/call/${leads[0].id}`)}>
-            <PhoneCall size={14} /> Start Calling
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

@@ -55,14 +55,14 @@ export function LeadCallingPage() {
       <div className="mx-auto w-full max-w-lg space-y-4 p-4">
         <div className="rounded-2xl border border-[var(--border)] p-4">
           <p className="text-[15px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
-          <p className="text-[13px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
+          <p className="font-mono-num text-[13px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
           {lead.deal_value && <p className="mt-2 text-[13px] text-[var(--text)]">Deal Amount: {lead.deal_value}</p>}
           {lead.contact_phone && (
             <a
               href={`tel:${lead.contact_phone}`}
-              className="mt-3 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--accent)] px-4 text-[13px] font-semibold text-white hover:bg-[var(--accent-strong)]"
+              className="mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-[var(--success)] px-4 text-[13px] font-semibold text-[var(--ink)] hover:brightness-110"
             >
-              <Phone size={14} /> Call {lead.contact_phone}
+              <Phone size={14} /> Call <span className="font-mono-num">{lead.contact_phone}</span>
             </a>
           )}
         </div>

@@ -29,7 +29,9 @@ export interface CrmMyLeadCampaign {
 }
 
 export async function fetchMyLeadCampaigns(): Promise<CrmMyLeadCampaign[]> {
-  return apiRequest<CrmMyLeadCampaign[]>('/crm/lead-campaigns/my-list', { headers: authHeaders() })
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId })
+  return apiRequest<CrmMyLeadCampaign[]>(`/crm/lead-campaigns/get-list?${params}`, { headers: authHeaders() })
 }
 
 // ---- Leads within a campaign ----
@@ -116,6 +118,8 @@ export interface CreateCallLogInput {
 export interface CrmCallLog {
   id: string
   lead_id: string
+  contact_name: string | null
+  contact_phone: string | null
   outcome: CallOutcome
   reason: string | null
   lead_status_id: string | null
@@ -163,6 +167,7 @@ export interface CrmFollowup {
   contact_id: string
   contact_name: string | null
   contact_phone: string | null
+  lead_id: string | null
   followup_date: string
   followup_time: string
   followup_status: '0' | '1' | '2'
@@ -172,4 +177,175 @@ export async function fetchMyActiveFollowups(staffId: string): Promise<CrmFollow
   const businessId = getActiveBusinessId()
   const params = new URLSearchParams({ business_id: businessId, assign_to_staff_id: staffId })
   return apiRequest<CrmFollowup[]>(`/crm/followup/followups/active?${params}`, { headers: authHeaders() })
+}
+
+export async function fetchCallLogsForLead(leadId: string): Promise<CrmCallLog[]> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, lead_id: leadId })
+  return apiRequest<CrmCallLog[]>(`/crm/call-log/list?${params}`, { headers: authHeaders() })
+}
+
+// ---- Contacts (used to pick who a deal/meeting/payment is for) ----
+
+export interface CrmContact {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+}
+
+export async function searchContacts(search: string): Promise<CrmContact[]> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, ...(search ? { search } : {}) })
+  const result = await apiRequestWithMeta<CrmContact[]>(`/crm/contacts/list?${params}`, { headers: authHeaders() })
+  return result.data
+}
+
+// ---- Deals ----
+
+export type DealStatus = 'accepted' | 'canceled' | 'created'
+
+export interface CrmDeal {
+  id: string
+  deal_name: string
+  deal_amount: number
+  deal_details: string | null
+  status: DealStatus
+  contact_id: string
+  contact_name: string | null
+  created_at: string
+}
+
+export async function fetchDeals(): Promise<{ deals: CrmDeal[]; totalAmount: number }> {
+  const businessId = getActiveBusinessId()
+  const result = await apiRequestWithMeta<CrmDeal[], { summary?: { total_amount: number; count: number } }>(
+    `/deal/list?business_id=${encodeURIComponent(businessId)}`,
+    { headers: authHeaders() },
+  )
+  return { deals: result.data, totalAmount: result.summary?.total_amount ?? 0 }
+}
+
+export interface CreateDealInput {
+  contactId: string
+  dealName: string
+  dealAmount: number
+  dealDetails?: string
+}
+
+export async function createDeal(input: CreateDealInput): Promise<CrmDeal> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmDeal>('/deal/add', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      contact_id: input.contactId,
+      deal_name: input.dealName,
+      deal_amount: input.dealAmount,
+      ...(input.dealDetails ? { deal_details: input.dealDetails } : {}),
+    }),
+  })
+}
+
+// ---- Meetings ----
+
+export type MeetingStatus = 'scheduled' | 'completed' | 'cancelled'
+
+export interface CrmMeeting {
+  id: string
+  contact_id: string
+  contact_name: string | null
+  assign_to_staff_id: string | null
+  meeting_time: string
+  meeting_type: string | null
+  meeting_status: MeetingStatus
+  meeting_link: string | null
+  pricing: number
+  meeting_summary: string | null
+  created_at: string
+}
+
+export async function fetchMeetings(): Promise<CrmMeeting[]> {
+  const businessId = getActiveBusinessId()
+  const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?business_id=${encodeURIComponent(businessId)}`, {
+    headers: authHeaders(),
+  })
+  return result.data
+}
+
+export interface CreateMeetingInput {
+  contactId: string
+  meetingTime: string
+  meetingType?: string
+  meetingLink?: string
+  meetingSummary?: string
+}
+
+export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeting> {
+  const businessId = getActiveBusinessId()
+  const staffId = useAuthStore.getState().user?.id
+  return apiRequest<CrmMeeting>('/crm/meetings/add', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      contact_id: input.contactId,
+      meeting_time: new Date(input.meetingTime).toISOString(),
+      ...(staffId ? { assign_to_staff_id: staffId } : {}),
+      ...(input.meetingType ? { meeting_type: input.meetingType } : {}),
+      ...(input.meetingLink ? { meeting_link: input.meetingLink } : {}),
+      ...(input.meetingSummary ? { meeting_summary: input.meetingSummary } : {}),
+    }),
+  })
+}
+
+// ---- Payments ----
+
+export interface CrmPayment {
+  id: string
+  contact_id: string
+  contact_name: string | null
+  amount: number
+  currency: string
+  mop: string
+  assign_to_staff_id: string | null
+  status: 0 | 1
+  notes: string | null
+  payment_date: string | null
+  created_at: string
+}
+
+export async function fetchPayments(): Promise<{ payments: CrmPayment[]; successAmount: number }> {
+  const businessId = getActiveBusinessId()
+  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number } }>(
+    `/crm/payment/list?business_id=${encodeURIComponent(businessId)}`,
+    { headers: authHeaders() },
+  )
+  return { payments: result.data, successAmount: result.summary?.success_amount ?? 0 }
+}
+
+export interface CreatePaymentInput {
+  contactId: string
+  amount: number
+  currency: string
+  mop: string
+  notes?: string
+}
+
+export async function createPayment(input: CreatePaymentInput): Promise<CrmPayment> {
+  const businessId = getActiveBusinessId()
+  const staffId = useAuthStore.getState().user?.id
+  return apiRequest<CrmPayment>('/crm/payment/add', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      contact_id: input.contactId,
+      amount: input.amount,
+      currency: input.currency,
+      mop: input.mop,
+      ...(staffId ? { assign_to_staff_id: staffId } : {}),
+      ...(input.notes ? { notes: input.notes } : {}),
+    }),
+  })
 }

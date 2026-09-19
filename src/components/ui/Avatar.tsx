@@ -27,7 +27,7 @@ export function Avatar({ name, size = 44, className, online }: AvatarProps) {
           data-slot="avatar-status"
           className={cn(
             'absolute right-0 bottom-0 rounded-full border-2 border-[var(--surface)]',
-            online ? 'bg-[var(--accent)]' : 'bg-[var(--text-muted)]',
+            online ? 'bg-[var(--success)]' : 'bg-[var(--text-muted)]',
           )}
           style={{ width: size * 0.3, height: size * 0.3 }}
         />
