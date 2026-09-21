@@ -74,6 +74,48 @@ export async function fetchNextQueueLead(campaignId: string, staffId: string, ex
   return apiRequest<CrmLead | null>(`/crm/cust-res/next-in-queue?${params}`, { headers: authHeaders() })
 }
 
+// No lead_campaign_id filter — every lead currently assigned to this staff
+// member, regardless of which campaign (if any) it came from. Used to look up
+// a single lead's current `discussion` text from a followup, since there's no
+// "get lead by id" endpoint.
+export async function fetchMyLeads(staffId: string): Promise<CrmLead[]> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, assign_to_staff_id: staffId })
+  const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
+  return result.data
+}
+
+export interface UpdateLeadInput {
+  discussion?: string
+}
+
+export async function updateLead(id: string, patch: UpdateLeadInput): Promise<CrmLead> {
+  return apiRequest<CrmLead>(`/crm/cust-res/update?id=${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(patch),
+  })
+}
+
+// ---- Lead activity log ----
+// Every discussion save on a lead (`updateLead` with `discussion` set) is
+// appended here server-side as a `kind: "discussion"` entry (see crmbackend's
+// leads.controller.js) — `Lead.discussion` itself only ever holds the latest
+// value, so this is the only place a full discussion history can be read
+// from.
+
+export interface CrmActivityEntry {
+  id: string
+  kind: string
+  summary: string
+  created_at: string
+}
+
+export async function fetchLeadActivity(leadId: string): Promise<CrmActivityEntry[]> {
+  const params = new URLSearchParams({ lead_id: leadId })
+  return apiRequest<CrmActivityEntry[]>(`/crm/activity-log/lead-list?${params}`, { headers: authHeaders() })
+}
+
 // ---- Lead statuses / stage types (for the disposition form) ----
 
 export interface CrmLeadStageType {
@@ -247,6 +289,26 @@ export async function createDeal(input: CreateDealInput): Promise<CrmDeal> {
   })
 }
 
+export interface UpdateDealInput {
+  dealName?: string
+  dealAmount?: number
+  dealDetails?: string
+  status?: DealStatus
+}
+
+export async function updateDeal(id: string, patch: UpdateDealInput): Promise<CrmDeal> {
+  return apiRequest<CrmDeal>(`/deal/update/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...(patch.dealName !== undefined ? { deal_name: patch.dealName } : {}),
+      ...(patch.dealAmount !== undefined ? { deal_amount: patch.dealAmount } : {}),
+      ...(patch.dealDetails !== undefined ? { deal_details: patch.dealDetails } : {}),
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
+    }),
+  })
+}
+
 // ---- Meetings ----
 
 export type MeetingStatus = 'scheduled' | 'completed' | 'cancelled'
@@ -279,6 +341,7 @@ export interface CreateMeetingInput {
   meetingType?: string
   meetingLink?: string
   meetingSummary?: string
+  pricing?: number
 }
 
 export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeting> {
@@ -295,6 +358,29 @@ export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeti
       ...(input.meetingType ? { meeting_type: input.meetingType } : {}),
       ...(input.meetingLink ? { meeting_link: input.meetingLink } : {}),
       ...(input.meetingSummary ? { meeting_summary: input.meetingSummary } : {}),
+      ...(input.pricing !== undefined ? { pricing: input.pricing } : {}),
+    }),
+  })
+}
+
+export interface UpdateMeetingInput {
+  meetingTime?: string
+  meetingStatus?: MeetingStatus
+  meetingLink?: string
+  pricing?: number
+  meetingSummary?: string
+}
+
+export async function updateMeeting(id: string, patch: UpdateMeetingInput): Promise<CrmMeeting> {
+  return apiRequest<CrmMeeting>(`/crm/meetings/update/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...(patch.meetingTime !== undefined ? { meeting_time: new Date(patch.meetingTime).toISOString() } : {}),
+      ...(patch.meetingStatus !== undefined ? { meeting_status: patch.meetingStatus } : {}),
+      ...(patch.meetingLink !== undefined ? { meeting_link: patch.meetingLink } : {}),
+      ...(patch.pricing !== undefined ? { pricing: patch.pricing } : {}),
+      ...(patch.meetingSummary !== undefined ? { meeting_summary: patch.meetingSummary } : {}),
     }),
   })
 }
@@ -330,6 +416,7 @@ export interface CreatePaymentInput {
   currency: string
   mop: string
   notes?: string
+  paymentDate?: string
 }
 
 export async function createPayment(input: CreatePaymentInput): Promise<CrmPayment> {
@@ -344,8 +431,27 @@ export async function createPayment(input: CreatePaymentInput): Promise<CrmPayme
       amount: input.amount,
       currency: input.currency,
       mop: input.mop,
+      ...(input.paymentDate ? { payment_date: input.paymentDate } : {}),
       ...(staffId ? { assign_to_staff_id: staffId } : {}),
       ...(input.notes ? { notes: input.notes } : {}),
+    }),
+  })
+}
+
+// The backend's PUT /crm/payment/update/:id only accepts `amount` and
+// `status` (payments.schema.js) — method/notes/date aren't editable there.
+export interface UpdatePaymentInput {
+  amount?: number
+  status?: 0 | 1
+}
+
+export async function updatePayment(id: string, patch: UpdatePaymentInput): Promise<CrmPayment> {
+  return apiRequest<CrmPayment>(`/crm/payment/update/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...(patch.amount !== undefined ? { amount: patch.amount } : {}),
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
     }),
   })
 }

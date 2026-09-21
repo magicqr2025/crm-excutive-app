@@ -3,6 +3,9 @@ import {
   fetchMyLeadCampaigns,
   fetchLeadsForCampaign,
   fetchNextQueueLead,
+  fetchMyLeads,
+  updateLead,
+  fetchLeadActivity,
   fetchLeadStageTypes,
   fetchLeadStatuses,
   createCallLog,
@@ -12,14 +15,21 @@ import {
   searchContacts,
   fetchDeals,
   createDeal,
+  updateDeal,
   fetchMeetings,
   createMeeting,
+  updateMeeting,
   fetchPayments,
   createPayment,
+  updatePayment,
   type CreateCallLogInput,
   type CreateDealInput,
+  type UpdateDealInput,
   type CreateMeetingInput,
   type CreatePaymentInput,
+  type UpdatePaymentInput,
+  type UpdateLeadInput,
+  type UpdateMeetingInput,
 } from '@/api/crmApi'
 
 export function useMyLeadCampaigns() {
@@ -39,6 +49,30 @@ export function useNextQueueLead(campaignId: string, staffId: string, excludeLea
     queryKey: ['next-queue-lead', campaignId, staffId, excludeLeadId ?? null],
     queryFn: () => fetchNextQueueLead(campaignId, staffId, excludeLeadId),
     enabled: Boolean(campaignId && staffId),
+  })
+}
+
+export function useMyLeads(staffId: string) {
+  return useQuery({ queryKey: ['my-leads', staffId], queryFn: () => fetchMyLeads(staffId), enabled: Boolean(staffId) })
+}
+
+export function useUpdateLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateLeadInput }) => updateLead(id, patch),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['my-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity', variables.id] })
+    },
+  })
+}
+
+export function useLeadActivity(leadId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['lead-activity', leadId],
+    queryFn: () => fetchLeadActivity(leadId as string),
+    enabled: Boolean(leadId),
   })
 }
 
@@ -99,6 +133,14 @@ export function useCreateDeal() {
   })
 }
 
+export function useUpdateDeal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateDealInput }) => updateDeal(id, patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
+  })
+}
+
 export function useMeetings() {
   return useQuery({ queryKey: ['meetings'], queryFn: fetchMeetings })
 }
@@ -111,6 +153,14 @@ export function useCreateMeeting() {
   })
 }
 
+export function useUpdateMeeting() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateMeetingInput }) => updateMeeting(id, patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meetings'] }),
+  })
+}
+
 export function usePayments() {
   return useQuery({ queryKey: ['payments'], queryFn: fetchPayments })
 }
@@ -119,6 +169,14 @@ export function useCreatePayment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: CreatePaymentInput) => createPayment(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payments'] }),
+  })
+}
+
+export function useUpdatePayment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdatePaymentInput }) => updatePayment(id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payments'] }),
   })
 }

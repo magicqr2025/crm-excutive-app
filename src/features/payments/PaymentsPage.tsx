@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { Plus, X, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { usePayments, useCreatePayment } from '@/api/queries'
-import type { CrmContact } from '@/api/crmApi'
+import { usePayments, useCreatePayment, useUpdatePayment } from '@/api/queries'
+import type { CrmContact, CrmPayment } from '@/api/crmApi'
 
 const MOP_OPTIONS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
 
@@ -15,16 +16,28 @@ function formatMoney(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 }
 
+function todayDateInput() {
+  return new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, in the viewer's local calendar day
+}
+
 export function PaymentsPage() {
+  const location = useLocation()
+  const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
   const { data, isLoading } = usePayments()
   const createPayment = useCreatePayment()
+  const updatePayment = useUpdatePayment()
   const { show } = useToast()
-  const [formOpen, setFormOpen] = useState(false)
-  const [contact, setContact] = useState<CrmContact | null>(null)
+  const [formOpen, setFormOpen] = useState(Boolean(prefillContact))
+  const [contact, setContact] = useState<CrmContact | null>(prefillContact)
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('INR')
   const [mop, setMop] = useState(MOP_OPTIONS[0])
   const [notes, setNotes] = useState('')
+  const [paymentDate, setPaymentDate] = useState(todayDateInput())
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [editStatus, setEditStatus] = useState<0 | 1>(1)
 
   function resetForm() {
     setContact(null)
@@ -32,12 +45,13 @@ export function PaymentsPage() {
     setCurrency('INR')
     setMop(MOP_OPTIONS[0])
     setNotes('')
+    setPaymentDate(todayDateInput())
   }
 
   function submit() {
     if (!contact || !amount) return
     createPayment.mutate(
-      { contactId: contact.id, amount: Number(amount), currency, mop, notes: notes.trim() || undefined },
+      { contactId: contact.id, amount: Number(amount), currency, mop, notes: notes.trim() || undefined, paymentDate: paymentDate || undefined },
       {
         onSuccess: () => {
           show({ title: 'Payment logged', tone: 'success' })
@@ -45,6 +59,30 @@ export function PaymentsPage() {
           setFormOpen(false)
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to log payment', tone: 'error' }),
+      },
+    )
+  }
+
+  function startEdit(payment: CrmPayment) {
+    setEditingId(payment.id)
+    setEditAmount(String(payment.amount))
+    setEditStatus(payment.status)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+  }
+
+  function saveEdit() {
+    if (!editingId || !editAmount) return
+    updatePayment.mutate(
+      { id: editingId, patch: { amount: Number(editAmount), status: editStatus } },
+      {
+        onSuccess: () => {
+          show({ title: 'Payment updated', tone: 'success' })
+          setEditingId(null)
+        },
+        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to update payment', tone: 'error' }),
       },
     )
   }
@@ -78,6 +116,9 @@ export function PaymentsPage() {
                 <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={3} />
               </Field>
             </div>
+            <Field label="Payment date">
+              <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+            </Field>
             <Field label="Payment method">
               <select
                 value={mop}
@@ -106,22 +147,63 @@ export function PaymentsPage() {
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No payments yet.</p>
         ) : (
           <div className="space-y-2">
-            {payments.map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{payment.contact_name ?? 'Unknown contact'}</p>
-                  <p className="text-[11.5px] text-[var(--text-muted)]">
-                    {payment.mop} · {new Date(payment.created_at).toLocaleDateString()}
-                  </p>
+            {payments.map((payment) =>
+              editingId === payment.id ? (
+                <div key={payment.id} className="space-y-3 rounded-lg border border-[var(--border)] p-3">
+                  <Field label="Amount">
+                    <Input type="number" inputMode="decimal" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+                  </Field>
+                  <Field label="Status">
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(Number(e.target.value) as 0 | 1)}
+                      className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
+                    >
+                      <option value={1}>Paid</option>
+                      <option value={0}>Pending</option>
+                    </select>
+                  </Field>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={cancelEdit}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 justify-center"
+                      onClick={saveEdit}
+                      disabled={!editAmount || updatePayment.isPending}
+                    >
+                      {updatePayment.isPending ? 'Saving…' : 'Save Changes'}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2.5">
-                  <span className="font-mono-num text-[14px] font-semibold text-[var(--text-h)]">
-                    {payment.currency} {formatMoney(payment.amount)}
-                  </span>
-                  <Badge tone={payment.status === 1 ? 'success' : 'warning'}>{payment.status === 1 ? 'Paid' : 'Pending'}</Badge>
+              ) : (
+                <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{payment.contact_name ?? 'Unknown contact'}</p>
+                    <p className="text-[11.5px] text-[var(--text-muted)]">
+                      {payment.mop} ·{' '}
+                      {payment.payment_date
+                        ? new Date(payment.payment_date).toLocaleDateString(undefined, { timeZone: 'UTC' })
+                        : new Date(payment.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2.5">
+                    <span className="font-mono-num text-[14px] font-semibold text-[var(--text-h)]">
+                      {payment.currency} {formatMoney(payment.amount)}
+                    </span>
+                    <Badge tone={payment.status === 1 ? 'success' : 'warning'}>{payment.status === 1 ? 'Paid' : 'Pending'}</Badge>
+                    <button
+                      onClick={() => startEdit(payment)}
+                      title="Edit payment"
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
           </div>
         )}
       </div>
