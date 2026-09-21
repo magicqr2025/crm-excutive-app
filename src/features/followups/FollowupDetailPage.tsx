@@ -411,9 +411,9 @@ export function FollowupDetailPage() {
           ) : (
             <div className="mt-2 space-y-2">
               {discussionEntries.map((entry) => (
-                <div key={entry.id} className="rounded-lg border border-[var(--border)] px-3 py-2">
-                  <p className="text-[11px] text-[var(--text-muted)]">{new Date(entry.created_at).toLocaleString()}</p>
-                  <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-[var(--text)]">{stripDiscussionPrefix(entry.summary)}</p>
+                <div key={entry.id} className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2">
+                  <p className="whitespace-pre-wrap text-[13px] text-[var(--text)]">{stripDiscussionPrefix(entry.summary)}</p>
+                  <p className="shrink-0 whitespace-nowrap text-[11px] text-[var(--text-muted)]">{new Date(entry.created_at).toLocaleString()}</p>
                 </div>
               ))}
             </div>
