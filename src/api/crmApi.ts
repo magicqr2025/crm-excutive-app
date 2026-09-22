@@ -205,6 +205,52 @@ export async function fetchMyCallLogs(staffId: string): Promise<CrmCallLog[]> {
   return apiRequest<CrmCallLog[]>(`/crm/call-log/list?${params}`, { headers: authHeaders() })
 }
 
+// ---- Device call log sync (Android only — see docs/superpowers/plans/2026-09-22-android-call-log-sync.md) ----
+
+export type DeviceCallType = 'incoming' | 'outgoing' | 'missed'
+
+export interface SyncDeviceCallLogInput {
+  phoneNumber: string
+  callType: DeviceCallType
+  callTime: string
+  durationSeconds?: number
+  deviceCallId: string
+}
+
+export async function syncDeviceCallLog(input: SyncDeviceCallLogInput): Promise<void> {
+  const businessId = getActiveBusinessId()
+  await apiRequest('/crm/call-log/sync', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      phone_number: input.phoneNumber,
+      call_type: input.callType,
+      call_time: input.callTime,
+      ...(input.durationSeconds !== undefined ? { duration_seconds: input.durationSeconds } : {}),
+      device_call_id: input.deviceCallId,
+    }),
+  })
+}
+
+export interface CrmDeviceCallLog {
+  id: string
+  contact_id: string | null
+  contact_name: string | null
+  phone_number: string
+  call_type: DeviceCallType
+  call_time: string
+  duration_seconds: number | null
+  device_call_id: string
+  created_at: string
+}
+
+export async function fetchDeviceCallLogs(staffId: string): Promise<CrmDeviceCallLog[]> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, staff_id: staffId })
+  return apiRequest<CrmDeviceCallLog[]>(`/crm/call-log/device-list?${params}`, { headers: authHeaders() })
+}
+
 // ---- Follow-ups ----
 
 export interface CrmFollowup {

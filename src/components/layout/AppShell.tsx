@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
+import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
 
 const NAV_ITEMS = [
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
@@ -42,6 +43,10 @@ export function AppShell() {
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
   const now = useClock()
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    startDeviceCallSync()
+  }, [])
 
   function handleLogout() {
     logout()
