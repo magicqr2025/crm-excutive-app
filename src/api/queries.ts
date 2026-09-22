@@ -10,7 +10,6 @@ import {
   fetchLeadStatuses,
   createCallLog,
   fetchMyCallLogs,
-  fetchDeviceCallLogs,
   fetchMyActiveFollowups,
   fetchCallLogsForLead,
   searchContacts,
@@ -100,14 +99,6 @@ export function useCreateCallLog() {
 
 export function useMyCallLogs(staffId: string) {
   return useQuery({ queryKey: ['my-call-logs', staffId], queryFn: () => fetchMyCallLogs(staffId), enabled: Boolean(staffId) })
-}
-
-export function useDeviceCallLogs(staffId: string) {
-  return useQuery({
-    queryKey: ['device-call-logs', staffId],
-    queryFn: () => fetchDeviceCallLogs(staffId),
-    enabled: Boolean(staffId),
-  })
 }
 
 export function useMyActiveFollowups(staffId: string) {
