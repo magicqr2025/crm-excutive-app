@@ -8,6 +8,8 @@ import { CampaignLeadsPage } from '@/features/campaigns/CampaignLeadsPage'
 import { LeadCallingPage } from '@/features/calling/LeadCallingPage'
 import { FollowupsPage } from '@/features/followups/FollowupsPage'
 import { FollowupDetailPage } from '@/features/followups/FollowupDetailPage'
+import { ContactsPage } from '@/features/contacts/ContactsPage'
+import { ContactDetailPage } from '@/features/contacts/ContactDetailPage'
 import { CallLogsPage } from '@/features/callLogs/CallLogsPage'
 import { DealsPage } from '@/features/deals/DealsPage'
 import { MeetingsPage } from '@/features/meetings/MeetingsPage'
@@ -23,6 +25,8 @@ export default function App() {
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/campaigns/:campaignId/leads" element={<CampaignLeadsPage />} />
             <Route path="/campaigns/:campaignId/call/:leadId" element={<LeadCallingPage />} />
+            <Route path="/contacts" element={<ContactsPage />} />
+            <Route path="/contacts/:leadId" element={<ContactDetailPage />} />
             <Route path="/followups" element={<FollowupsPage />} />
             <Route path="/followups/:followupId" element={<FollowupDetailPage />} />
             <Route path="/call-logs" element={<CallLogsPage />} />

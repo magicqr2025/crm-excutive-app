@@ -53,6 +53,7 @@ export interface CrmLead {
   followup_status: '0' | '1' | '2'
   deal_value: string | null
   deal_details: string | null
+  lead_campaigns: { id: string; name: string }[]
   created_at: string
 }
 
@@ -179,12 +180,14 @@ export interface CrmCallLogResult {
 
 export async function createCallLog(input: CreateCallLogInput): Promise<CrmCallLogResult> {
   const businessId = getActiveBusinessId()
+  const staffId = useAuthStore.getState().user?.id
   return apiRequest<CrmCallLogResult>('/crm/call-log/create', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
       business_id: businessId,
       lead_id: input.leadId,
+      ...(staffId ? { staff_id: staffId } : {}),
       outcome: input.outcome,
       ...(input.reason ? { reason: input.reason } : {}),
       ...(input.leadStatusId ? { lead_status_id: input.leadStatusId } : {}),
