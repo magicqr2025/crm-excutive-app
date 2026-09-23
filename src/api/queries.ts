@@ -23,6 +23,7 @@ import {
   fetchPayments,
   createPayment,
   updatePayment,
+  type CampaignLeadScope,
   type CreateCallLogInput,
   type CreateDealInput,
   type UpdateDealInput,
@@ -37,10 +38,10 @@ export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
 }
 
-export function useLeadsForCampaign(campaignId: string, staffId: string) {
+export function useLeadsForCampaign(campaignId: string, staffId: string, scope: CampaignLeadScope = 'mine') {
   return useQuery({
-    queryKey: ['campaign-leads', campaignId, staffId],
-    queryFn: () => fetchLeadsForCampaign(campaignId, staffId),
+    queryKey: ['campaign-leads', campaignId, staffId, scope],
+    queryFn: () => fetchLeadsForCampaign(campaignId, staffId, scope),
     enabled: Boolean(campaignId && staffId),
   })
 }

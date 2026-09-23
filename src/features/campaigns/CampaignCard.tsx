@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Phone } from 'lucide-react'
+import { List, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useToast } from '@/components/ui/useToast'
@@ -96,10 +96,16 @@ export function CampaignCard({ campaign }: { campaign: CrmMyLeadCampaign }) {
           <Stat label="Closed" value={campaign.closed} tone="live" />
           <Stat label="Un-Assigned" value={campaign.unassigned} />
         </div>
-        <Button variant="call" className="mt-4 w-full justify-center gap-2" onClick={startCalling} disabled={starting}>
-          <Phone size={15} />
-          {starting ? 'Connecting…' : 'Start Calling'}
-        </Button>
+        <div className="mt-4 flex gap-2">
+          <Button variant="secondary" className="flex-1 justify-center gap-2" onClick={() => navigate(`/campaigns/${campaign.id}/leads`)}>
+            <List size={15} />
+            View Leads
+          </Button>
+          <Button variant="call" className="flex-1 justify-center gap-2" onClick={startCalling} disabled={starting}>
+            <Phone size={15} />
+            {starting ? 'Connecting…' : 'Start Calling'}
+          </Button>
+        </div>
       </Card.Body>
     </Card>
   )

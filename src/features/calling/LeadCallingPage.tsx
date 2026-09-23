@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useLeadsForCampaign } from '@/api/queries'
 import { fetchNextQueueLead } from '@/api/crmApi'
 import { DispositionForm } from '@/features/calling/DispositionForm'
+import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
 import { useCallLead } from '@/features/calling/useCallLead'
 
 export function LeadCallingPage() {
@@ -83,6 +84,8 @@ export function LeadCallingPage() {
             </button>
           )}
         </div>
+
+        <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} />
 
         <DispositionForm key={lead.id} lead={lead} onSubmitted={handleSubmitted} />
       </div>

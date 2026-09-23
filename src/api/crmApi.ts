@@ -58,9 +58,13 @@ export interface CrmLead {
   created_at: string
 }
 
-export async function fetchLeadsForCampaign(campaignId: string, staffId: string): Promise<CrmLead[]> {
+// scope 'campaign' = every lead in the campaign, including other executives'
+// (read-only team view; backend requires you to be an agent on the campaign).
+export type CampaignLeadScope = 'mine' | 'campaign'
+
+export async function fetchLeadsForCampaign(campaignId: string, staffId: string, scope: CampaignLeadScope = 'mine'): Promise<CrmLead[]> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, lead_campaign_id: campaignId, assign_to_staff_id: staffId })
+  const params = new URLSearchParams({ business_id: businessId, lead_campaign_id: campaignId, assign_to_staff_id: staffId, scope })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
   return result.data
 }

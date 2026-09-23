@@ -43,12 +43,26 @@ export function ContactsPage() {
               }`}
             >
               {v === 'all' ? 'All contacts' : 'Unassigned'}
+              {v === 'all' && (
+                <span
+                  className={`rounded-full px-1.5 text-[11px] font-semibold ${
+                    view === v ? 'bg-white/25 text-white' : 'bg-[var(--surface-hover)] text-[var(--text-h)]'
+                  }`}
+                >
+                  {leads.length}
+                </span>
+              )}
               {v === 'unassigned' && unassignedCount > 0 && (
                 <span className="rounded-full bg-[var(--warning)] px-1.5 text-[11px] font-semibold text-white">{unassignedCount}</span>
               )}
             </button>
           ))}
         </div>
+        <p className="text-[12px] text-[var(--text-muted)]">
+          {view === 'all'
+            ? `Only your contacts (${leads.length - unassignedCount}) plus unassigned ones (${unassignedCount}). Other executives' contacts are not shown.`
+            : 'Contacts nobody owns yet. Call or assign one to make it yours.'}
+        </p>
         <div className="relative max-w-sm">
           <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or phone…" className="pl-8" />
