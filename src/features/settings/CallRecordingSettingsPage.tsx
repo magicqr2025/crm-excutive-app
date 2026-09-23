@@ -33,8 +33,9 @@ export function CallRecordingSettingsPage() {
         <div className="rounded-lg border border-[var(--border)] p-3">
           <p className="text-[13px] font-semibold text-[var(--text-h)]">Call log access</p>
           <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
-            Lets this app read your phone's call history so it can sync it to your CRM. This app never records calls
-            itself — it only reads metadata Android already tracks.
+            Lets this app read your phone's call history so calls with CRM leads sync to your CRM. Calls to numbers
+            that aren't CRM leads are never saved. This app never records calls itself — it only reads metadata
+            Android already tracks.
           </p>
           <p className="mt-2 text-[12.5px] text-[var(--text-muted)]">Status: {permission}</p>
           {permission !== 'granted' && (

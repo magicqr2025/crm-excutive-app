@@ -237,7 +237,9 @@ export async function fetchMyCallLogs(staffId: string): Promise<CrmCallLog[]> {
 // business_id/staff_id are resolved server-side from the session token, not
 // sent here — see crmbackend's callLog.controller.js syncHandler. Synced
 // rows land in the same call_logs table fetchMyCallLogs already reads
-// (source: "device_sync"), so there's no separate list endpoint.
+// (source: "device_sync"), so there's no separate list endpoint. A number
+// that matches no CRM lead is a personal call: the server skips it and
+// returns null, so it never appears in Call Logs.
 
 export interface SyncDeviceCallLogInput {
   phoneNumber: string
@@ -247,8 +249,8 @@ export interface SyncDeviceCallLogInput {
   deviceCallId: string
 }
 
-export async function syncDeviceCallLog(input: SyncDeviceCallLogInput): Promise<CrmCallLog> {
-  return apiRequest<CrmCallLog>('/crm/call-log/sync', {
+export async function syncDeviceCallLog(input: SyncDeviceCallLogInput): Promise<CrmCallLog | null> {
+  return apiRequest<CrmCallLog | null>('/crm/call-log/sync', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({

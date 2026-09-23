@@ -8,7 +8,12 @@ export interface RecordingMatch {
 export interface RecordingFolderPlugin {
   pick(): Promise<{ uri: string }>
   getSelected(): Promise<{ uri: string | null }>
-  findRecording(options: { number: string; callTimeMs: number; durationSeconds: number }): Promise<{ match: RecordingMatch | null }>
+  findRecording(options: {
+    number: string
+    callTimeMs: number
+    durationSeconds: number
+    contactName?: string
+  }): Promise<{ match: RecordingMatch | null }>
   play(options: { uri: string }): Promise<void>
   stop(): Promise<void>
   addListener(eventName: 'playbackEnded', listenerFunc: () => void): Promise<{ remove: () => void }>

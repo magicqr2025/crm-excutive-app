@@ -6,8 +6,8 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.media.MediaPlayer
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.activity.result.ActivityResult
-import androidx.documentfile.provider.DocumentFile
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -19,6 +19,9 @@ import kotlin.math.abs
 private const val PREFS_NAME = "recording_folder"
 private const val KEY_TREE_URI = "tree_uri"
 private const val MATCH_WINDOW_MS = 2 * 60 * 1000L
+private const val NAME_MATCH_WINDOW_MS = 30 * 60 * 1000L
+private const val LIST_CACHE_MS = 20 * 1000L
+private val AUDIO_EXTENSIONS = listOf(".m4a", ".mp3", ".amr", ".aac", ".wav", ".ogg", ".opus", ".3gp")
 
 @CapacitorPlugin(name = "RecordingFolder")
 class RecordingFolderPlugin : Plugin() {
@@ -40,6 +43,7 @@ class RecordingFolderPlugin : Plugin() {
         }
         context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         prefs().edit().putString(KEY_TREE_URI, uri.toString()).apply()
+        cachedTree = null
         val ret = JSObject()
         ret.put("uri", uri.toString())
         call.resolve(ret)
@@ -52,11 +56,18 @@ class RecordingFolderPlugin : Plugin() {
         call.resolve(ret)
     }
 
+    // Recorders name files inconsistently ("Call recording 98266 96132_210926_104812.m4a",
+    // "Vijay_20260921104812.m4a", "+919826696132 (2026-09-21).amr"), so a file is a
+    // candidate if its name contains the number's last 10 digits or the contact's
+    // name, and the closest candidate in time wins — a number called several times
+    // has one recording per call. Only when nothing matches by name does a bare
+    // time match (much tighter window) apply.
     @PluginMethod
     fun findRecording(call: PluginCall) {
         val number = call.getString("number")
         val callTimeMs = call.getLong("callTimeMs")
         val durationSeconds = call.getInt("durationSeconds") ?: 0
+        val contactName = call.getString("contactName")?.trim()?.lowercase()
         if (number == null || callTimeMs == null) {
             call.reject("number and callTimeMs are required")
             return
@@ -66,19 +77,18 @@ class RecordingFolderPlugin : Plugin() {
             call.resolve(JSObject().apply { put("match", null) })
             return
         }
-        val tree = DocumentFile.fromTreeUri(context, Uri.parse(treeUriString))
-        val files = tree?.listFiles()?.filter { it.isFile } ?: emptyList()
+        val files = listRecordings(Uri.parse(treeUriString))
         val normalizedNumber = number.filter { it.isDigit() }.takeLast(10)
+        val expectedEnd = callTimeMs + durationSeconds * 1000L
+        fun distance(f: RecordingFile) = abs(f.lastModified - expectedEnd)
 
-        val byName = if (normalizedNumber.length == 10) {
-            files.find { (it.name ?: "").filter { c -> c.isDigit() }.takeLast(10) == normalizedNumber }
-        } else null
-
-        val match = byName ?: run {
-            val expectedEnd = callTimeMs + durationSeconds * 1000L
-            files.filter { abs(it.lastModified() - expectedEnd) <= MATCH_WINDOW_MS }
-                .minByOrNull { abs(it.lastModified() - expectedEnd) }
+        val byName = files.filter { f ->
+            val lower = f.name.lowercase()
+            (normalizedNumber.length == 10 && f.name.filter { it.isDigit() }.contains(normalizedNumber)) ||
+                (contactName != null && contactName.length >= 3 && lower.contains(contactName))
         }
+        val match = byName.filter { distance(it) <= NAME_MATCH_WINDOW_MS }.minByOrNull(::distance)
+            ?: files.filter { distance(it) <= MATCH_WINDOW_MS }.minByOrNull(::distance)
 
         val ret = JSObject()
         if (match != null) {
@@ -92,6 +102,50 @@ class RecordingFolderPlugin : Plugin() {
         call.resolve(ret)
     }
 
+    private data class RecordingFile(val uri: Uri, val name: String, val lastModified: Long)
+
+    private var cachedTree: String? = null
+    private var cachedAt = 0L
+    private var cachedFiles: List<RecordingFile> = emptyList()
+
+    // One ContentResolver query for the whole folder, cached briefly — the Call
+    // Logs page asks once per row, and DocumentFile.listFiles() + per-file
+    // name/lastModified lookups cost an IPC round-trip each.
+    @Synchronized
+    private fun listRecordings(treeUri: Uri): List<RecordingFile> {
+        val now = System.currentTimeMillis()
+        if (cachedTree == treeUri.toString() && now - cachedAt < LIST_CACHE_MS) return cachedFiles
+
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            treeUri, DocumentsContract.getTreeDocumentId(treeUri)
+        )
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+        )
+        val result = mutableListOf<RecordingFile>()
+        context.contentResolver.query(childrenUri, projection, null, null, null)?.use { c ->
+            while (c.moveToNext()) {
+                val mime = c.getString(3) ?: ""
+                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) continue
+                val name = c.getString(1) ?: continue
+                val isAudio = mime.startsWith("audio/") || AUDIO_EXTENSIONS.any { name.lowercase().endsWith(it) }
+                if (!isAudio) continue
+                result += RecordingFile(
+                    uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, c.getString(0)),
+                    name = name,
+                    lastModified = c.getLong(2),
+                )
+            }
+        }
+        cachedTree = treeUri.toString()
+        cachedAt = now
+        cachedFiles = result
+        return result
+    }
+
     @PluginMethod
     fun play(call: PluginCall) {
         val uriString = call.getString("uri")
@@ -100,19 +154,24 @@ class RecordingFolderPlugin : Plugin() {
             return
         }
         stopPlayback()
-        val afd = context.contentResolver.openAssetFileDescriptor(Uri.parse(uriString), "r")
-        if (afd == null) {
-            call.reject("Could not open recording")
-            return
+        try {
+            val afd = context.contentResolver.openAssetFileDescriptor(Uri.parse(uriString), "r")
+            if (afd == null) {
+                call.reject("Could not open recording")
+                return
+            }
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                afd.close()
+                setOnCompletionListener { notifyListeners("playbackEnded", JSObject()) }
+                prepare()
+                start()
+            }
+            call.resolve()
+        } catch (e: Exception) {
+            stopPlayback()
+            call.reject("Could not play recording: ${e.message}")
         }
-        mediaPlayer = MediaPlayer().apply {
-            setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            afd.close()
-            setOnCompletionListener { notifyListeners("playbackEnded", JSObject()) }
-            prepare()
-            start()
-        }
-        call.resolve()
     }
 
     @PluginMethod
