@@ -5,6 +5,7 @@ import {
   fetchNextQueueLead,
   fetchMyLeads,
   updateLead,
+  claimLead,
   fetchLeadActivity,
   fetchLeadStageTypes,
   fetchLeadStatuses,
@@ -64,6 +65,19 @@ export function useUpdateLead() {
       queryClient.invalidateQueries({ queryKey: ['my-leads'] })
       queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity', variables.id] })
+    },
+  })
+}
+
+export function useClaimLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (leadId: string) => claimLead(leadId),
+    onSettled: (_data, _err, leadId) => {
+      queryClient.invalidateQueries({ queryKey: ['my-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['my-lead-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity', leadId] })
     },
   })
 }

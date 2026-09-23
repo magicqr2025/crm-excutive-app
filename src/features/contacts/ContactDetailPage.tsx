@@ -46,6 +46,7 @@ export function ContactDetailPage() {
         followupDate={lead.followup_date}
         followupTime={lead.followup_time}
         followupStatus={lead.followup_status}
+        assignToStaffId={lead.assign_to_staff_id ?? null}
       />
     </div>
   )

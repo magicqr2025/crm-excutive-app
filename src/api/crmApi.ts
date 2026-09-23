@@ -46,6 +46,7 @@ export interface CrmLead {
   lead_status_color: string | null
   tag_id: string | null
   tag_name: string | null
+  assign_to_staff_id?: string | null
   assign_staff_name: string | null
   discussion: string | null
   followup_date: string | null
@@ -84,6 +85,17 @@ export async function fetchMyLeads(staffId: string): Promise<CrmLead[]> {
   const params = new URLSearchParams({ business_id: businessId, assign_to_staff_id: staffId })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
   return result.data
+}
+
+// Takes an unassigned lead for the calling executive (409 naming the owner if
+// someone else got it first). See crmbackend's POST /crm/cust-res/claim.
+export async function claimLead(leadId: string): Promise<CrmLead> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmLead>('/crm/cust-res/claim', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ business_id: businessId, lead_id: leadId }),
+  })
 }
 
 export interface UpdateLeadInput {

@@ -32,7 +32,7 @@ export function CampaignLeadsPage() {
         {isLoading ? (
           <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
         ) : leads.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No leads assigned to you in this campaign.</p>
+          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No leads for you in this campaign yet.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {leads.map((lead) => (
@@ -52,6 +52,7 @@ export function CampaignLeadsPage() {
                 <div className="mt-2.5 flex items-center gap-2">
                   <Badge tone={lead.lead_status ? 'accent' : 'warning'}>{lead.lead_status ?? 'Fresh Inquiry'}</Badge>
                   {lead.tag_name && <Badge tone="neutral">{lead.tag_name}</Badge>}
+                  {!lead.assign_to_staff_id && <Badge tone="warning">Unassigned</Badge>}
                 </div>
               </button>
             ))}

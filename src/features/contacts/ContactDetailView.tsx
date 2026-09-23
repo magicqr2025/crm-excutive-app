@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
+import { useCallLead } from '@/features/calling/useCallLead'
 import {
   useCallLogsForLead,
   useLeadStatuses,
@@ -77,6 +78,8 @@ export interface ContactDetailViewProps {
   followupDate?: string | null
   followupTime?: string | null
   followupStatus?: '0' | '1' | '2' | null
+  /** Current owner; `null` means unassigned, so calling claims it. Omit when the lead is known to be yours. */
+  assignToStaffId?: string | null
 }
 
 // Shared body for both "Follow-up Details" (a specific due follow-up) and
@@ -92,7 +95,9 @@ export function ContactDetailView({
   followupDate,
   followupTime,
   followupStatus,
+  assignToStaffId,
 }: ContactDetailViewProps) {
+  const { startCall, assignToMe, isClaiming } = useCallLead()
   const { data: callLogs = [], isLoading: isLoadingLogs } = useCallLogsForLead(leadId)
   const { data: leadStatuses = [] } = useLeadStatuses()
   const { data: stageTypes = [] } = useLeadStageTypes()
@@ -336,16 +341,28 @@ export function ContactDetailView({
             <div className="flex-1">
               <p className="text-[15px] font-semibold text-[var(--text-h)]">{contactName ?? 'Unknown'}</p>
               <p className="text-[13px] text-[var(--text-muted)]">{contactPhone ?? '—'}</p>
+              {assignToStaffId === null && leadId && (
+                <button
+                  type="button"
+                  onClick={() => assignToMe(leadId)}
+                  disabled={isClaiming}
+                  className="mt-0.5 text-[12px] font-semibold text-[var(--accent)] hover:underline disabled:opacity-60"
+                >
+                  Unassigned · Assign to me
+                </button>
+              )}
             </div>
             {contactPhone && (
-              <a
-                href={`tel:${contactPhone}`}
+              <button
+                type="button"
+                onClick={() => startCall({ leadId, phone: contactPhone, assignToStaffId })}
+                disabled={isClaiming}
                 aria-label={`Call ${contactPhone}`}
                 title={`Call ${contactPhone}`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)]"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
               >
                 <Phone size={16} />
-              </a>
+              </button>
             )}
           </div>
           {followupDate && (
