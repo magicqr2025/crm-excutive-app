@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient'
+import { ApiError, apiRequest, apiRequestWithMeta } from '@/lib/apiClient'
 import { crmSessionAuthHeaders } from '@/lib/crmSessionClient'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -100,6 +100,50 @@ export async function claimLead(leadId: string): Promise<CrmLead> {
     headers: authHeaders(),
     body: JSON.stringify({ business_id: businessId, lead_id: leadId }),
   })
+}
+
+// ---- Add New Lead ----
+// crmbackend always assigns an executive's new lead to themselves and requires
+// a campaign they're an agent on — so there's no assignee to send.
+
+export interface QuickCreateLeadInput {
+  name: string
+  phone: string
+  countryCode?: string
+  email?: string
+  leadStatusId?: string
+  leadCampaignId: string
+}
+
+export async function quickCreateLead(input: QuickCreateLeadInput): Promise<CrmLead> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmLead>('/lead/create', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      name: input.name,
+      phone: input.phone,
+      ...(input.countryCode ? { country_code: input.countryCode } : {}),
+      ...(input.email ? { email: input.email } : {}),
+      ...(input.leadStatusId ? { lead_status_id: input.leadStatusId } : {}),
+      lead_campaign_id: input.leadCampaignId,
+    }),
+  })
+}
+
+// A duplicate phone comes back as a 409 whose `errors[0]` says who owns the
+// existing lead. `lead_id` is null when it belongs to another executive.
+export interface DuplicateLeadInfo {
+  owner: 'me' | 'unassigned' | 'other'
+  assignee_name: string | null
+  lead_id: string | null
+}
+
+export function duplicateLeadInfo(error: unknown): DuplicateLeadInfo | null {
+  if (!(error instanceof ApiError) || error.status !== 409) return null
+  const info = error.errors[0] as Partial<DuplicateLeadInfo> | undefined
+  return info?.owner ? { owner: info.owner, assignee_name: info.assignee_name ?? null, lead_id: info.lead_id ?? null } : null
 }
 
 export interface UpdateLeadInput {

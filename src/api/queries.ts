@@ -6,6 +6,8 @@ import {
   fetchMyLeads,
   updateLead,
   claimLead,
+  quickCreateLead,
+  type QuickCreateLeadInput,
   fetchLeadActivity,
   fetchLeadStageTypes,
   fetchLeadStatuses,
@@ -79,6 +81,19 @@ export function useClaimLead() {
       queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
       queryClient.invalidateQueries({ queryKey: ['my-lead-campaigns'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity', leadId] })
+    },
+  })
+}
+
+export function useQuickCreateLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: QuickCreateLeadInput) => quickCreateLead(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['my-lead-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['next-queue-lead'] })
     },
   })
 }

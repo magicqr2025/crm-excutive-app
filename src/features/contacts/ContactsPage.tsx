@@ -1,18 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useMyLeads } from '@/api/queries'
+import { AddNewLeadDialog } from './AddNewLeadDialog'
 
 export function ContactsPage() {
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { data: leads = [], isLoading } = useMyLeads(userId)
   const [search, setSearch] = useState('')
+  const [addLeadOpen, setAddLeadOpen] = useState(false)
   // "Unassigned" = leads nobody has taken yet (e.g. new Facebook/WhatsApp leads); first to call or assign gets it.
   const [view, setView] = useState<'all' | 'unassigned'>('all')
   const unassignedCount = useMemo(() => leads.filter((l) => !l.assign_to_staff_id).length, [leads])
@@ -28,7 +31,17 @@ export function ContactsPage() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
-      <PageHeader title="Contacts" subtitle="Your contacts plus unassigned ones — tap one to see its history." />
+      <PageHeader
+        title="Contacts"
+        subtitle="Your contacts plus unassigned ones — tap one to see its history."
+        action={
+          <Button size="sm" onClick={() => setAddLeadOpen(true)}>
+            <Plus size={14} />
+            Add New Lead
+          </Button>
+        }
+      />
+      {addLeadOpen && <AddNewLeadDialog onClose={() => setAddLeadOpen(false)} />}
       <div className="space-y-4 p-4">
         <div role="tablist" className="inline-flex rounded-lg border border-[var(--border)] p-0.5">
           {(['all', 'unassigned'] as const).map((v) => (
