@@ -41,7 +41,12 @@ class RecordingFolderPlugin : Plugin() {
             call.reject("Folder selection cancelled")
             return
         }
-        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (e: SecurityException) {
+            call.reject("Could not keep access to that folder: ${e.message}")
+            return
+        }
         prefs().edit().putString(KEY_TREE_URI, uri.toString()).apply()
         cachedTree = null
         val ret = JSObject()
@@ -77,7 +82,15 @@ class RecordingFolderPlugin : Plugin() {
             call.resolve(JSObject().apply { put("match", null) })
             return
         }
-        val files = listRecordings(Uri.parse(treeUriString))
+        // The saved folder grant can be gone (folder deleted, app reinstalled and
+        // allowBackup restored the prefs but not the URI permission) — that throws
+        // SecurityException, which Capacitor would turn into an app crash.
+        val files = try {
+            listRecordings(Uri.parse(treeUriString))
+        } catch (e: Exception) {
+            call.resolve(JSObject().apply { put("match", null) })
+            return
+        }
         val normalizedNumber = number.filter { it.isDigit() }.takeLast(10)
         val expectedEnd = callTimeMs + durationSeconds * 1000L
         fun distance(f: RecordingFile) = abs(f.lastModified - expectedEnd)
