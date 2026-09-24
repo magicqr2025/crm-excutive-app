@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { useDeals, useCreateDeal, useUpdateDeal } from '@/api/queries'
+import { useDeals, useCreateDeal, useUpdateDeal, useMyLeads } from '@/api/queries'
+import { useAuthStore } from '@/store/useAuthStore'
 import type { CrmContact, CrmDeal, DealStatus } from '@/api/crmApi'
 
 const STATUS_TONE: Record<DealStatus, 'success' | 'error' | 'accent'> = {
@@ -26,7 +27,12 @@ function formatMoney(n: number) {
 export function DealsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
+  const navigate = useNavigate()
   const { data, isLoading } = useDeals()
+  const userId = useAuthStore((s) => s.user?.id ?? '')
+  const { data: leads = [] } = useMyLeads(userId)
+  // Contact pages are keyed by lead id; a deal only knows its contact.
+  const leadIdByContact = useMemo(() => new Map(leads.map((l) => [l.contact_id, l.id])), [leads])
   const createDeal = useCreateDeal()
   const updateDeal = useUpdateDeal()
   const { show } = useToast()
@@ -62,6 +68,15 @@ export function DealsPage() {
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to add deal', tone: 'error' }),
       },
     )
+  }
+
+  function openDeal(deal: CrmDeal) {
+    const leadId = leadIdByContact.get(deal.contact_id)
+    if (!leadId) {
+      show({ title: "This deal's contact isn't in your contacts", tone: 'error' })
+      return
+    }
+    navigate(`/contacts/${leadId}?tab=deal`)
   }
 
   function startEdit(deal: CrmDeal) {
@@ -183,7 +198,16 @@ export function DealsPage() {
                   </Card.Body>
                 </Card>
               ) : (
-                <Card key={deal.id}>
+                <Card
+                  key={deal.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openDeal(deal)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') openDeal(deal)
+                  }}
+                  className="cursor-pointer hover:bg-[var(--surface-hover)]"
+                >
                   <Card.Body>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -193,7 +217,10 @@ export function DealsPage() {
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Badge tone={STATUS_TONE[deal.status]}>{deal.status}</Badge>
                         <button
-                          onClick={() => startEdit(deal)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit(deal)
+                          }}
                           title="Edit deal"
                           className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
                         >

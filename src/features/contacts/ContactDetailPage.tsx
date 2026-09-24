@@ -1,12 +1,15 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useMyLeads } from '@/api/queries'
-import { ContactDetailView } from '@/features/contacts/ContactDetailView'
+import { CONTACT_DETAIL_TABS, ContactDetailView, type ContactDetailTab } from '@/features/contacts/ContactDetailView'
 
 export function ContactDetailPage() {
   const { leadId = '' } = useParams<{ leadId: string }>()
   const navigate = useNavigate()
+  // ?tab=deal|meeting|payment opens that tab directly (e.g. from a Deals card).
+  const tabParam = useSearchParams()[0].get('tab') as ContactDetailTab | null
+  const initialTab = tabParam && CONTACT_DETAIL_TABS.includes(tabParam) ? tabParam : undefined
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { data: leads = [], isLoading } = useMyLeads(userId)
   const lead = leads.find((l) => l.id === leadId)
@@ -47,6 +50,7 @@ export function ContactDetailPage() {
         followupTime={lead.followup_time}
         followupStatus={lead.followup_status}
         assignToStaffId={lead.assign_to_staff_id ?? null}
+        initialTab={initialTab}
       />
     </div>
   )

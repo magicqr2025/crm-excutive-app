@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/useToast'
 import { useClaimLead, useLeadStatuses, useMyLeadCampaigns, useQuickCreateLead } from '@/api/queries'
 import { duplicateLeadInfo, type DuplicateLeadInfo } from '@/api/crmApi'
 import { DEFAULT_COUNTRY_CODE } from '@/data/countryCodes'
+import { normalizeMobileInput, validateEmail, validateMobile } from '@/lib/leadValidation'
 
 const SELECT_CLASSES =
   'h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)] outline-none transition-colors focus:border-[var(--accent-border)]'
@@ -38,7 +39,19 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
   // Most executives are on a single campaign — pre-pick it.
   const leadCampaignId = pickedCampaignId || (campaigns.length === 1 ? campaigns[0].id : '')
 
-  const valid = name.trim().length > 0 && mobile.trim().length > 0 && leadCampaignId.length > 0
+  // A field's error shows once it's been left (blur) or after a submit attempt.
+  const [touched, setTouched] = useState<Record<'name' | 'mobile' | 'email', boolean>>({ name: false, mobile: false, email: false })
+  const [submitted, setSubmitted] = useState(false)
+  const touch = (field: keyof typeof touched) => setTouched((t) => (t[field] ? t : { ...t, [field]: true }))
+
+  const errors = {
+    name: name.trim() ? undefined : 'Name is required',
+    mobile: validateMobile(countryCode, mobile),
+    email: validateEmail(email),
+    campaign: leadCampaignId ? undefined : 'Pick a campaign',
+  }
+  const valid = !errors.name && !errors.mobile && !errors.email && !errors.campaign
+  const shown = (field: keyof typeof touched) => (submitted || touched[field] ? errors[field] : undefined)
 
   function openContact(leadId: string) {
     onClose()
@@ -46,6 +59,7 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
   }
 
   function submit() {
+    setSubmitted(true)
     if (!valid) return
     setDuplicate(null)
     quickCreateLead.mutate(
@@ -93,18 +107,19 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
         <Dialog.CloseButton onClose={onClose} />
       </Dialog.Header>
       <Dialog.Body className="space-y-3">
-        <Field label="Name *">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter name" autoFocus />
+        <Field label="Name *" error={shown('name')}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => touch('name')} placeholder="Enter name" autoFocus />
         </Field>
-        <Field label="Mobile Number *">
+        <Field label="Mobile Number *" error={shown('mobile')}>
           <div className="flex items-center gap-2">
             <CountryCodeInput value={countryCode} onChange={setCountryCode} className="!w-20 shrink-0" />
             <Input
               value={mobile}
               onChange={(e) => {
-                setMobile(e.target.value.replace(/\D/g, ''))
+                setMobile(normalizeMobileInput(e.target.value, countryCode))
                 setDuplicate(null)
               }}
+              onBlur={() => touch('mobile')}
               placeholder="Enter mobile number"
               inputMode="numeric"
               className="flex-1"
@@ -112,8 +127,8 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
           </div>
         </Field>
         {duplicate && <DuplicateNotice info={duplicate} onOpen={openContact} onAssign={assignToMe} assigning={claimLead.isPending} />}
-        <Field label="Email">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter email" />
+        <Field label="Email" error={shown('email')}>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => touch('email')} placeholder="Enter email" />
         </Field>
         <Field label="Lead Status">
           <select value={leadStatusId} onChange={(e) => setLeadStatusId(e.target.value)} className={SELECT_CLASSES}>
@@ -128,6 +143,7 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
         <Field
           label="Campaign *"
           hint={campaigns.length === 0 ? "You're not on any campaign yet — ask your admin to add you to one." : undefined}
+          error={submitted && campaigns.length > 0 ? errors.campaign : undefined}
         >
           <select value={leadCampaignId} onChange={(e) => setLeadCampaignId(e.target.value)} className={SELECT_CLASSES}>
             <option value="">Select campaign</option>
@@ -141,7 +157,7 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
         <p className="text-[12px] text-[var(--text-muted)]">This lead will be assigned to you.</p>
       </Dialog.Body>
       <Dialog.Footer>
-        <Button className="w-full justify-center" onClick={submit} disabled={!valid || quickCreateLead.isPending}>
+        <Button className="w-full justify-center" onClick={submit} disabled={quickCreateLead.isPending}>
           {quickCreateLead.isPending ? 'Adding…' : 'Add Lead'}
         </Button>
       </Dialog.Footer>

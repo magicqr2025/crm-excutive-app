@@ -68,7 +68,9 @@ function stripDiscussionPrefix(summary: string) {
 const DEAL_STATUS_OPTIONS: DealStatus[] = ['created', 'accepted', 'canceled']
 const MEETING_STATUS_OPTIONS: MeetingStatus[] = ['scheduled', 'completed', 'cancelled']
 
-type Tab = 'overview' | 'deal' | 'meeting' | 'payment'
+export type ContactDetailTab = 'overview' | 'deal' | 'meeting' | 'payment'
+type Tab = ContactDetailTab
+export const CONTACT_DETAIL_TABS: ContactDetailTab[] = ['overview', 'deal', 'meeting', 'payment']
 
 export interface ContactDetailViewProps {
   contactId: string
@@ -80,6 +82,8 @@ export interface ContactDetailViewProps {
   followupStatus?: '0' | '1' | '2' | null
   /** Current owner; `null` means unassigned, so calling claims it. Omit when the lead is known to be yours. */
   assignToStaffId?: string | null
+  /** Tab to open on, e.g. 'deal' when coming from a Deals card. */
+  initialTab?: ContactDetailTab
 }
 
 // Shared body for both "Follow-up Details" (a specific due follow-up) and
@@ -96,6 +100,7 @@ export function ContactDetailView({
   followupTime,
   followupStatus,
   assignToStaffId,
+  initialTab = 'overview',
 }: ContactDetailViewProps) {
   const { startCall, assignToMe, isClaiming } = useCallLead()
   const { data: callLogs = [], isLoading: isLoadingLogs } = useCallLogsForLead(leadId)
@@ -114,7 +119,7 @@ export function ContactDetailView({
   const updatePayment = useUpdatePayment()
   const { show } = useToast()
   const [discussionDraft, setDiscussionDraft] = useState('')
-  const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
 
   const [dealFormOpen, setDealFormOpen] = useState(false)
   const [dealName, setDealName] = useState('')

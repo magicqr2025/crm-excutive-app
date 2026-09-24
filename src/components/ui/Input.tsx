@@ -42,10 +42,13 @@ interface FieldProps {
 }
 
 export function Field({ label, htmlFor, hint, error, children }: FieldProps) {
+  // A trailing " *" marks the field required — render that star in red.
+  const required = label.endsWith(' *')
   return (
     <div data-slot="field" className="flex flex-col gap-1.5">
       <label htmlFor={htmlFor} className="text-[13px] font-medium text-[var(--text-h)]">
-        {label}
+        {required ? label.slice(0, -2) : label}
+        {required && <span className="text-[var(--error)]"> *</span>}
       </label>
       {children}
       {error ? (
