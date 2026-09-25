@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowRightLeft, ClipboardEdit, MessageSquareText, PhoneIncoming, PhoneMissed, PhoneOutgoing, Tag, UserPlus } from 'lucide-react'
+import { ArrowRightLeft, BellRing, CalendarCheck, ClipboardEdit, Handshake, Wallet, MessageSquareText, PhoneIncoming, PhoneMissed, PhoneOutgoing, Tag, UserPlus } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { useCallLogsForLead, useLeadActivity, useLeadStatuses } from '@/api/queries'
 import type { CrmActivityEntry, CrmCallLog, CrmLead } from '@/api/crmApi'
@@ -76,6 +76,10 @@ const ACTIVITY_ICON: Record<string, ReactNode> = {
   transfer: <ArrowRightLeft size={13} />,
   label: <Tag size={13} />,
   campaign: <ArrowRightLeft size={13} />,
+  followup: <BellRing size={13} />,
+  deal: <Handshake size={13} />,
+  meeting: <CalendarCheck size={13} />,
+  payment: <Wallet size={13} />,
 }
 
 function activityItem(entry: CrmActivityEntry): TimelineItem {
@@ -108,7 +112,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 // Lead history shown while calling: "About" (the lead's details) and
 // "Timeline" (every disposition, device call and activity entry, newest first).
-export function LeadHistoryPanel({ lead }: { lead: CrmLead }) {
+export function LeadHistoryPanel({ lead, showAbout = true }: { lead: CrmLead; showAbout?: boolean }) {
   const [tab, setTab] = useState<Tab>('timeline')
   const { data: callLogs = [], isLoading: loadingCalls } = useCallLogsForLead(lead.id)
   const { data: activity = [], isLoading: loadingActivity } = useLeadActivity(lead.id)
@@ -142,6 +146,7 @@ export function LeadHistoryPanel({ lead }: { lead: CrmLead }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+      {showAbout ? (
       <div className="grid grid-cols-2 border-b border-[var(--border)]">
         {(['about', 'timeline'] as const).map((t) => (
           <button
@@ -159,8 +164,11 @@ export function LeadHistoryPanel({ lead }: { lead: CrmLead }) {
           </button>
         ))}
       </div>
+      ) : (
+        <p className="border-b border-[var(--border)] px-4 py-2.5 text-[13px] font-semibold text-[var(--text-h)]">Timeline</p>
+      )}
 
-      {tab === 'about' ? (
+      {showAbout && tab === 'about' ? (
         <div className="max-h-[440px] overflow-y-auto">
           <Section title="Basic Details">
             <Row label="Lead Name" value={lead.contact_name} />

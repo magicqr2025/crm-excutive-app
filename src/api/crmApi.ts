@@ -627,3 +627,25 @@ export async function updatePayment(id: string, patch: UpdatePaymentInput): Prom
     }),
   })
 }
+
+export interface CreateFollowupInput {
+  contactId: string
+  assignToStaffId: string
+  followupDate: string // YYYY-MM-DD, IST wall clock
+  followupTime: string // HH:MM, IST wall clock
+}
+
+export async function createFollowup(input: CreateFollowupInput): Promise<CrmFollowup> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmFollowup>('/crm/followup/add', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      contact_id: input.contactId,
+      assign_to_staff_id: input.assignToStaffId,
+      followup_date: input.followupDate,
+      followup_time: `${input.followupTime}:00`,
+    }),
+  })
+}

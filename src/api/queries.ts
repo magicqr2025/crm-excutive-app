@@ -20,6 +20,10 @@ import {
   fetchPaymentsPage,
   fetchLeadsPage,
   fetchLeadById,
+  fetchMyCallLogs,
+  fetchMyActiveFollowups,
+  createFollowup,
+  type CreateFollowupInput,
   fetchCallLogsForLead,
   searchContacts,
   fetchDeals,
@@ -201,7 +205,10 @@ export function useCreateDeal() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: CreateDealInput) => createDeal(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
 
@@ -209,7 +216,10 @@ export function useUpdateDeal() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: UpdateDealInput }) => updateDeal(id, patch),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
 
@@ -225,7 +235,10 @@ export function useCreateMeeting() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: CreateMeetingInput) => createMeeting(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meetings'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
 
@@ -233,7 +246,10 @@ export function useUpdateMeeting() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: UpdateMeetingInput }) => updateMeeting(id, patch),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meetings'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
 
@@ -249,7 +265,10 @@ export function useCreatePayment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: CreatePaymentInput) => createPayment(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
 
@@ -257,6 +276,20 @@ export function useUpdatePayment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: UpdatePaymentInput }) => updatePayment(id, patch),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['payments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
+  })
+}
+
+export function useCreateFollowup() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateFollowupInput) => createFollowup(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-followups'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }

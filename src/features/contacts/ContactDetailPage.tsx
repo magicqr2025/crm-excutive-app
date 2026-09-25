@@ -48,6 +48,7 @@ export function ContactDetailPage() {
         followupStatus={lead.followup_status}
         assignToStaffId={lead.assign_to_staff_id ?? null}
         initialTab={initialTab}
+        lead={lead}
       />
     </div>
   )
