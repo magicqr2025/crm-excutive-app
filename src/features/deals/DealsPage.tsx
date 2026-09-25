@@ -1,15 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
+import { SearchBox } from '@/components/ui/SearchBox'
+import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { useDeals, useCreateDeal, useUpdateDeal, useMyLeads } from '@/api/queries'
-import { useAuthStore } from '@/store/useAuthStore'
+import { useDealsPage, useCreateDeal, useUpdateDeal } from '@/api/queries'
 import type { CrmContact, CrmDeal, DealStatus } from '@/api/crmApi'
 
 const STATUS_TONE: Record<DealStatus, 'success' | 'error' | 'accent'> = {
@@ -28,11 +29,8 @@ export function DealsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
   const navigate = useNavigate()
-  const { data, isLoading } = useDeals()
-  const userId = useAuthStore((s) => s.user?.id ?? '')
-  const { data: leads = [] } = useMyLeads(userId)
-  // Contact pages are keyed by lead id; a deal only knows its contact.
-  const leadIdByContact = useMemo(() => new Map(leads.map((l) => [l.contact_id, l.id])), [leads])
+  const [search, setSearch] = useState('')
+  const { items: deals, total, summary, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useDealsPage(search)
   const createDeal = useCreateDeal()
   const updateDeal = useUpdateDeal()
   const { show } = useToast()
@@ -71,7 +69,8 @@ export function DealsPage() {
   }
 
   function openDeal(deal: CrmDeal) {
-    const leadId = leadIdByContact.get(deal.contact_id)
+    // Contact pages are keyed by lead id; the API gives each deal its contact's latest lead.
+    const leadId = deal.lead_id
     if (!leadId) {
       show({ title: "This deal's contact isn't in your contacts", tone: 'error' })
       return
@@ -108,14 +107,13 @@ export function DealsPage() {
     )
   }
 
-  const deals = data?.deals ?? []
-  const totalAmount = data?.totalAmount ?? 0
+  const totalAmount = summary?.total_amount ?? 0
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
         title="Deals"
-        subtitle={`${deals.length} deal${deals.length === 1 ? '' : 's'} · ${formatMoney(totalAmount)} total`}
+        subtitle={`${total} deal${total === 1 ? '' : 's'} · ${formatMoney(totalAmount)} total`}
         action={
           <Button size="sm" onClick={() => setFormOpen((v) => !v)} className="gap-1.5">
             {formOpen ? <X size={14} /> : <Plus size={14} />}
@@ -148,10 +146,19 @@ export function DealsPage() {
           </div>
         )}
 
+        <div className="mb-4 space-y-2">
+          <SearchBox value={search} onSubmit={setSearch} placeholder="Search by deal or contact…" />
+          {search && !isLoading && (
+            <p className="text-[12px] text-[var(--text-muted)]">
+              {total} {total === 1 ? 'result' : 'results'} for “{search}”
+            </p>
+          )}
+        </div>
+
         {isLoading ? (
           <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
         ) : deals.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No deals yet.</p>
+          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : 'No deals yet.'}</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {deals.map((deal) =>
@@ -236,6 +243,7 @@ export function DealsPage() {
             )}
           </div>
         )}
+        <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
       </div>
     </div>
   )

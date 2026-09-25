@@ -1,15 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X, Link as LinkIcon, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
+import { SearchBox } from '@/components/ui/SearchBox'
+import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { useMeetings, useCreateMeeting, useUpdateMeeting, useMyLeads } from '@/api/queries'
-import { useAuthStore } from '@/store/useAuthStore'
+import { useMeetingsPage, useCreateMeeting, useUpdateMeeting } from '@/api/queries'
 import type { CrmContact, CrmMeeting, MeetingStatus } from '@/api/crmApi'
 
 const STATUS_TONE: Record<MeetingStatus, 'accent' | 'success' | 'error'> = {
@@ -38,11 +39,8 @@ export function MeetingsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
   const navigate = useNavigate()
-  const { data: meetings = [], isLoading } = useMeetings()
-  const userId = useAuthStore((s) => s.user?.id ?? '')
-  const { data: leads = [] } = useMyLeads(userId)
-  // Contact pages are keyed by lead id; a meeting only knows its contact.
-  const leadIdByContact = useMemo(() => new Map(leads.map((l) => [l.contact_id, l.id])), [leads])
+  const [search, setSearch] = useState('')
+  const { items: meetings, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMeetingsPage(search)
   const createMeeting = useCreateMeeting()
   const updateMeeting = useUpdateMeeting()
   const { show } = useToast()
@@ -93,7 +91,8 @@ export function MeetingsPage() {
   }
 
   function openMeeting(meeting: CrmMeeting) {
-    const leadId = leadIdByContact.get(meeting.contact_id)
+    // Contact pages are keyed by lead id; the API gives each meeting its contact's latest lead.
+    const leadId = meeting.lead_id
     if (!leadId) {
       show({ title: "This meeting's contact isn't in your contacts", tone: 'error' })
       return
@@ -141,7 +140,7 @@ export function MeetingsPage() {
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
         title="Meetings"
-        subtitle={`${meetings.length} meeting${meetings.length === 1 ? '' : 's'} on record`}
+        subtitle={`${total} meeting${total === 1 ? '' : 's'} on record`}
         action={
           <Button size="sm" onClick={() => setFormOpen((v) => !v)} className="gap-1.5">
             {formOpen ? <X size={14} /> : <Plus size={14} />}
@@ -176,10 +175,19 @@ export function MeetingsPage() {
           </div>
         )}
 
+        <div className="mb-4 space-y-2">
+          <SearchBox value={search} onSubmit={setSearch} placeholder="Search by contact or type…" />
+          {search && !isLoading && (
+            <p className="text-[12px] text-[var(--text-muted)]">
+              {total} {total === 1 ? 'result' : 'results'} for “{search}”
+            </p>
+          )}
+        </div>
+
         {isLoading ? (
           <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
         ) : meetings.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No meetings yet.</p>
+          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : 'No meetings yet.'}</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {meetings.map((meeting) =>
@@ -279,6 +287,7 @@ export function MeetingsPage() {
             )}
           </div>
         )}
+        <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
       </div>
     </div>
   )

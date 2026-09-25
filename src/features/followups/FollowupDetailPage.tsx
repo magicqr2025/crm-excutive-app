@@ -1,15 +1,12 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { useAuthStore } from '@/store/useAuthStore'
-import { useMyActiveFollowups } from '@/api/queries'
+import { useFollowup } from '@/api/queries'
 import { ContactDetailView } from '@/features/contacts/ContactDetailView'
 
 export function FollowupDetailPage() {
   const { followupId = '' } = useParams<{ followupId: string }>()
   const navigate = useNavigate()
-  const userId = useAuthStore((s) => s.user?.id ?? '')
-  const { data: followups = [], isLoading } = useMyActiveFollowups(userId)
-  const followup = followups.find((f) => f.id === followupId)
+  const { data: followup, isLoading } = useFollowup(followupId)
 
   if (isLoading) {
     return <div className="flex h-full items-center justify-center text-[13px] text-[var(--text-muted)]">Loading…</div>

@@ -1,5 +1,6 @@
 import { ApiError, apiRequest, apiRequestWithMeta } from '@/lib/apiClient'
 import { crmSessionAuthHeaders } from '@/lib/crmSessionClient'
+import { PAGE_SIZE, toPageResult, type PageResult } from '@/lib/paging'
 import { useAuthStore } from '@/store/useAuthStore'
 
 function authHeaders(): HeadersInit {
@@ -62,11 +63,19 @@ export interface CrmLead {
 // (read-only team view; backend requires you to be an agent on the campaign).
 export type CampaignLeadScope = 'mine' | 'campaign'
 
-export async function fetchLeadsForCampaign(campaignId: string, staffId: string, scope: CampaignLeadScope = 'mine'): Promise<CrmLead[]> {
+export async function fetchLeadsForCampaignPage(opts: { campaignId: string; staffId: string; scope: CampaignLeadScope; page: number; search?: string }): Promise<PageResult<CrmLead>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, lead_campaign_id: campaignId, assign_to_staff_id: staffId, scope })
+  const params = new URLSearchParams({
+    business_id: businessId,
+    lead_campaign_id: opts.campaignId,
+    assign_to_staff_id: opts.staffId,
+    scope: opts.scope,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+  })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
-  return result.data
+  return toPageResult(result.data, result.meta)
 }
 
 export async function fetchNextQueueLead(campaignId: string, staffId: string, excludeLeadId?: string): Promise<CrmLead | null> {
@@ -80,15 +89,29 @@ export async function fetchNextQueueLead(campaignId: string, staffId: string, ex
   return apiRequest<CrmLead | null>(`/crm/cust-res/next-in-queue?${params}`, { headers: authHeaders() })
 }
 
-// No lead_campaign_id filter — every lead currently assigned to this staff
-// member, regardless of which campaign (if any) it came from. Used to look up
-// a single lead's current `discussion` text from a followup, since there's no
-// "get lead by id" endpoint.
-export async function fetchMyLeads(staffId: string): Promise<CrmLead[]> {
+// One page of the Contacts list (the caller's own leads plus the unassigned
+// pool they may claim). `search` matches name/phone/email server-side;
+// `unassigned` limits to the Unassigned tab. `perPage` 1 is also how the tab
+// counts are read: only meta.total is used.
+export async function fetchLeadsPage(opts: { staffId: string; page: number; search?: string; unassigned?: boolean; perPage?: number }): Promise<PageResult<CrmLead>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, assign_to_staff_id: staffId })
+  const params = new URLSearchParams({
+    business_id: businessId,
+    assign_to_staff_id: opts.staffId,
+    page: String(opts.page),
+    per_page: String(opts.perPage ?? PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.unassigned ? { unassigned: '1' } : {}),
+  })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
-  return result.data
+  return toPageResult(result.data, result.meta)
+}
+
+// One lead the caller can see (own or unassigned pool); 404 otherwise.
+export async function fetchLeadById(leadId: string): Promise<CrmLead> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId })
+  return apiRequest<CrmLead>(`/crm/cust-res/get/${encodeURIComponent(leadId)}?${params}`, { headers: authHeaders() })
 }
 
 // Takes an unassigned lead for the calling executive (409 naming the owner if
@@ -271,10 +294,17 @@ export async function createCallLog(input: CreateCallLogInput): Promise<CrmCallL
   })
 }
 
-export async function fetchMyCallLogs(staffId: string): Promise<CrmCallLog[]> {
+export async function fetchMyCallLogsPage(opts: { staffId: string; page: number; search?: string }): Promise<PageResult<CrmCallLog>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, staff_id: staffId })
-  return apiRequest<CrmCallLog[]>(`/crm/call-log/list?${params}`, { headers: authHeaders() })
+  const params = new URLSearchParams({
+    business_id: businessId,
+    staff_id: opts.staffId,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+  })
+  const result = await apiRequestWithMeta<CrmCallLog[]>(`/crm/call-log/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta)
 }
 
 // ---- Device call log sync (Android only) ----
@@ -320,10 +350,21 @@ export interface CrmFollowup {
   followup_status: '0' | '1' | '2'
 }
 
-export async function fetchMyActiveFollowups(staffId: string): Promise<CrmFollowup[]> {
+export async function fetchMyActiveFollowupsPage(opts: { staffId: string; page: number; search?: string }): Promise<PageResult<CrmFollowup>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, assign_to_staff_id: staffId })
-  return apiRequest<CrmFollowup[]>(`/crm/followup/followups/active?${params}`, { headers: authHeaders() })
+  const params = new URLSearchParams({
+    business_id: businessId,
+    assign_to_staff_id: opts.staffId,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+  })
+  const result = await apiRequestWithMeta<CrmFollowup[]>(`/crm/followup/followups/active?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta)
+}
+
+export async function fetchFollowupById(id: string): Promise<CrmFollowup> {
+  return apiRequest<CrmFollowup>(`/crm/followup/get/${encodeURIComponent(id)}`, { headers: authHeaders() })
 }
 
 export async function fetchCallLogsForLead(leadId: string): Promise<CrmCallLog[]> {
@@ -354,6 +395,8 @@ export type DealStatus = 'accepted' | 'canceled' | 'created'
 
 export interface CrmDeal {
   id: string
+  /** The contact's latest lead, for linking to the contact page. */
+  lead_id?: string | null
   deal_name: string
   deal_amount: number
   deal_details: string | null
@@ -363,13 +406,20 @@ export interface CrmDeal {
   created_at: string
 }
 
-export async function fetchDeals(): Promise<{ deals: CrmDeal[]; totalAmount: number }> {
+export async function fetchDeals(contactId?: string): Promise<{ deals: CrmDeal[]; totalAmount: number }> {
   const businessId = getActiveBusinessId()
   const result = await apiRequestWithMeta<CrmDeal[], { summary?: { total_amount: number; count: number } }>(
-    `/deal/list?business_id=${encodeURIComponent(businessId)}`,
+    `/deal/list?business_id=${encodeURIComponent(businessId)}${contactId ? `&contact_id=${encodeURIComponent(contactId)}` : ''}`,
     { headers: authHeaders() },
   )
   return { deals: result.data, totalAmount: result.summary?.total_amount ?? 0 }
+}
+
+export async function fetchDealsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmDeal>> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
+  const result = await apiRequestWithMeta<CrmDeal[], { summary?: { total_amount: number } }>(`/deal/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta, { total_amount: result.summary?.total_amount ?? 0 })
 }
 
 export interface CreateDealInput {
@@ -420,6 +470,7 @@ export type MeetingStatus = 'scheduled' | 'completed' | 'cancelled'
 
 export interface CrmMeeting {
   id: string
+  lead_id?: string | null
   contact_id: string
   contact_name: string | null
   assign_to_staff_id: string | null
@@ -432,12 +483,20 @@ export interface CrmMeeting {
   created_at: string
 }
 
-export async function fetchMeetings(): Promise<CrmMeeting[]> {
+export async function fetchMeetings(contactId?: string): Promise<CrmMeeting[]> {
   const businessId = getActiveBusinessId()
-  const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?business_id=${encodeURIComponent(businessId)}`, {
+  const contactParam = contactId ? `&contact_id=${encodeURIComponent(contactId)}` : ''
+  const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?business_id=${encodeURIComponent(businessId)}${contactParam}`, {
     headers: authHeaders(),
   })
   return result.data
+}
+
+export async function fetchMeetingsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmMeeting>> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
+  const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta)
 }
 
 export interface CreateMeetingInput {
@@ -494,6 +553,7 @@ export async function updateMeeting(id: string, patch: UpdateMeetingInput): Prom
 
 export interface CrmPayment {
   id: string
+  lead_id?: string | null
   contact_id: string
   contact_name: string | null
   amount: number
@@ -506,13 +566,20 @@ export interface CrmPayment {
   created_at: string
 }
 
-export async function fetchPayments(): Promise<{ payments: CrmPayment[]; successAmount: number }> {
+export async function fetchPayments(contactId?: string): Promise<{ payments: CrmPayment[]; successAmount: number }> {
   const businessId = getActiveBusinessId()
   const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number } }>(
-    `/crm/payment/list?business_id=${encodeURIComponent(businessId)}`,
+    `/crm/payment/list?business_id=${encodeURIComponent(businessId)}${contactId ? `&contact_id=${encodeURIComponent(contactId)}` : ''}`,
     { headers: authHeaders() },
   )
   return { payments: result.data, successAmount: result.summary?.success_amount ?? 0 }
+}
+
+export async function fetchPaymentsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmPayment>> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
+  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number } }>(`/crm/payment/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta, { success_amount: result.summary?.success_amount ?? 0 })
 }
 
 export interface CreatePaymentInput {

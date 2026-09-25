@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Lock } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { SearchBox } from '@/components/ui/SearchBox'
+import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useLeadsForCampaign, useMyLeadCampaigns } from '@/api/queries'
+import { useCampaignLeadsPage, useMyLeadCampaigns } from '@/api/queries'
 import type { CampaignLeadScope } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
 
@@ -19,7 +21,16 @@ export function CampaignLeadsPage() {
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const [scope, setScope] = useState<CampaignLeadScope>('mine')
   const { data: campaigns = [] } = useMyLeadCampaigns()
-  const { data: leads = [], isLoading, error } = useLeadsForCampaign(campaignId, userId, scope)
+  const [search, setSearch] = useState('')
+  const {
+    items: leads,
+    total,
+    isLoading,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useCampaignLeadsPage({ campaignId, staffId: userId, scope, search })
   const campaign = campaigns.find((c) => c.id === campaignId)
 
   return (
@@ -33,14 +44,17 @@ export function CampaignLeadsPage() {
         </button>
         <div>
           <p className="text-[13.5px] font-semibold text-[var(--text-h)]">{campaign?.name ?? 'Campaign'}</p>
-          <p className="text-[12px] text-[var(--text-muted)]">{leads.length} leads</p>
+          {!search && <p className="text-[12px] text-[var(--text-muted)]">{total} leads</p>}
         </div>
         <div className="ml-auto flex rounded-lg border border-[var(--border)] p-0.5">
           {TABS.map((tab) => (
             <button
               key={tab.value}
               type="button"
-              onClick={() => setScope(tab.value)}
+              onClick={() => {
+                setScope(tab.value)
+                setSearch('')
+              }}
               className={cn(
                 'rounded-md px-3 py-1.5 text-[12.5px] font-medium',
                 scope === tab.value
@@ -54,7 +68,13 @@ export function CampaignLeadsPage() {
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="space-y-4 p-4">
+        <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
+        {search && !isLoading && (
+          <p className="text-[12px] text-[var(--text-muted)]">
+            {total} {total === 1 ? 'result' : 'results'} for “{search}”
+          </p>
+        )}
         {isLoading ? (
           <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
         ) : error ? (
@@ -63,7 +83,11 @@ export function CampaignLeadsPage() {
           </p>
         ) : leads.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
-            {scope === 'mine' ? 'No leads for you in this campaign yet.' : 'No leads in this campaign yet.'}
+            {search
+              ? `No results for “${search}”.`
+              : scope === 'mine'
+                ? 'No leads for you in this campaign yet.'
+                : 'No leads in this campaign yet.'}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -100,6 +124,7 @@ export function CampaignLeadsPage() {
             })}
           </div>
         )}
+        <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
       </div>
     </div>
   )

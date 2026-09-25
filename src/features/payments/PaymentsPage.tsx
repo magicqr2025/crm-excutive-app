@@ -1,14 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
+import { SearchBox } from '@/components/ui/SearchBox'
+import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { usePayments, useCreatePayment, useUpdatePayment, useMyLeads } from '@/api/queries'
-import { useAuthStore } from '@/store/useAuthStore'
+import { usePaymentsPage, useCreatePayment, useUpdatePayment } from '@/api/queries'
 import type { CrmContact, CrmPayment } from '@/api/crmApi'
 
 const MOP_OPTIONS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
@@ -25,11 +26,8 @@ export function PaymentsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
   const navigate = useNavigate()
-  const { data, isLoading } = usePayments()
-  const userId = useAuthStore((s) => s.user?.id ?? '')
-  const { data: leads = [] } = useMyLeads(userId)
-  // Contact pages are keyed by lead id; a payment only knows its contact.
-  const leadIdByContact = useMemo(() => new Map(leads.map((l) => [l.contact_id, l.id])), [leads])
+  const [search, setSearch] = useState('')
+  const { items: payments, total, summary, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = usePaymentsPage(search)
   const createPayment = useCreatePayment()
   const updatePayment = useUpdatePayment()
   const { show } = useToast()
@@ -70,7 +68,8 @@ export function PaymentsPage() {
   }
 
   function openPayment(payment: CrmPayment) {
-    const leadId = leadIdByContact.get(payment.contact_id)
+    // Contact pages are keyed by lead id; the API gives each payment its contact's latest lead.
+    const leadId = payment.lead_id
     if (!leadId) {
       show({ title: "This payment's contact isn't in your contacts", tone: 'error' })
       return
@@ -102,14 +101,13 @@ export function PaymentsPage() {
     )
   }
 
-  const payments = data?.payments ?? []
-  const successAmount = data?.successAmount ?? 0
+  const successAmount = summary?.success_amount ?? 0
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
         title="Payments"
-        subtitle={`${payments.length} payment${payments.length === 1 ? '' : 's'} · ${formatMoney(successAmount)} collected`}
+        subtitle={`${total} payment${total === 1 ? '' : 's'} · ${formatMoney(successAmount)} collected`}
         action={
           <Button size="sm" onClick={() => setFormOpen((v) => !v)} className="gap-1.5">
             {formOpen ? <X size={14} /> : <Plus size={14} />}
@@ -156,10 +154,19 @@ export function PaymentsPage() {
           </div>
         )}
 
+        <div className="mb-4 space-y-2">
+          <SearchBox value={search} onSubmit={setSearch} placeholder="Search by contact or method…" />
+          {search && !isLoading && (
+            <p className="text-[12px] text-[var(--text-muted)]">
+              {total} {total === 1 ? 'result' : 'results'} for “{search}”
+            </p>
+          )}
+        </div>
+
         {isLoading ? (
           <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
         ) : payments.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No payments yet.</p>
+          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : 'No payments yet.'}</p>
         ) : (
           <div className="space-y-2">
             {payments.map((payment) =>
@@ -233,6 +240,7 @@ export function PaymentsPage() {
             )}
           </div>
         )}
+        <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
       </div>
     </div>
   )
