@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Phone, Handshake, CalendarCheck, Wallet, Link as LinkIcon, Send, LayoutGrid, Plus, X, Pencil } from 'lucide-react'
+import { Phone, Handshake, CalendarCheck, Wallet, Link as LinkIcon, Send, LayoutGrid, Plus, X, Pencil, BellRing } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
+import { useAuthStore } from '@/store/useAuthStore'
 import { useCallLead } from '@/features/calling/useCallLead'
 import {
   useCallLogsForLead,
@@ -20,10 +21,13 @@ import {
   useCreateMeeting,
   useUpdateMeeting,
   useCreatePayment,
+  useCreateFollowup,
+  useMyActiveFollowups,
   useUpdatePayment,
 } from '@/api/queries'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
-import type { MeetingStatus, DealStatus, CrmDeal, CrmMeeting, CrmPayment } from '@/api/crmApi'
+import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
+import type { CrmLead, MeetingStatus, DealStatus, CrmDeal, CrmMeeting, CrmPayment } from '@/api/crmApi'
 
 const MOP_OPTIONS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
 
@@ -68,9 +72,9 @@ function stripDiscussionPrefix(summary: string) {
 const DEAL_STATUS_OPTIONS: DealStatus[] = ['created', 'accepted', 'canceled']
 const MEETING_STATUS_OPTIONS: MeetingStatus[] = ['scheduled', 'completed', 'cancelled']
 
-export type ContactDetailTab = 'overview' | 'deal' | 'meeting' | 'payment'
+export type ContactDetailTab = 'overview' | 'followup' | 'deal' | 'meeting' | 'payment'
 type Tab = ContactDetailTab
-export const CONTACT_DETAIL_TABS: ContactDetailTab[] = ['overview', 'deal', 'meeting', 'payment']
+export const CONTACT_DETAIL_TABS: ContactDetailTab[] = ['overview', 'followup', 'deal', 'meeting', 'payment']
 
 export interface ContactDetailViewProps {
   contactId: string
@@ -84,6 +88,8 @@ export interface ContactDetailViewProps {
   assignToStaffId?: string | null
   /** Tab to open on, e.g. 'deal' when coming from a Deals card. */
   initialTab?: ContactDetailTab
+  /** Full lead record; when given, the overview shows the About/Timeline history panel. */
+  lead?: CrmLead
 }
 
 // Shared body for both "Follow-up Details" (a specific due follow-up) and
@@ -101,6 +107,7 @@ export function ContactDetailView({
   followupStatus,
   assignToStaffId,
   initialTab = 'overview',
+  lead,
 }: ContactDetailViewProps) {
   const { startCall, assignToMe, isClaiming } = useCallLead()
   const { data: callLogs = [], isLoading: isLoadingLogs } = useCallLogsForLead(leadId)
@@ -111,6 +118,9 @@ export function ContactDetailView({
   const { data: paymentsData, isLoading: isLoadingPayments } = usePayments()
   const { data: leadActivity = [], isLoading: isLoadingActivity } = useLeadActivity(leadId)
   const updateLead = useUpdateLead()
+  const userId = useAuthStore((s) => s.user?.id ?? '')
+  const createFollowup = useCreateFollowup()
+  const { data: myFollowups = [] } = useMyActiveFollowups(userId)
   const createDeal = useCreateDeal()
   const updateDeal = useUpdateDeal()
   const createMeeting = useCreateMeeting()
@@ -120,6 +130,9 @@ export function ContactDetailView({
   const { show } = useToast()
   const [discussionDraft, setDiscussionDraft] = useState('')
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
+
+  const [newFollowupDate, setNewFollowupDate] = useState('')
+  const [followupTimeInput, setFollowupTimeInput] = useState('')
 
   const [dealFormOpen, setDealFormOpen] = useState(false)
   const [dealName, setDealName] = useState('')
@@ -179,6 +192,23 @@ export function ContactDetailView({
           setDiscussionDraft('')
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to save discussion', tone: 'error' }),
+      },
+    )
+  }
+
+  const contactFollowups = myFollowups.filter((f) => f.contact_id === contactId)
+
+  function submitFollowup() {
+    if (!newFollowupDate || !followupTimeInput || !userId) return
+    createFollowup.mutate(
+      { contactId, assignToStaffId: userId, followupDate: newFollowupDate, followupTime: followupTimeInput },
+      {
+        onSuccess: () => {
+          show({ title: 'Follow-up scheduled', tone: 'success' })
+          setNewFollowupDate('')
+          setFollowupTimeInput('')
+        },
+        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to schedule follow-up', tone: 'error' }),
       },
     )
   }
@@ -380,7 +410,7 @@ export function ContactDetailView({
               <Badge tone={STATUS_TONE[followupStatus]}>{STATUS_LABEL[followupStatus]}</Badge>
             </div>
           )}
-          <div className="mt-3 grid grid-cols-4 gap-2">
+          <div className="mt-3 grid grid-cols-5 gap-2">
             <Button
               variant={activeTab === 'overview' ? 'primary' : 'outline'}
               size="sm"
@@ -388,6 +418,16 @@ export function ContactDetailView({
               onClick={() => setActiveTab('overview')}
             >
               <LayoutGrid size={14} />
+            </Button>
+            <Button
+              variant={activeTab === 'followup' ? 'primary' : 'outline'}
+              size="sm"
+              className="justify-center px-2"
+              aria-label="Follow-up"
+              title="Follow-up"
+              onClick={() => setActiveTab('followup')}
+            >
+              <BellRing size={14} />
             </Button>
             <Button
               variant={activeTab === 'deal' ? 'primary' : 'outline'}
@@ -416,7 +456,9 @@ export function ContactDetailView({
           </div>
         </div>
 
-      {activeTab === 'overview' && (
+      {activeTab === 'overview' && lead && <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} showAbout={false} />}
+
+      {activeTab === 'overview' && !lead && (
         <>
         <div className="rounded-2xl border border-[var(--border)] p-4">
           <p className="text-[13px] font-semibold text-[var(--text-h)]">Last Discussion</p>
@@ -497,6 +539,42 @@ export function ContactDetailView({
           </div>
         )}
         </>
+      )}
+
+      {activeTab === 'followup' && (
+        <div className="rounded-2xl border border-[var(--border)] p-4">
+          <p className="text-[13px] font-semibold text-[var(--text-h)]">Schedule Follow-up</p>
+          <div className="mt-2 space-y-3 rounded-lg border border-[var(--border)] p-3">
+            <Field label="Date">
+              <Input type="date" value={newFollowupDate} min={todayDateInput()} onChange={(e) => setNewFollowupDate(e.target.value)} />
+            </Field>
+            <Field label="Time">
+              <Input type="time" value={followupTimeInput} onChange={(e) => setFollowupTimeInput(e.target.value)} />
+            </Field>
+            <Button
+              size="sm"
+              className="w-full justify-center"
+              onClick={submitFollowup}
+              disabled={!newFollowupDate || !followupTimeInput || createFollowup.isPending}
+            >
+              {createFollowup.isPending ? 'Saving…' : 'Save Follow-up'}
+            </Button>
+          </div>
+          {contactFollowups.length === 0 ? (
+            <p className="mt-3 text-[13px] text-[var(--text-muted)]">No pending follow-ups for this contact.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {contactFollowups.map((f) => (
+                <div key={f.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2">
+                  <p className="text-[13px] text-[var(--text)]">
+                    {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
+                  </p>
+                  <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === 'deal' && (
