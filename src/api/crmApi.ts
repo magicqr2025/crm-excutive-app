@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient'
+import { ApiError, apiRequest, apiRequestWithMeta } from '@/lib/apiClient'
 import { crmSessionAuthHeaders } from '@/lib/crmSessionClient'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -46,6 +46,7 @@ export interface CrmLead {
   lead_status_color: string | null
   tag_id: string | null
   tag_name: string | null
+  assign_to_staff_id?: string | null
   assign_staff_name: string | null
   discussion: string | null
   followup_date: string | null
@@ -57,9 +58,13 @@ export interface CrmLead {
   created_at: string
 }
 
-export async function fetchLeadsForCampaign(campaignId: string, staffId: string): Promise<CrmLead[]> {
+// scope 'campaign' = every lead in the campaign, including other executives'
+// (read-only team view; backend requires you to be an agent on the campaign).
+export type CampaignLeadScope = 'mine' | 'campaign'
+
+export async function fetchLeadsForCampaign(campaignId: string, staffId: string, scope: CampaignLeadScope = 'mine'): Promise<CrmLead[]> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, lead_campaign_id: campaignId, assign_to_staff_id: staffId })
+  const params = new URLSearchParams({ business_id: businessId, lead_campaign_id: campaignId, assign_to_staff_id: staffId, scope })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
   return result.data
 }
@@ -84,6 +89,61 @@ export async function fetchMyLeads(staffId: string): Promise<CrmLead[]> {
   const params = new URLSearchParams({ business_id: businessId, assign_to_staff_id: staffId })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
   return result.data
+}
+
+// Takes an unassigned lead for the calling executive (409 naming the owner if
+// someone else got it first). See crmbackend's POST /crm/cust-res/claim.
+export async function claimLead(leadId: string): Promise<CrmLead> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmLead>('/crm/cust-res/claim', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ business_id: businessId, lead_id: leadId }),
+  })
+}
+
+// ---- Add New Lead ----
+// crmbackend always assigns an executive's new lead to themselves and requires
+// a campaign they're an agent on — so there's no assignee to send.
+
+export interface QuickCreateLeadInput {
+  name: string
+  phone: string
+  countryCode?: string
+  email?: string
+  leadStatusId?: string
+  leadCampaignId: string
+}
+
+export async function quickCreateLead(input: QuickCreateLeadInput): Promise<CrmLead> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmLead>('/lead/create', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      name: input.name,
+      phone: input.phone,
+      ...(input.countryCode ? { country_code: input.countryCode } : {}),
+      ...(input.email ? { email: input.email } : {}),
+      ...(input.leadStatusId ? { lead_status_id: input.leadStatusId } : {}),
+      lead_campaign_id: input.leadCampaignId,
+    }),
+  })
+}
+
+// A duplicate phone comes back as a 409 whose `errors[0]` says who owns the
+// existing lead. `lead_id` is null when it belongs to another executive.
+export interface DuplicateLeadInfo {
+  owner: 'me' | 'unassigned' | 'other'
+  assignee_name: string | null
+  lead_id: string | null
+}
+
+export function duplicateLeadInfo(error: unknown): DuplicateLeadInfo | null {
+  if (!(error instanceof ApiError) || error.status !== 409) return null
+  const info = error.errors[0] as Partial<DuplicateLeadInfo> | undefined
+  return info?.owner ? { owner: info.owner, assignee_name: info.assignee_name ?? null, lead_id: info.lead_id ?? null } : null
 }
 
 export interface UpdateLeadInput {
@@ -221,7 +281,9 @@ export async function fetchMyCallLogs(staffId: string): Promise<CrmCallLog[]> {
 // business_id/staff_id are resolved server-side from the session token, not
 // sent here — see crmbackend's callLog.controller.js syncHandler. Synced
 // rows land in the same call_logs table fetchMyCallLogs already reads
-// (source: "device_sync"), so there's no separate list endpoint.
+// (source: "device_sync"), so there's no separate list endpoint. A number
+// that matches no CRM lead is a personal call: the server skips it and
+// returns null, so it never appears in Call Logs.
 
 export interface SyncDeviceCallLogInput {
   phoneNumber: string
@@ -231,8 +293,8 @@ export interface SyncDeviceCallLogInput {
   deviceCallId: string
 }
 
-export async function syncDeviceCallLog(input: SyncDeviceCallLogInput): Promise<CrmCallLog> {
-  return apiRequest<CrmCallLog>('/crm/call-log/sync', {
+export async function syncDeviceCallLog(input: SyncDeviceCallLogInput): Promise<CrmCallLog | null> {
+  return apiRequest<CrmCallLog | null>('/crm/call-log/sync', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({

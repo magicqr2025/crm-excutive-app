@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X, Link as LinkIcon, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { useMeetings, useCreateMeeting, useUpdateMeeting } from '@/api/queries'
+import { useMeetings, useCreateMeeting, useUpdateMeeting, useMyLeads } from '@/api/queries'
+import { useAuthStore } from '@/store/useAuthStore'
 import type { CrmContact, CrmMeeting, MeetingStatus } from '@/api/crmApi'
 
 const STATUS_TONE: Record<MeetingStatus, 'accent' | 'success' | 'error'> = {
@@ -36,7 +37,12 @@ function toDatetimeLocalValue(iso: string) {
 export function MeetingsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
+  const navigate = useNavigate()
   const { data: meetings = [], isLoading } = useMeetings()
+  const userId = useAuthStore((s) => s.user?.id ?? '')
+  const { data: leads = [] } = useMyLeads(userId)
+  // Contact pages are keyed by lead id; a meeting only knows its contact.
+  const leadIdByContact = useMemo(() => new Map(leads.map((l) => [l.contact_id, l.id])), [leads])
   const createMeeting = useCreateMeeting()
   const updateMeeting = useUpdateMeeting()
   const { show } = useToast()
@@ -84,6 +90,15 @@ export function MeetingsPage() {
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to schedule meeting', tone: 'error' }),
       },
     )
+  }
+
+  function openMeeting(meeting: CrmMeeting) {
+    const leadId = leadIdByContact.get(meeting.contact_id)
+    if (!leadId) {
+      show({ title: "This meeting's contact isn't in your contacts", tone: 'error' })
+      return
+    }
+    navigate(`/contacts/${leadId}?tab=meeting`)
   }
 
   function startEdit(meeting: CrmMeeting) {
@@ -214,7 +229,16 @@ export function MeetingsPage() {
                   </Card.Body>
                 </Card>
               ) : (
-                <Card key={meeting.id}>
+                <Card
+                  key={meeting.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMeeting(meeting)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') openMeeting(meeting)
+                  }}
+                  className="cursor-pointer"
+                >
                   <Card.Body>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -224,7 +248,10 @@ export function MeetingsPage() {
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Badge tone={STATUS_TONE[meeting.meeting_status]}>{meeting.meeting_status}</Badge>
                         <button
-                          onClick={() => startEdit(meeting)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit(meeting)
+                          }}
                           title="Edit meeting"
                           className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
                         >
@@ -240,6 +267,7 @@ export function MeetingsPage() {
                         href={meeting.meeting_link}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="mt-1.5 inline-flex items-center gap-1 text-[12px] text-[var(--accent-strong)] hover:underline"
                       >
                         <LinkIcon size={11} /> Join link

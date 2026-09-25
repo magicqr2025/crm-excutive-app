@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { usePayments, useCreatePayment, useUpdatePayment } from '@/api/queries'
+import { usePayments, useCreatePayment, useUpdatePayment, useMyLeads } from '@/api/queries'
+import { useAuthStore } from '@/store/useAuthStore'
 import type { CrmContact, CrmPayment } from '@/api/crmApi'
 
 const MOP_OPTIONS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
@@ -23,7 +24,12 @@ function todayDateInput() {
 export function PaymentsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
+  const navigate = useNavigate()
   const { data, isLoading } = usePayments()
+  const userId = useAuthStore((s) => s.user?.id ?? '')
+  const { data: leads = [] } = useMyLeads(userId)
+  // Contact pages are keyed by lead id; a payment only knows its contact.
+  const leadIdByContact = useMemo(() => new Map(leads.map((l) => [l.contact_id, l.id])), [leads])
   const createPayment = useCreatePayment()
   const updatePayment = useUpdatePayment()
   const { show } = useToast()
@@ -61,6 +67,15 @@ export function PaymentsPage() {
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to log payment', tone: 'error' }),
       },
     )
+  }
+
+  function openPayment(payment: CrmPayment) {
+    const leadId = leadIdByContact.get(payment.contact_id)
+    if (!leadId) {
+      show({ title: "This payment's contact isn't in your contacts", tone: 'error' })
+      return
+    }
+    navigate(`/contacts/${leadId}?tab=payment`)
   }
 
   function startEdit(payment: CrmPayment) {
@@ -178,7 +193,16 @@ export function PaymentsPage() {
                   </div>
                 </div>
               ) : (
-                <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3">
+                <div
+                  key={payment.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openPayment(payment)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') openPayment(payment)
+                  }}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3"
+                >
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{payment.contact_name ?? 'Unknown contact'}</p>
                     <p className="text-[11.5px] text-[var(--text-muted)]">
@@ -194,7 +218,10 @@ export function PaymentsPage() {
                     </span>
                     <Badge tone={payment.status === 1 ? 'success' : 'warning'}>{payment.status === 1 ? 'Paid' : 'Pending'}</Badge>
                     <button
-                      onClick={() => startEdit(payment)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startEdit(payment)
+                      }}
                       title="Edit payment"
                       className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
                     >

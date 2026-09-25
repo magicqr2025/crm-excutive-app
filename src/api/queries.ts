@@ -5,6 +5,9 @@ import {
   fetchNextQueueLead,
   fetchMyLeads,
   updateLead,
+  claimLead,
+  quickCreateLead,
+  type QuickCreateLeadInput,
   fetchLeadActivity,
   fetchLeadStageTypes,
   fetchLeadStatuses,
@@ -22,6 +25,7 @@ import {
   fetchPayments,
   createPayment,
   updatePayment,
+  type CampaignLeadScope,
   type CreateCallLogInput,
   type CreateDealInput,
   type UpdateDealInput,
@@ -36,10 +40,10 @@ export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
 }
 
-export function useLeadsForCampaign(campaignId: string, staffId: string) {
+export function useLeadsForCampaign(campaignId: string, staffId: string, scope: CampaignLeadScope = 'mine') {
   return useQuery({
-    queryKey: ['campaign-leads', campaignId, staffId],
-    queryFn: () => fetchLeadsForCampaign(campaignId, staffId),
+    queryKey: ['campaign-leads', campaignId, staffId, scope],
+    queryFn: () => fetchLeadsForCampaign(campaignId, staffId, scope),
     enabled: Boolean(campaignId && staffId),
   })
 }
@@ -64,6 +68,32 @@ export function useUpdateLead() {
       queryClient.invalidateQueries({ queryKey: ['my-leads'] })
       queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity', variables.id] })
+    },
+  })
+}
+
+export function useClaimLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (leadId: string) => claimLead(leadId),
+    onSettled: (_data, _err, leadId) => {
+      queryClient.invalidateQueries({ queryKey: ['my-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['my-lead-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity', leadId] })
+    },
+  })
+}
+
+export function useQuickCreateLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: QuickCreateLeadInput) => quickCreateLead(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['my-lead-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['next-queue-lead'] })
     },
   })
 }

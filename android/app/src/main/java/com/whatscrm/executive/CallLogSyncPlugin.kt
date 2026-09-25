@@ -50,34 +50,40 @@ class CallLogSyncPlugin : Plugin() {
             CallLog.Calls.DATE,
             CallLog.Calls.DURATION
         )
-        val cursor = context.contentResolver.query(
-            CallLog.Calls.CONTENT_URI,
-            projection,
-            "${CallLog.Calls._ID} > ?",
-            arrayOf(lastId.toString()),
-            "${CallLog.Calls._ID} ASC"
-        )
-        cursor?.use {
-            val idCol = it.getColumnIndexOrThrow(CallLog.Calls._ID)
-            val numberCol = it.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
-            val typeCol = it.getColumnIndexOrThrow(CallLog.Calls.TYPE)
-            val dateCol = it.getColumnIndexOrThrow(CallLog.Calls.DATE)
-            val durationCol = it.getColumnIndexOrThrow(CallLog.Calls.DURATION)
-            while (it.moveToNext()) {
-                val type = when (it.getInt(typeCol)) {
-                    CallLog.Calls.INCOMING_TYPE -> "incoming"
-                    CallLog.Calls.OUTGOING_TYPE -> "outgoing"
-                    CallLog.Calls.MISSED_TYPE -> "missed"
-                    else -> "missed"
+        // Capacitor rethrows any exception escaping a @PluginMethod as a
+        // RuntimeException, which kills the app — so reject instead.
+        try {
+            context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                projection,
+                "${CallLog.Calls._ID} > ?",
+                arrayOf(lastId.toString()),
+                "${CallLog.Calls._ID} ASC"
+            )?.use {
+                val idCol = it.getColumnIndexOrThrow(CallLog.Calls._ID)
+                val numberCol = it.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+                val typeCol = it.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+                val dateCol = it.getColumnIndexOrThrow(CallLog.Calls.DATE)
+                val durationCol = it.getColumnIndexOrThrow(CallLog.Calls.DURATION)
+                while (it.moveToNext()) {
+                    val type = when (it.getInt(typeCol)) {
+                        CallLog.Calls.INCOMING_TYPE -> "incoming"
+                        CallLog.Calls.OUTGOING_TYPE -> "outgoing"
+                        CallLog.Calls.MISSED_TYPE -> "missed"
+                        else -> "missed"
+                    }
+                    val entry = JSObject()
+                    entry.put("id", it.getString(idCol))
+                    entry.put("number", it.getString(numberCol) ?: "")
+                    entry.put("type", type)
+                    entry.put("date", it.getLong(dateCol))
+                    entry.put("duration", it.getLong(durationCol))
+                    results.put(entry)
                 }
-                val entry = JSObject()
-                entry.put("id", it.getString(idCol))
-                entry.put("number", it.getString(numberCol) ?: "")
-                entry.put("type", type)
-                entry.put("date", it.getLong(dateCol))
-                entry.put("duration", it.getLong(durationCol))
-                results.put(entry)
             }
+        } catch (e: Exception) {
+            call.reject("Could not read call log: ${e.message}")
+            return
         }
         val ret = JSObject()
         ret.put("calls", results)
@@ -86,12 +92,12 @@ class CallLogSyncPlugin : Plugin() {
 
     @PluginMethod
     fun markSynced(call: PluginCall) {
-        val lastId = call.getString("lastId")
-        if (lastId.isNullOrBlank()) {
-            call.reject("lastId is required")
+        val lastId = call.getString("lastId")?.toLongOrNull()
+        if (lastId == null) {
+            call.reject("lastId must be a numeric id")
             return
         }
-        prefs().edit().putLong(KEY_LAST_SYNCED_ID, lastId.toLong()).apply()
+        prefs().edit().putLong(KEY_LAST_SYNCED_ID, lastId).apply()
         call.resolve()
     }
 
@@ -109,7 +115,10 @@ class CallLogSyncPlugin : Plugin() {
         if (context.checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) return
         val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         var wasConnected = false
-        telephonyManager.listen(object : PhoneStateListener() {
+        // Runs from load() inside MainActivity.onCreate, so a throw here (OEM
+        // TelephonyManager quirks, permission revoked mid-flight) would crash on
+        // launch — the call-ended trigger is optional; resume/interval sync remain.
+        try { telephonyManager.listen(object : PhoneStateListener() {
             override fun onCallStateChanged(state: Int, phoneNumber: String?) {
                 when (state) {
                     TelephonyManager.CALL_STATE_OFFHOOK -> wasConnected = true
@@ -121,7 +130,10 @@ class CallLogSyncPlugin : Plugin() {
                     }
                 }
             }
-        }, PhoneStateListener.LISTEN_CALL_STATE)
+        }, PhoneStateListener.LISTEN_CALL_STATE) } catch (e: Exception) {
+            android.util.Log.w("CallLogSync", "Could not register call-state listener", e)
+            return
+        }
         listenerRegistered = true
     }
 }
