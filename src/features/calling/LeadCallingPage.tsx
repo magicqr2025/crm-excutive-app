@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Phone } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useLeadsForCampaign } from '@/api/queries'
+import { useLead } from '@/api/queries'
 import { fetchNextQueueLead } from '@/api/crmApi'
 import { DispositionForm } from '@/features/calling/DispositionForm'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
@@ -11,8 +11,7 @@ export function LeadCallingPage() {
   const { campaignId = '', leadId = '' } = useParams<{ campaignId: string; leadId: string }>()
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id ?? '')
-  const { data: leads = [], isLoading } = useLeadsForCampaign(campaignId, userId)
-  const lead = leads.find((l) => l.id === leadId)
+  const { data: lead, isLoading } = useLead(leadId)
   const { startCall, assignToMe, isClaiming } = useCallLead()
 
   // Fetched fresh here rather than read from a passively-rendered query hook:

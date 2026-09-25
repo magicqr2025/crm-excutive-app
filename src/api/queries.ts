@@ -1,9 +1,9 @@
+import { usePagedList } from '@/lib/usePagedList'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchMyLeadCampaigns,
-  fetchLeadsForCampaign,
+  fetchLeadsForCampaignPage,
   fetchNextQueueLead,
-  fetchMyLeads,
   updateLead,
   claimLead,
   quickCreateLead,
@@ -12,8 +12,14 @@ import {
   fetchLeadStageTypes,
   fetchLeadStatuses,
   createCallLog,
-  fetchMyCallLogs,
-  fetchMyActiveFollowups,
+  fetchMyCallLogsPage,
+  fetchMyActiveFollowupsPage,
+  fetchFollowupById,
+  fetchDealsPage,
+  fetchMeetingsPage,
+  fetchPaymentsPage,
+  fetchLeadsPage,
+  fetchLeadById,
   fetchCallLogsForLead,
   searchContacts,
   fetchDeals,
@@ -40,10 +46,10 @@ export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
 }
 
-export function useLeadsForCampaign(campaignId: string, staffId: string, scope: CampaignLeadScope = 'mine') {
-  return useQuery({
-    queryKey: ['campaign-leads', campaignId, staffId, scope],
-    queryFn: () => fetchLeadsForCampaign(campaignId, staffId, scope),
+export function useCampaignLeadsPage({ campaignId, staffId, scope, search }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string }) {
+  return usePagedList({
+    queryKey: ['campaign-leads', campaignId, staffId, scope, { search }],
+    fetchPage: (page) => fetchLeadsForCampaignPage({ campaignId, staffId, scope, page, search }),
     enabled: Boolean(campaignId && staffId),
   })
 }
@@ -56,8 +62,27 @@ export function useNextQueueLead(campaignId: string, staffId: string, excludeLea
   })
 }
 
-export function useMyLeads(staffId: string) {
-  return useQuery({ queryKey: ['my-leads', staffId], queryFn: () => fetchMyLeads(staffId), enabled: Boolean(staffId) })
+// Keys all start with 'my-leads' so the existing invalidations (create, claim,
+// update) refresh these too.
+export function useLeadsPage({ staffId, search, unassigned }: { staffId: string; search: string; unassigned: boolean }) {
+  return usePagedList({
+    queryKey: ['my-leads', 'paged', staffId, { search, unassigned }],
+    fetchPage: (page) => fetchLeadsPage({ staffId, page, search, unassigned }),
+    enabled: Boolean(staffId),
+  })
+}
+
+// Total leads matching the tab, from a one-row page's meta.total.
+export function useLeadCount(staffId: string, unassigned: boolean) {
+  return useQuery({
+    queryKey: ['my-leads', 'count', staffId, unassigned],
+    queryFn: async () => (await fetchLeadsPage({ staffId, page: 1, perPage: 1, unassigned })).total,
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useLead(leadId: string) {
+  return useQuery({ queryKey: ['my-leads', 'one', leadId], queryFn: () => fetchLeadById(leadId), enabled: Boolean(leadId), retry: false })
 }
 
 export function useUpdateLead() {
@@ -123,16 +148,29 @@ export function useCreateCallLog() {
       queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
       queryClient.invalidateQueries({ queryKey: ['next-queue-lead'] })
       queryClient.invalidateQueries({ queryKey: ['my-call-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['my-leads'] })
     },
   })
 }
 
-export function useMyCallLogs(staffId: string) {
-  return useQuery({ queryKey: ['my-call-logs', staffId], queryFn: () => fetchMyCallLogs(staffId), enabled: Boolean(staffId) })
+export function useMyCallLogsPage(staffId: string, search: string) {
+  return usePagedList({
+    queryKey: ['my-call-logs', staffId, { search }],
+    fetchPage: (page) => fetchMyCallLogsPage({ staffId, page, search }),
+    enabled: Boolean(staffId),
+  })
 }
 
-export function useMyActiveFollowups(staffId: string) {
-  return useQuery({ queryKey: ['my-followups', staffId], queryFn: () => fetchMyActiveFollowups(staffId), enabled: Boolean(staffId) })
+export function useMyActiveFollowupsPage(staffId: string, search: string) {
+  return usePagedList({
+    queryKey: ['my-followups', 'paged', staffId, { search }],
+    fetchPage: (page) => fetchMyActiveFollowupsPage({ staffId, page, search }),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useFollowup(id: string) {
+  return useQuery({ queryKey: ['my-followups', 'one', id], queryFn: () => fetchFollowupById(id), enabled: Boolean(id), retry: false })
 }
 
 export function useCallLogsForLead(leadId: string | null | undefined) {
@@ -151,8 +189,12 @@ export function useContactSearch(search: string) {
   })
 }
 
-export function useDeals() {
-  return useQuery({ queryKey: ['deals'], queryFn: fetchDeals })
+export function useDeals(contactId?: string) {
+  return useQuery({ queryKey: contactId ? ['deals', 'contact', contactId] : ['deals'], queryFn: () => fetchDeals(contactId) })
+}
+
+export function useDealsPage(search: string) {
+  return usePagedList({ queryKey: ['deals', 'paged', { search }], fetchPage: (page) => fetchDealsPage({ page, search }) })
 }
 
 export function useCreateDeal() {
@@ -171,8 +213,12 @@ export function useUpdateDeal() {
   })
 }
 
-export function useMeetings() {
-  return useQuery({ queryKey: ['meetings'], queryFn: fetchMeetings })
+export function useMeetings(contactId?: string) {
+  return useQuery({ queryKey: contactId ? ['meetings', 'contact', contactId] : ['meetings'], queryFn: () => fetchMeetings(contactId) })
+}
+
+export function useMeetingsPage(search: string) {
+  return usePagedList({ queryKey: ['meetings', 'paged', { search }], fetchPage: (page) => fetchMeetingsPage({ page, search }) })
 }
 
 export function useCreateMeeting() {
@@ -191,8 +237,12 @@ export function useUpdateMeeting() {
   })
 }
 
-export function usePayments() {
-  return useQuery({ queryKey: ['payments'], queryFn: fetchPayments })
+export function usePayments(contactId?: string) {
+  return useQuery({ queryKey: contactId ? ['payments', 'contact', contactId] : ['payments'], queryFn: () => fetchPayments(contactId) })
+}
+
+export function usePaymentsPage(search: string) {
+  return usePagedList({ queryKey: ['payments', 'paged', { search }], fetchPage: (page) => fetchPaymentsPage({ page, search }) })
 }
 
 export function useCreatePayment() {

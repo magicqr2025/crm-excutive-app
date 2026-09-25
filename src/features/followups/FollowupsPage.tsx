@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { SearchBox } from '@/components/ui/SearchBox'
+import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useMyActiveFollowups } from '@/api/queries'
+import { useMyActiveFollowupsPage } from '@/api/queries'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 
 export { STATUS_LABEL, STATUS_TONE, formatDate, formatTime }
@@ -11,16 +14,23 @@ export { STATUS_LABEL, STATUS_TONE, formatDate, formatTime }
 export function FollowupsPage() {
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id ?? '')
-  const { data: followups = [], isLoading } = useMyActiveFollowups(userId)
+  const [search, setSearch] = useState('')
+  const { items: followups, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyActiveFollowupsPage(userId, search)
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader title="Follow-ups" subtitle="Leads due for a follow-up, assigned to you." />
-      <div className="p-4">
+      <div className="space-y-4 p-4">
+        <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
+        {search && !isLoading && (
+          <p className="text-[12px] text-[var(--text-muted)]">
+            {total} {total === 1 ? 'result' : 'results'} for “{search}”
+          </p>
+        )}
         {isLoading ? (
           <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
         ) : followups.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No follow-ups due.</p>
+          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : 'No follow-ups due.'}</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {followups.map((f) => (
@@ -47,6 +57,7 @@ export function FollowupsPage() {
             ))}
           </div>
         )}
+        <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
       </div>
     </div>
   )

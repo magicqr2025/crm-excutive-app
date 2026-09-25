@@ -1,8 +1,11 @@
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { SearchBox } from '@/components/ui/SearchBox'
+import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useMyCallLogs } from '@/api/queries'
+import { useMyCallLogsPage } from '@/api/queries'
+import { useState } from 'react'
 import type { CrmCallLog } from '@/api/crmApi'
 import { PlayRecordingButton } from './PlayRecordingButton'
 
@@ -45,16 +48,23 @@ function CallLogRow({ log }: { log: CrmCallLog }) {
 
 export function CallLogsPage() {
   const userId = useAuthStore((s) => s.user?.id ?? '')
-  const { data: logs = [], isLoading } = useMyCallLogs(userId)
+  const [search, setSearch] = useState('')
+  const { items: logs, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyCallLogsPage(userId, search)
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader title="Call Logs" subtitle="Your calls with CRM leads." />
-      <div className="p-4">
+      <div className="space-y-4 p-4">
+        <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
+        {search && !isLoading && (
+          <p className="text-[12px] text-[var(--text-muted)]">
+            {total} {total === 1 ? 'result' : 'results'} for “{search}”
+          </p>
+        )}
         {isLoading ? (
           <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
         ) : logs.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No call logs yet.</p>
+          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : 'No call logs yet.'}</p>
         ) : (
           <div className="space-y-2">
             {logs.map((log) => (
@@ -62,6 +72,7 @@ export function CallLogsPage() {
             ))}
           </div>
         )}
+        <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
       </div>
     </div>
   )
