@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Phone, Handshake, CalendarCheck, Wallet, Link as LinkIcon, Send, LayoutGrid, Plus, X, Pencil, BellRing } from 'lucide-react'
+import { Phone, Handshake, CalendarCheck, Wallet, Send, LayoutGrid, Plus, X, Pencil, BellRing } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
+import { MeetingCard } from '@/features/meetings/MeetingCard'
 import { useCallLead } from '@/features/calling/useCallLead'
 import {
   useCallLogsForLead,
@@ -19,26 +20,19 @@ import {
   useCreateDeal,
   useUpdateDeal,
   useCreateMeeting,
-  useUpdateMeeting,
   useCreatePayment,
   useCreateFollowup,
-  useMyActiveFollowups,
+  useContactActiveFollowups,
   useUpdatePayment,
 } from '@/api/queries'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
-import type { CrmLead, MeetingStatus, DealStatus, CrmDeal, CrmMeeting, CrmPayment } from '@/api/crmApi'
+import type { CrmLead, DealStatus, CrmDeal, CrmPayment } from '@/api/crmApi'
 
 const MOP_OPTIONS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
 
 function todayDateInput() {
   return new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, in the viewer's local calendar day
-}
-
-const MEETING_STATUS_TONE: Record<MeetingStatus, 'accent' | 'success' | 'error'> = {
-  scheduled: 'accent',
-  completed: 'success',
-  cancelled: 'error',
 }
 
 const DEAL_STATUS_TONE: Record<DealStatus, 'success' | 'error' | 'accent'> = {
@@ -47,22 +41,8 @@ const DEAL_STATUS_TONE: Record<DealStatus, 'success' | 'error' | 'accent'> = {
   created: 'accent',
 }
 
-function formatMeetingWhen(iso: string) {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? iso
-    : d.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
-
 function formatMoney(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 0 })
-}
-
-function toDatetimeLocalValue(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function stripDiscussionPrefix(summary: string) {
@@ -70,7 +50,6 @@ function stripDiscussionPrefix(summary: string) {
 }
 
 const DEAL_STATUS_OPTIONS: DealStatus[] = ['created', 'accepted', 'canceled']
-const MEETING_STATUS_OPTIONS: MeetingStatus[] = ['scheduled', 'completed', 'cancelled']
 
 export type ContactDetailTab = 'overview' | 'followup' | 'deal' | 'meeting' | 'payment'
 type Tab = ContactDetailTab
@@ -120,11 +99,10 @@ export function ContactDetailView({
   const updateLead = useUpdateLead()
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const createFollowup = useCreateFollowup()
-  const { data: myFollowups = [] } = useMyActiveFollowups(userId)
+  const { data: contactFollowups = [] } = useContactActiveFollowups(contactId)
   const createDeal = useCreateDeal()
   const updateDeal = useUpdateDeal()
   const createMeeting = useCreateMeeting()
-  const updateMeeting = useUpdateMeeting()
   const createPayment = useCreatePayment()
   const updatePayment = useUpdatePayment()
   const { show } = useToast()
@@ -159,13 +137,6 @@ export function ContactDetailView({
   const [editDealDetails, setEditDealDetails] = useState('')
   const [editDealStatus, setEditDealStatus] = useState<DealStatus>('created')
 
-  const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null)
-  const [editMeetingTime, setEditMeetingTime] = useState('')
-  const [editMeetingStatus, setEditMeetingStatus] = useState<MeetingStatus>('scheduled')
-  const [editMeetingLink, setEditMeetingLink] = useState('')
-  const [editMeetingPricing, setEditMeetingPricing] = useState('')
-  const [editMeetingSummary, setEditMeetingSummary] = useState('')
-
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null)
   const [editPaymentAmount, setEditPaymentAmount] = useState('')
   const [editPaymentStatus, setEditPaymentStatus] = useState<0 | 1>(1)
@@ -195,8 +166,6 @@ export function ContactDetailView({
       },
     )
   }
-
-  const contactFollowups = myFollowups.filter((f) => f.contact_id === contactId)
 
   function submitFollowup() {
     if (!newFollowupDate || !followupTimeInput || !userId) return
@@ -303,38 +272,6 @@ export function ContactDetailView({
           setEditingDealId(null)
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to update deal', tone: 'error' }),
-      },
-    )
-  }
-
-  function startEditMeeting(meeting: CrmMeeting) {
-    setEditingMeetingId(meeting.id)
-    setEditMeetingTime(toDatetimeLocalValue(meeting.meeting_time))
-    setEditMeetingStatus(meeting.meeting_status)
-    setEditMeetingLink(meeting.meeting_link ?? '')
-    setEditMeetingPricing(String(meeting.pricing ?? 0))
-    setEditMeetingSummary(meeting.meeting_summary ?? '')
-  }
-
-  function saveEditMeeting() {
-    if (!editingMeetingId || !editMeetingTime) return
-    updateMeeting.mutate(
-      {
-        id: editingMeetingId,
-        patch: {
-          meetingTime: editMeetingTime,
-          meetingStatus: editMeetingStatus,
-          meetingLink: editMeetingLink.trim(),
-          pricing: editMeetingPricing ? Number(editMeetingPricing) : 0,
-          meetingSummary: editMeetingSummary.trim(),
-        },
-      },
-      {
-        onSuccess: () => {
-          show({ title: 'Meeting updated', tone: 'success' })
-          setEditingMeetingId(null)
-        },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to update meeting', tone: 'error' }),
       },
     )
   }
@@ -746,103 +683,9 @@ export function ContactDetailView({
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">No meetings scheduled for this contact yet.</p>
           ) : (
             <div className="mt-2 space-y-2">
-              {meetings.map((meeting) =>
-                editingMeetingId === meeting.id ? (
-                  <div key={meeting.id} className="space-y-3 rounded-lg border border-[var(--border)] p-2.5">
-                    <Field label="Date & time">
-                      <Input type="datetime-local" value={editMeetingTime} onChange={(e) => setEditMeetingTime(e.target.value)} />
-                    </Field>
-                    <Field label="Status">
-                      <select
-                        value={editMeetingStatus}
-                        onChange={(e) => setEditMeetingStatus(e.target.value as MeetingStatus)}
-                        className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
-                      >
-                        {MEETING_STATUS_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Meeting link" hint="Optional">
-                      <Input value={editMeetingLink} onChange={(e) => setEditMeetingLink(e.target.value)} placeholder="https://meet.google.com/…" />
-                    </Field>
-                    <Field label="Pricing" hint="Optional">
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={editMeetingPricing}
-                        onChange={(e) => setEditMeetingPricing(e.target.value)}
-                      />
-                    </Field>
-                    <Field label="Summary" hint="Optional">
-                      <Textarea value={editMeetingSummary} onChange={(e) => setEditMeetingSummary(e.target.value)} rows={2} />
-                    </Field>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setEditingMeetingId(null)}>
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 justify-center"
-                        onClick={saveEditMeeting}
-                        disabled={!editMeetingTime || updateMeeting.isPending}
-                      >
-                        {updateMeeting.isPending ? 'Saving…' : 'Save Changes'}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={meeting.id} className="rounded-lg border border-[var(--border)] p-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono-num text-[12.5px] text-[var(--text)]">
-                        <span className="font-sans text-[11px] text-[var(--text-muted)]">Scheduled meeting time: </span>
-                        {formatMeetingWhen(meeting.meeting_time)}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Badge tone={MEETING_STATUS_TONE[meeting.meeting_status]}>{meeting.meeting_status}</Badge>
-                        <button
-                          onClick={() => startEditMeeting(meeting)}
-                          title="Edit meeting"
-                          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                      </div>
-                    </div>
-                    {meeting.meeting_type && (
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        <span>Type: </span>
-                        {meeting.meeting_type}
-                      </p>
-                    )}
-                    <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                      <span>Pricing: </span>
-                      Rs. <span className="font-mono-num">{formatMoney(meeting.pricing)}</span>
-                    </p>
-                    {meeting.meeting_summary && (
-                      <p className="mt-1 text-[12.5px] text-[var(--text)]">
-                        <span className="text-[12px] text-[var(--text-muted)]">Summary: </span>
-                        {meeting.meeting_summary}
-                      </p>
-                    )}
-                    {meeting.meeting_link && (
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        <span>Link: </span>
-                        <a
-                          href={meeting.meeting_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[var(--accent-strong)] hover:underline"
-                        >
-                          <LinkIcon size={11} /> Join link
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                ),
-              )}
+              {meetings.map((meeting) => (
+                <MeetingCard key={meeting.id} meeting={meeting} userId={userId} isAdmin={false} />
+              ))}
             </div>
           )}
         </div>

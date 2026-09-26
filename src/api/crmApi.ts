@@ -363,6 +363,46 @@ export async function fetchMyActiveFollowupsPage(opts: { staffId: string; page: 
   return toPageResult(result.data, result.meta)
 }
 
+// The caller's active (pending/scheduled) follow-ups for one contact — the contact
+// detail page's Follow-up tab. Non-admins are limited to their own by the server.
+export async function fetchContactActiveFollowups(contactId: string): Promise<CrmFollowup[]> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({ business_id: businessId, contact_id: contactId, status: 'active' })
+  return apiRequest<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
+}
+
+export type FollowupTab = 'overdue' | 'upcoming' | 'done'
+
+// The caller's follow-ups for one Follow-ups tab. Open ones (overdue = due before today IST,
+// upcoming = today or later) come soonest first; done ones newest due date first.
+export async function fetchMyFollowupsPage(opts: {
+  staffId: string
+  tab: FollowupTab
+  page: number
+  search?: string
+  perPage?: number
+}): Promise<PageResult<CrmFollowup>> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({
+    business_id: businessId,
+    assign_to_staff_id: opts.staffId,
+    page: String(opts.page),
+    per_page: String(opts.perPage ?? PAGE_SIZE),
+    ...(opts.tab === 'done' ? { status: 'done' } : { due: opts.tab }),
+    ...(opts.search ? { search: opts.search } : {}),
+  })
+  const result = await apiRequestWithMeta<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta)
+}
+
+export async function markFollowupDone(id: string): Promise<CrmFollowup> {
+  return apiRequest<CrmFollowup>(`/crm/followup/update/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ followup_status: '2' }),
+  })
+}
+
 export async function fetchFollowupById(id: string): Promise<CrmFollowup> {
   return apiRequest<CrmFollowup>(`/crm/followup/get/${encodeURIComponent(id)}`, { headers: authHeaders() })
 }
@@ -468,6 +508,20 @@ export async function updateDeal(id: string, patch: UpdateDealInput): Promise<Cr
 
 export type MeetingStatus = 'scheduled' | 'completed' | 'cancelled'
 
+export type CancelReason = 'client_not_available' | 'rescheduled' | 'client_declined' | 'other'
+
+export interface CrmMeetingAttendee {
+  staff_id: string
+  name: string
+}
+
+export interface CrmMeetingTask {
+  id: string
+  title: string
+  status: TaskStatus
+  deadline: string | null
+}
+
 export interface CrmMeeting {
   id: string
   lead_id?: string | null
@@ -480,6 +534,15 @@ export interface CrmMeeting {
   meeting_link: string | null
   pricing: number
   meeting_summary: string | null
+  created_by: string | null
+  cancel_reason: CancelReason | null
+  cancel_remark: string | null
+  cancelled_by: string | null
+  cancelled_at: string | null
+  followup_id: string | null
+  next_meeting_id: string | null
+  attendees: CrmMeetingAttendee[]
+  tasks: CrmMeetingTask[]
   created_at: string
 }
 
@@ -527,21 +590,87 @@ export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeti
   })
 }
 
-export interface UpdateMeetingInput {
-  meetingTime?: string
-  meetingStatus?: MeetingStatus
+export interface CompleteMeetingInput {
+  meetingSummary: string
+  /** Extra colleagues who attended; the meeting's assignee is always counted by the server. */
+  attendeeStaffIds: string[]
+  nextTask?: { title: string; deadline?: string; assignToStaffId?: string }
+  followup?: {
+    type: 'call' | 'meeting'
+    date: string // YYYY-MM-DD
+    time: string // HH:MM
+    assignToStaffId?: string
+    note?: string
+  }
+}
+
+async function postMeetingAction(action: string, id: string, body: object): Promise<CrmMeeting> {
+  return apiRequest<CrmMeeting>(`/crm/meetings/${action}/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  })
+}
+
+export function completeMeeting(id: string, input: CompleteMeetingInput): Promise<CrmMeeting> {
+  return postMeetingAction('complete', id, {
+    meeting_summary: input.meetingSummary,
+    attendee_staff_ids: input.attendeeStaffIds,
+    ...(input.nextTask
+      ? {
+          next_task: {
+            title: input.nextTask.title,
+            ...(input.nextTask.deadline ? { deadline: new Date(input.nextTask.deadline).toISOString() } : {}),
+            ...(input.nextTask.assignToStaffId ? { assign_to_staff_id: input.nextTask.assignToStaffId } : {}),
+          },
+        }
+      : {}),
+    ...(input.followup
+      ? {
+          followup: {
+            type: input.followup.type,
+            date: input.followup.date,
+            time: input.followup.time,
+            // A meeting follow-up needs a real instant; date + time are the user's local wall-clock.
+            ...(input.followup.type === 'meeting'
+              ? { meeting_time: new Date(`${input.followup.date}T${input.followup.time}`).toISOString() }
+              : {}),
+            ...(input.followup.assignToStaffId ? { assign_to_staff_id: input.followup.assignToStaffId } : {}),
+            ...(input.followup.note ? { note: input.followup.note } : {}),
+          },
+        }
+      : {}),
+  })
+}
+
+export function cancelMeeting(id: string, input: { reason: CancelReason; remark?: string }): Promise<CrmMeeting> {
+  return postMeetingAction('cancel', id, {
+    reason: input.reason,
+    ...(input.remark ? { remark: input.remark } : {}),
+  })
+}
+
+export function rescheduleMeeting(id: string, meetingTime: string): Promise<CrmMeeting> {
+  return postMeetingAction('reschedule', id, { meeting_time: new Date(meetingTime).toISOString() })
+}
+
+export function transferMeeting(id: string, input: { toStaffId: string; remark: string }): Promise<CrmMeeting> {
+  return postMeetingAction('transfer', id, { to_staff_id: input.toStaffId, remark: input.remark })
+}
+
+export interface UpdateMeetingDetailsInput {
   meetingLink?: string
   pricing?: number
   meetingSummary?: string
 }
 
-export async function updateMeeting(id: string, patch: UpdateMeetingInput): Promise<CrmMeeting> {
+// The only fields PUT /crm/meetings/update/:id still accepts; time, status and
+// assignee go through reschedule / complete / cancel / transfer.
+export async function updateMeetingDetails(id: string, patch: UpdateMeetingDetailsInput): Promise<CrmMeeting> {
   return apiRequest<CrmMeeting>(`/crm/meetings/update/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({
-      ...(patch.meetingTime !== undefined ? { meeting_time: new Date(patch.meetingTime).toISOString() } : {}),
-      ...(patch.meetingStatus !== undefined ? { meeting_status: patch.meetingStatus } : {}),
       ...(patch.meetingLink !== undefined ? { meeting_link: patch.meetingLink } : {}),
       ...(patch.pricing !== undefined ? { pricing: patch.pricing } : {}),
       ...(patch.meetingSummary !== undefined ? { meeting_summary: patch.meetingSummary } : {}),
@@ -647,5 +776,117 @@ export async function createFollowup(input: CreateFollowupInput): Promise<CrmFol
       followup_date: input.followupDate,
       followup_time: `${input.followupTime}:00`,
     }),
+  })
+}
+
+// ---- Tasks ----
+
+export type TaskStatus = 'created' | 'ongoing' | 'completed' | 'cancelled'
+export type TaskType = 'quotation' | 'call' | 'demo' | 'documents' | 'payment_collection' | 'other'
+/** List filter: a status, or 'open' = created + ongoing. */
+export type TaskStatusFilter = TaskStatus | 'open'
+
+export interface CrmTask {
+  id: string
+  contact_id: string | null
+  contact_name: string | null
+  meeting_id: string | null
+  title: string
+  task_type: TaskType
+  status: TaskStatus
+  deadline: string | null
+  assign_to_staff_id: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Colleagues a task can be assigned to. The backend's staff list has more
+// fields; these are the ones the UI reads.
+export interface StaffMember {
+  user_id: string
+  first_name: string | null
+  last_name: string | null
+}
+
+export interface CreateTaskInput {
+  title: string
+  taskType?: TaskType
+  deadline?: string // datetime-local value or ISO
+  assignToStaffId?: string
+  contactId?: string
+}
+
+export interface UpdateTaskInput {
+  title?: string
+  taskType?: TaskType
+  deadline?: string | null // null clears it
+  assignToStaffId?: string
+}
+
+export async function fetchStaff(): Promise<StaffMember[]> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<StaffMember[]>('/crm/users/get-list', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ business_id: businessId }),
+  })
+}
+
+export async function fetchTasksPage(opts: {
+  page: number
+  search?: string
+  status?: TaskStatusFilter
+  assigneeId?: string
+}): Promise<PageResult<CrmTask>> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({
+    business_id: businessId,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.assigneeId ? { assign_to_staff_id: opts.assigneeId } : {}),
+  })
+  const result = await apiRequestWithMeta<CrmTask[]>(`/crm/tasks/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta)
+}
+
+export async function createTask(input: CreateTaskInput): Promise<CrmTask> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmTask>('/crm/tasks/add', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: businessId,
+      title: input.title,
+      ...(input.taskType ? { task_type: input.taskType } : {}),
+      ...(input.deadline ? { deadline: new Date(input.deadline).toISOString() } : {}),
+      ...(input.assignToStaffId ? { assign_to_staff_id: input.assignToStaffId } : {}),
+      ...(input.contactId ? { contact_id: input.contactId } : {}),
+    }),
+  })
+}
+
+export async function updateTask(id: string, patch: UpdateTaskInput): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/update/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.taskType !== undefined ? { task_type: patch.taskType } : {}),
+      ...(patch.deadline !== undefined
+        ? { deadline: patch.deadline === null ? null : new Date(patch.deadline).toISOString() }
+        : {}),
+      ...(patch.assignToStaffId !== undefined ? { assign_to_staff_id: patch.assignToStaffId } : {}),
+    }),
+  })
+}
+
+export async function setTaskStatus(id: string, status: Exclude<TaskStatus, 'created'>): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/status/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ status }),
   })
 }
