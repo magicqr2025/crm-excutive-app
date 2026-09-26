@@ -15,13 +15,15 @@ import {
   fetchMyCallLogsPage,
   fetchMyActiveFollowupsPage,
   fetchFollowupById,
+  fetchMyFollowupsPage,
+  markFollowupDone,
+  type FollowupTab,
+  fetchContactActiveFollowups,
   fetchDealsPage,
   fetchMeetingsPage,
   fetchPaymentsPage,
   fetchLeadsPage,
   fetchLeadById,
-  fetchMyCallLogs,
-  fetchMyActiveFollowups,
   createFollowup,
   type CreateFollowupInput,
   fetchCallLogsForLead,
@@ -31,7 +33,6 @@ import {
   updateDeal,
   fetchMeetings,
   createMeeting,
-  updateMeeting,
   fetchPayments,
   createPayment,
   updatePayment,
@@ -43,7 +44,20 @@ import {
   type CreatePaymentInput,
   type UpdatePaymentInput,
   type UpdateLeadInput,
-  type UpdateMeetingInput,
+  fetchStaff,
+  completeMeeting,
+  cancelMeeting,
+  rescheduleMeeting,
+  transferMeeting,
+  updateMeetingDetails,
+  fetchTasksPage,
+  createTask,
+  updateTask,
+  setTaskStatus,
+  type CreateTaskInput,
+  type UpdateTaskInput,
+  type TaskStatus,
+  type TaskStatusFilter,
 } from '@/api/crmApi'
 
 export function useMyLeadCampaigns() {
@@ -173,6 +187,39 @@ export function useMyActiveFollowupsPage(staffId: string, search: string) {
   })
 }
 
+export function useMyFollowupsTabPage(staffId: string, tab: FollowupTab, search: string) {
+  return usePagedList({
+    queryKey: ['my-followups', 'tab', staffId, tab, { search }],
+    fetchPage: (page) => fetchMyFollowupsPage({ staffId, tab, page, search }),
+    enabled: Boolean(staffId),
+  })
+}
+
+// Just the total, for the red count on the Overdue tab.
+export function useOverdueFollowupCount(staffId: string) {
+  return useQuery({
+    queryKey: ['my-followups', 'overdue-count', staffId],
+    queryFn: async () => (await fetchMyFollowupsPage({ staffId, tab: 'overdue', page: 1, perPage: 1 })).total,
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useMarkFollowupDone() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => markFollowupDone(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-followups'] }),
+  })
+}
+
+export function useContactActiveFollowups(contactId: string) {
+  return useQuery({
+    queryKey: ['my-followups', 'contact', contactId],
+    queryFn: () => fetchContactActiveFollowups(contactId),
+    enabled: Boolean(contactId),
+  })
+}
+
 export function useFollowup(id: string) {
   return useQuery({ queryKey: ['my-followups', 'one', id], queryFn: () => fetchFollowupById(id), enabled: Boolean(id), retry: false })
 }
@@ -242,17 +289,6 @@ export function useCreateMeeting() {
   })
 }
 
-export function useUpdateMeeting() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: UpdateMeetingInput }) => updateMeeting(id, patch),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings'] })
-      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
-    },
-  })
-}
-
 export function usePayments(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['payments', 'contact', contactId] : ['payments'], queryFn: () => fetchPayments(contactId) })
 }
@@ -292,4 +328,81 @@ export function useCreateFollowup() {
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })
+}
+
+// ---- Tasks ----
+
+export function useStaffList() {
+  return useQuery({ queryKey: ['staff-list'], queryFn: fetchStaff, staleTime: 5 * 60 * 1000 })
+}
+
+export function useTasksPage(filters: { search: string; status?: TaskStatusFilter; assigneeId?: string }) {
+  return usePagedList({
+    queryKey: ['tasks', 'paged', filters],
+    fetchPage: (page) => fetchTasksPage({ page, ...filters }),
+  })
+}
+
+export function useCreateTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateTaskInput) => createTask(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateTaskInput }) => updateTask(id, patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useSetTaskStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Exclude<TaskStatus, 'created'> }) => setTaskStatus(id, status),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+// ---- Meeting lifecycle ----
+
+// A meeting action can also create a task or a follow-up, so refresh those lists too.
+function useMeetingMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['meetings'] }),
+        queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-followups'] }),
+      ]),
+  })
+}
+
+export function useCompleteMeeting() {
+  return useMeetingMutation(({ id, input }: { id: string; input: Parameters<typeof completeMeeting>[1] }) =>
+    completeMeeting(id, input),
+  )
+}
+
+export function useCancelMeeting() {
+  return useMeetingMutation(({ id, input }: { id: string; input: Parameters<typeof cancelMeeting>[1] }) => cancelMeeting(id, input))
+}
+
+export function useRescheduleMeeting() {
+  return useMeetingMutation(({ id, meetingTime }: { id: string; meetingTime: string }) => rescheduleMeeting(id, meetingTime))
+}
+
+export function useTransferMeeting() {
+  return useMeetingMutation(({ id, input }: { id: string; input: Parameters<typeof transferMeeting>[1] }) => transferMeeting(id, input))
+}
+
+export function useUpdateMeetingDetails() {
+  return useMeetingMutation(({ id, patch }: { id: string; patch: Parameters<typeof updateMeetingDetails>[1] }) =>
+    updateMeetingDetails(id, patch),
+  )
 }

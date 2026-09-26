@@ -13,6 +13,7 @@ import { ContactDetailPage } from '@/features/contacts/ContactDetailPage'
 import { CallLogsPage } from '@/features/callLogs/CallLogsPage'
 import { DealsPage } from '@/features/deals/DealsPage'
 import { MeetingsPage } from '@/features/meetings/MeetingsPage'
+import { TasksPage } from '@/features/tasks/TasksPage'
 import { PaymentsPage } from '@/features/payments/PaymentsPage'
 import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
 
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/call-logs" element={<CallLogsPage />} />
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/settings/call-recording" element={<CallRecordingSettingsPage />} />
           </Route>
