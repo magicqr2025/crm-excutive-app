@@ -1096,3 +1096,16 @@ export async function sendLeadEmail(input: { leadId: string; mappingId: string; 
 export async function fetchEmailLogs(leadId: string): Promise<{ items: EmailLogEntry[]; total: number }> {
   return apiRequest(`/zeptomail/logs?lead_id=${leadId}&per_page=50`, { headers: authHeaders() })
 }
+
+// ---- Push notifications (FCM device token) ----
+// Registers this device for the signed-in staff member; crmbackend takes the
+// staff id from the session. Re-posting the same token is harmless (upsert), and
+// required after every login so a shared device follows whoever is signed in.
+
+export async function registerFcmToken(token: string): Promise<void> {
+  await apiRequest<unknown>('/api/staff/fcm-token', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ token, device_type: 'android' }),
+  })
+}

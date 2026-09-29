@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "642363746845",
+    "project_id": "executive-app-aea67",
+    "storage_bucket": "executive-app-aea67.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:642363746845:android:07722c353f8be51b94f4f4",
+        "android_client_info": {
+          "package_name": "com.whatscrm.executive"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsjeX3MJaAtg6skYB_FdcWrP8SA4WV1Co"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
