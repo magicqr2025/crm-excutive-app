@@ -37,6 +37,19 @@ export async function fetchMyLeadCampaigns(): Promise<CrmMyLeadCampaign[]> {
 
 // ---- Leads within a campaign ----
 
+// Call-status flags: sticky per-lead attributes a sales member raises from
+// the Call Status dialog (DispositionForm) — set once, they stay true until
+// someone explicitly clears them. `flag_note` is a single shared note, not
+// per-flag. Mirrors orm-whatsapp's crmApi.ts (same crmbackend wire format).
+export type CallStatusFlagKey = 'need_attention' | 'feature_requirement' | 'special_meeting' | 'premium_client'
+
+export const CALL_STATUS_FLAG_LABELS: Record<CallStatusFlagKey, string> = {
+  need_attention: 'Need Attention',
+  feature_requirement: 'Feature Requirement',
+  special_meeting: 'Special Meeting',
+  premium_client: 'Premium Client',
+}
+
 export interface CrmLead {
   id: string
   contact_id: string
@@ -56,6 +69,12 @@ export interface CrmLead {
   deal_value: string | null
   deal_details: string | null
   lead_campaigns: { id: string; name: string }[]
+  need_attention: boolean
+  feature_requirement: boolean
+  special_meeting: boolean
+  premium_client: boolean
+  flag_note: string | null
+  flag_note_updated_at: string | null
   created_at: string
 }
 
@@ -246,6 +265,11 @@ export interface CreateCallLogInput {
   durationSeconds?: number
   followupDate?: string
   followupTime?: string
+  needAttention?: boolean
+  featureRequirement?: boolean
+  specialMeeting?: boolean
+  premiumClient?: boolean
+  flagNote?: string
 }
 
 export interface CrmCallLog {
@@ -290,6 +314,11 @@ export async function createCallLog(input: CreateCallLogInput): Promise<CrmCallL
       ...(input.durationSeconds !== undefined ? { duration_seconds: input.durationSeconds } : {}),
       ...(input.followupDate ? { followup_date: input.followupDate } : {}),
       ...(input.followupTime ? { followup_time: input.followupTime } : {}),
+      ...(input.needAttention !== undefined ? { need_attention: input.needAttention } : {}),
+      ...(input.featureRequirement !== undefined ? { feature_requirement: input.featureRequirement } : {}),
+      ...(input.specialMeeting !== undefined ? { special_meeting: input.specialMeeting } : {}),
+      ...(input.premiumClient !== undefined ? { premium_client: input.premiumClient } : {}),
+      ...(input.flagNote !== undefined ? { flag_note: input.flagNote } : {}),
     }),
   })
 }

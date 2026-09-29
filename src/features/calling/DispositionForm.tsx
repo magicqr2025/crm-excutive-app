@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { Calendar, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Switch } from '@/components/ui/Switch'
 import { useToast } from '@/components/ui/useToast'
 import { useCreateCallLog, useLeadStageTypes, useLeadStatuses } from '@/api/queries'
-import type { CallOutcome, CrmLead } from '@/api/crmApi'
+import { CALL_STATUS_FLAG_LABELS, type CallOutcome, type CallStatusFlagKey, type CrmLead } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
+
+const CALL_STATUS_FLAG_KEYS: CallStatusFlagKey[] = ['need_attention', 'feature_requirement', 'special_meeting', 'premium_client']
 
 const NOT_CONNECTED_REASONS = [
   'Did not pick',
@@ -47,9 +50,18 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
   const [remark, setRemark] = useState('')
   const [quickHours, setQuickHours] = useState<number | null>(null)
   const [customDateTime, setCustomDateTime] = useState('')
+  const [flags, setFlags] = useState<Record<CallStatusFlagKey, boolean>>({
+    need_attention: false,
+    feature_requirement: false,
+    special_meeting: false,
+    premium_client: false,
+  })
+  const [flagNote, setFlagNote] = useState('')
 
   // Reset the form whenever a new lead is loaded (sequential auto-advance
-  // reuses this component across leads rather than remounting it).
+  // reuses this component across leads rather than remounting it). Flags are
+  // sticky on the lead (not reset to false) — they seed from whatever an
+  // earlier call already flagged, same as orm-whatsapp's CallDispositionDialog.
   useEffect(() => {
     setElapsed(0)
     setTimerStopped(false)
@@ -60,6 +72,13 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
     setRemark('')
     setQuickHours(null)
     setCustomDateTime('')
+    setFlags({
+      need_attention: lead.need_attention,
+      feature_requirement: lead.feature_requirement,
+      special_meeting: lead.special_meeting,
+      premium_client: lead.premium_client,
+    })
+    setFlagNote(lead.flag_note ?? '')
   }, [lead.id])
 
   // Timer runs automatically from when the lead is opened until submit -- no
@@ -71,7 +90,9 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
     return () => clearInterval(id)
   }, [lead.id, timerStopped])
 
-  const valid = outcome === 'connected' ? leadStatusId.length > 0 : outcome === 'not_connected' ? reason.length > 0 : false
+  const anyFlagOn = CALL_STATUS_FLAG_KEYS.some((key) => flags[key])
+  const outcomeValid = outcome === 'connected' ? leadStatusId.length > 0 : outcome === 'not_connected' ? reason.length > 0 : false
+  const valid = outcomeValid && (!anyFlagOn || flagNote.trim().length > 0)
 
   function submit() {
     if (!outcome || !valid) return
@@ -98,6 +119,11 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
         durationSeconds: elapsed,
         ...(followupDate ? { followupDate } : {}),
         ...(followupTime ? { followupTime } : {}),
+        needAttention: flags.need_attention,
+        featureRequirement: flags.feature_requirement,
+        specialMeeting: flags.special_meeting,
+        premiumClient: flags.premium_client,
+        flagNote: flagNote.trim(),
       },
       {
         onSuccess: () => {
@@ -144,6 +170,35 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
         >
           Yes Connected
         </button>
+      </div>
+
+      <div className="rounded-xl border border-[var(--border)] p-3.5 space-y-3">
+        <p className="text-[13px] font-semibold text-[var(--text-h)]">Flags</p>
+        <div className="space-y-2.5">
+          {CALL_STATUS_FLAG_KEYS.map((key) => (
+            <div key={key} className="flex items-center justify-between gap-3">
+              <span className="text-[13px] text-[var(--text)]">{CALL_STATUS_FLAG_LABELS[key]}</span>
+              <Switch
+                checked={flags[key]}
+                onCheckedChange={(checked) => setFlags((f) => ({ ...f, [key]: checked }))}
+                aria-label={CALL_STATUS_FLAG_LABELS[key]}
+              />
+            </div>
+          ))}
+        </div>
+        {anyFlagOn && (
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-[var(--text-h)]">What is the lead saying? *</p>
+            <textarea
+              value={flagNote}
+              onChange={(e) => setFlagNote(e.target.value.slice(0, 2000))}
+              placeholder="Type here…"
+              maxLength={2000}
+              className="min-h-[70px] w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-h)]"
+            />
+            <p className="mt-1 text-right text-[11px] text-[var(--text-muted)]">{flagNote.length}/2000</p>
+          </div>
+        )}
       </div>
 
       {outcome === 'not_connected' && (
