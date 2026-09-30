@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
+import { APP_VERSION } from '@/config/appVersion'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -93,6 +94,7 @@ export function LoginPage() {
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        <p className="mt-4 text-center text-[12px] text-[var(--text-muted)]">Version {APP_VERSION}</p>
       </div>
     </div>
   )
