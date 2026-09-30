@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Calendar, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Switch } from '@/components/ui/Switch'
 import { useToast } from '@/components/ui/useToast'
 import { useCreateCallLog, useLeadStageTypes, useLeadStatuses } from '@/api/queries'
 import { CALL_STATUS_FLAG_LABELS, type CallOutcome, type CallStatusFlagKey, type CrmLead } from '@/api/crmApi'
@@ -94,6 +93,18 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
   const outcomeValid = outcome === 'connected' ? leadStatusId.length > 0 : outcome === 'not_connected' ? reason.length > 0 : false
   const valid = outcomeValid && (!anyFlagOn || flagNote.trim().length > 0)
 
+  // Flags are mutually exclusive — checking one clears the other three;
+  // unchecking the active one leaves none selected.
+  function selectFlag(key: CallStatusFlagKey, checked: boolean) {
+    setFlags({
+      need_attention: false,
+      feature_requirement: false,
+      special_meeting: false,
+      premium_client: false,
+      [key]: checked,
+    })
+  }
+
   function submit() {
     if (!outcome || !valid) return
     setTimerStopped(true)
@@ -170,35 +181,6 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
         >
           Yes Connected
         </button>
-      </div>
-
-      <div className="rounded-xl border border-[var(--border)] p-3.5 space-y-3">
-        <p className="text-[13px] font-semibold text-[var(--text-h)]">Flags</p>
-        <div className="space-y-2.5">
-          {CALL_STATUS_FLAG_KEYS.map((key) => (
-            <div key={key} className="flex items-center justify-between gap-3">
-              <span className="text-[13px] text-[var(--text)]">{CALL_STATUS_FLAG_LABELS[key]}</span>
-              <Switch
-                checked={flags[key]}
-                onCheckedChange={(checked) => setFlags((f) => ({ ...f, [key]: checked }))}
-                aria-label={CALL_STATUS_FLAG_LABELS[key]}
-              />
-            </div>
-          ))}
-        </div>
-        {anyFlagOn && (
-          <div>
-            <p className="mb-1.5 text-[13px] font-semibold text-[var(--text-h)]">What is the lead saying? *</p>
-            <textarea
-              value={flagNote}
-              onChange={(e) => setFlagNote(e.target.value.slice(0, 2000))}
-              placeholder="Type here…"
-              maxLength={2000}
-              className="min-h-[70px] w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-h)]"
-            />
-            <p className="mt-1 text-right text-[11px] text-[var(--text-muted)]">{flagNote.length}/2000</p>
-          </div>
-        )}
       </div>
 
       {outcome === 'not_connected' && (
@@ -307,6 +289,38 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
               className="min-h-[80px] w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-h)]"
             />
           </div>
+        </div>
+      )}
+
+      {outcome && (
+        <div className="rounded-xl border border-[var(--border)] p-3.5 space-y-3">
+          <p className="text-[13px] font-semibold text-[var(--text-h)]">Flags</p>
+          <div className="space-y-2">
+            {CALL_STATUS_FLAG_KEYS.map((key) => (
+              <label key={key} className="flex items-center gap-2 text-[13px] text-[var(--text)]">
+                <input
+                  type="checkbox"
+                  checked={flags[key]}
+                  onChange={(e) => selectFlag(key, e.target.checked)}
+                  className="accent-[var(--accent)]"
+                />
+                {CALL_STATUS_FLAG_LABELS[key]}
+              </label>
+            ))}
+          </div>
+          {anyFlagOn && (
+            <div>
+              <p className="mb-1.5 text-[13px] font-semibold text-[var(--text-h)]">What is the lead saying? *</p>
+              <textarea
+                value={flagNote}
+                onChange={(e) => setFlagNote(e.target.value.slice(0, 2000))}
+                placeholder="Type here…"
+                maxLength={2000}
+                className="min-h-[70px] w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-h)]"
+              />
+              <p className="mt-1 text-right text-[11px] text-[var(--text-muted)]">{flagNote.length}/2000</p>
+            </div>
+          )}
         </div>
       )}
 
