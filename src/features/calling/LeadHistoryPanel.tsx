@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/Badge'
 import { useCallLogsForLead, useLeadActivity, useLeadStatuses } from '@/api/queries'
 import type { CrmActivityEntry, CrmCallLog, CrmLead } from '@/api/crmApi'
 import { formatDate as formatIstDate, formatTime as formatIstTime } from '@/lib/followupFormat'
-import { cn } from '@/lib/utils'
+import { cn, formatTalkTime } from '@/lib/utils'
 
 type Tab = 'about' | 'timeline'
 
@@ -18,10 +18,7 @@ function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 function durationLabel(seconds: number | null) {
-  if (!seconds) return null
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return m ? `${m}m ${s}s` : `${s}s`
+  return seconds ? formatTalkTime(seconds) : null
 }
 
 interface TimelineItem {
@@ -36,8 +33,8 @@ interface TimelineItem {
 }
 
 function callLogItem(log: CrmCallLog, statusName: (id: string | null) => string | null): TimelineItem {
-  const at = log.call_time ?? log.created_at
   if (log.source === 'device_sync') {
+    const at = log.call_time ?? log.created_at
     const duration = durationLabel(log.duration_seconds)
     const answered = Boolean(log.duration_seconds)
     const title =
@@ -57,13 +54,16 @@ function callLogItem(log: CrmCallLog, statusName: (id: string | null) => string 
   }
   const connected = log.outcome === 'connected'
   const status = statusName(log.lead_status_id)
+  const talkTime = durationLabel(log.duration_seconds)
   return {
     id: `call-${log.id}`,
-    at,
+    // Disposed-at, not the paired call's start (call_time) — the paired device
+    // call has its own entry at that moment, and this one follows it.
+    at: log.created_at,
     icon: <ClipboardEdit size={13} />,
     iconClass: connected ? 'bg-[var(--success)]' : 'bg-[var(--error)]',
     title: `Lead Disposed | ${connected ? 'Connected' : 'Not Connected'}`,
-    chips: [status, log.reason].filter((c): c is string => Boolean(c)),
+    chips: [status, log.reason, talkTime ? `Talk time ${talkTime}` : null].filter((c): c is string => Boolean(c)),
     remark: log.remark,
     note: log.followup_date
       ? `Follow-up: ${formatIstDate(log.followup_date)}${log.followup_time ? ` ${formatIstTime(log.followup_time)}` : ''}`

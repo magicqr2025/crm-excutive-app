@@ -27,6 +27,7 @@ import {
 } from '@/api/queries'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
+import { formatTalkTime } from '@/lib/utils'
 import type { CrmLead, DealStatus, CrmDeal, CrmPayment } from '@/api/crmApi'
 
 const MOP_OPTIONS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
@@ -409,7 +410,7 @@ export function ContactDetailView({
                 <Badge tone={lastCall.outcome === 'connected' ? 'success' : 'error'}>
                   {lastCall.outcome === 'connected' ? 'Connected' : 'Not Connected'}
                 </Badge>
-                <span className="text-[11.5px] text-[var(--text-muted)]">{new Date(lastCall.created_at).toLocaleString()}</span>
+                <span className="text-[11.5px] text-[var(--text-muted)]">{new Date(lastCall.occurred_at).toLocaleString()}</span>
               </div>
               {lastCall.reason && <p className="text-[12.5px] text-[var(--text-muted)]">Reason: {lastCall.reason}</p>}
               {lastCall.remark ? (
@@ -418,7 +419,7 @@ export function ContactDetailView({
                 <p className="text-[13px] italic text-[var(--text-muted)]">No remark left.</p>
               )}
               {lastCall.duration_seconds !== null && (
-                <p className="text-[11.5px] text-[var(--text-muted)]">Duration: {lastCall.duration_seconds}s</p>
+                <p className="text-[11.5px] text-[var(--text-muted)]">Talk time: {formatTalkTime(lastCall.duration_seconds)}</p>
               )}
               {(() => {
                 const info = stageAndStatusFor(lastCall.lead_status_id)

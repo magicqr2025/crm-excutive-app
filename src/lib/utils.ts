@@ -29,3 +29,11 @@ export function avatarColor(seed: string) {
   }
   return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
 }
+
+// Talk time as "2m 5s" / "45s" — never a bare seconds count, which is
+// unreadable past a minute.
+export function formatTalkTime(totalSeconds: number) {
+  const m = Math.floor(totalSeconds / 60)
+  const s = totalSeconds % 60
+  return m ? `${m}m ${s}s` : `${s}s`
+}
