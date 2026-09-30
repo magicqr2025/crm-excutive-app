@@ -128,7 +128,6 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
         ...(outcome === 'not_connected' ? { reason } : {}),
         ...(outcome === 'connected' ? { leadStatusId } : {}),
         ...(remark.trim() ? { remark: remark.trim() } : {}),
-        durationSeconds: elapsed,
         ...(followupDate ? { followupDate } : {}),
         ...(followupTime ? { followupTime } : {}),
         needAttention: flags.need_attention,

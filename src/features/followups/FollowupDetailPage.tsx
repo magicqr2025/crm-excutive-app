@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useFollowup } from '@/api/queries'
@@ -9,7 +10,7 @@ export function FollowupDetailPage() {
   const { data: followup, isLoading } = useFollowup(followupId)
 
   if (isLoading) {
-    return <div className="flex h-full items-center justify-center text-[13px] text-[var(--text-muted)]">Loading…</div>
+    return <PageLoader fullPage />
   }
 
   if (!followup) {

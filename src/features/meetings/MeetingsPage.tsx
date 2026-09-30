@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X } from 'lucide-react'
@@ -123,7 +124,7 @@ export function MeetingsPage() {
         </div>
 
         {isLoading ? (
-          <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
+          <PageLoader />
         ) : meetings.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : 'No meetings yet.'}</p>
         ) : (

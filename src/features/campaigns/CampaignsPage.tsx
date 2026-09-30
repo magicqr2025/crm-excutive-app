@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -25,7 +26,7 @@ export function CampaignsPage() {
       {addLeadOpen && <AddNewLeadDialog onClose={() => setAddLeadOpen(false)} />}
       <div className="p-6">
         {isLoading ? (
-          <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
+          <PageLoader />
         ) : campaigns.length === 0 ? (
           <p className="text-[13px] text-[var(--text-muted)]">No campaigns assigned to you yet.</p>
         ) : (

@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useLead } from '@/api/queries'
@@ -12,7 +13,7 @@ export function ContactDetailPage() {
   const { data: lead, isLoading } = useLead(leadId)
 
   if (isLoading) {
-    return <div className="flex h-full items-center justify-center text-[13px] text-[var(--text-muted)]">Loading…</div>
+    return <PageLoader fullPage />
   }
 
   if (!lead) {

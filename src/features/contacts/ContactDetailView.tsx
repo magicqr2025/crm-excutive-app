@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { Phone, Handshake, CalendarCheck, Wallet, Send, LayoutGrid, Plus, X, Pencil, BellRing } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
@@ -401,7 +402,7 @@ export function ContactDetailView({
         <div className="rounded-2xl border border-[var(--border)] p-4">
           <p className="text-[13px] font-semibold text-[var(--text-h)]">Last Discussion</p>
           {isLoadingLogs ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">Loading…</p>
+            <PageLoader />
           ) : !lastCall ? (
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">No previous calls logged for this lead yet.</p>
           ) : (
@@ -443,7 +444,7 @@ export function ContactDetailView({
         <div className="rounded-2xl border border-[var(--border)] p-4">
           <p className="text-[13px] font-semibold text-[var(--text-h)]">Discussion</p>
           {isLoadingActivity ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">Loading…</p>
+            <PageLoader />
           ) : discussionEntries.length === 0 ? (
             <p className="mt-2 text-[12.5px] text-[var(--text-muted)]">No discussion added yet.</p>
           ) : (
@@ -551,7 +552,7 @@ export function ContactDetailView({
             </div>
           )}
           {isLoadingDeals ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">Loading…</p>
+            <PageLoader />
           ) : deals.length === 0 ? (
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">No deals for this contact yet.</p>
           ) : (
@@ -679,7 +680,7 @@ export function ContactDetailView({
             </div>
           )}
           {isLoadingMeetings ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">Loading…</p>
+            <PageLoader />
           ) : meetings.length === 0 ? (
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">No meetings scheduled for this contact yet.</p>
           ) : (
@@ -752,7 +753,7 @@ export function ContactDetailView({
             </div>
           )}
           {isLoadingPayments ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">Loading…</p>
+            <PageLoader />
           ) : payments.length === 0 ? (
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">No payments from this contact yet.</p>
           ) : (

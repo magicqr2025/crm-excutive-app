@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
@@ -90,7 +91,7 @@ export function ContactsPage() {
         )}
 
         {isLoading ? (
-          <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
+          <PageLoader />
         ) : contacts.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
             {search

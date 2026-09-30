@@ -178,3 +178,11 @@
     font-weight: 500;
   }
 }
+
+@keyframes route-fetch-slide {
+  0% { left: -35%; }
+  100% { left: 100%; }
+}
+.route-fetch-bar {
+  animation: route-fetch-slide 1.1s ease-in-out infinite;
+}

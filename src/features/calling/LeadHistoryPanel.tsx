@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowRightLeft, BellRing, CalendarCheck, ClipboardEdit, Handshake, Wallet, MessageSquareText, PhoneIncoming, PhoneMissed, PhoneOutgoing, Tag, UserPlus } from 'lucide-react'
@@ -197,7 +198,7 @@ export function LeadHistoryPanel({ lead, showAbout = true }: { lead: CrmLead; sh
           </Section>
         </div>
       ) : loadingCalls || loadingActivity ? (
-        <p className="p-4 text-[13px] text-[var(--text-muted)]">Loading history…</p>
+        <PageLoader label="Loading history…" />
       ) : (
         <div className="max-h-[440px] overflow-y-auto px-4 py-3">
           {groups.map((group) => (

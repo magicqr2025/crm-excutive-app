@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -133,7 +134,7 @@ export function TasksView({ userId, isAdmin }: TasksViewProps) {
       </div>
       <div className="p-4">
         {isLoading ? (
-          <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
+          <PageLoader />
         ) : tasks.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No tasks here.</p>
         ) : (

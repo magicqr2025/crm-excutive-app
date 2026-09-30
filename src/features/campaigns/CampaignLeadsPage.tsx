@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Lock } from 'lucide-react'
@@ -76,7 +77,7 @@ export function CampaignLeadsPage() {
           </p>
         )}
         {isLoading ? (
-          <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
+          <PageLoader />
         ) : error ? (
           <p className="py-8 text-center text-[13px] text-[var(--error)]">
             {error instanceof Error ? error.message : 'Failed to load leads'}

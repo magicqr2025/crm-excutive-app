@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useEffect, useRef } from 'react'
 
 interface InfiniteScrollFooterProps {
@@ -27,7 +28,7 @@ export function InfiniteScrollFooter({ hasNextPage, isFetchingNextPage, onLoadMo
 
   return (
     <div ref={ref} className="py-3 text-center text-[12px] text-[var(--text-muted)]">
-      {isFetchingNextPage ? 'Loading more…' : null}
+      {isFetchingNextPage ? <PageLoader label="Loading more…" className="py-1" /> : null}
     </div>
   )
 }

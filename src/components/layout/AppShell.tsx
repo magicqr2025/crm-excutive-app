@@ -6,6 +6,7 @@ import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
+import { RouteFetchBar } from '@/components/layout/RouteFetchBar'
 import { cn } from '@/lib/utils'
 import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
@@ -136,6 +137,7 @@ export function AppShell() {
             </button>
           </div>
         </header>
+        <RouteFetchBar />
 
         <main className="min-h-0 flex-1 overflow-hidden">
           <Outlet />

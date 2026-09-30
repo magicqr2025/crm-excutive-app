@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Phone } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -28,7 +29,7 @@ export function LeadCallingPage() {
   }
 
   if (isLoading) {
-    return <div className="flex h-full items-center justify-center text-[13px] text-[var(--text-muted)]">Loading…</div>
+    return <PageLoader fullPage />
   }
 
   if (!lead) {

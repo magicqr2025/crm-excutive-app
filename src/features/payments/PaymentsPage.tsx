@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, X, Pencil } from 'lucide-react'
@@ -164,7 +165,7 @@ export function PaymentsPage() {
         </div>
 
         {isLoading ? (
-          <p className="text-[13px] text-[var(--text-muted)]">Loading…</p>
+          <PageLoader />
         ) : payments.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : 'No payments yet.'}</p>
         ) : (
