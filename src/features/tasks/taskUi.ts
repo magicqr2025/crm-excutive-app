@@ -74,7 +74,8 @@ export function getTaskPermissions(task: CrmTask, userId: string, isAdmin: boole
   const isCreator = userId !== '' && task.created_by === userId
   const isAssignee = userId !== '' && task.assign_to_staff_id === userId
   return {
-    edit: open && (isAdmin || isCreator),
+    // Open: creator/admin. Completed: assignee/admin. Cancelled: locked.
+    edit: task.status !== 'cancelled' && (isAdmin || (open && isCreator) || (task.status === 'completed' && isAssignee)),
     start: task.status === 'created' && (isAdmin || isAssignee),
     complete: open && (isAdmin || isAssignee),
     cancel: open && (isAdmin || isCreator),
