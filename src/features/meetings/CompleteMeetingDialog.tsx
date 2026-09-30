@@ -35,6 +35,7 @@ function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Om
   const owner = meeting.assign_to_staff_id ?? meeting.created_by
   const [summary, setSummary] = useState(meeting.meeting_summary ?? '')
   const [attendees, setAttendees] = useState<string[]>([])
+  const [addTask, setAddTask] = useState(false)
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDeadline, setTaskDeadline] = useState('')
   const [taskAssignee, setTaskAssignee] = useState(owner ?? '')
@@ -45,13 +46,16 @@ function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Om
   const [followupAssignee, setFollowupAssignee] = useState(owner ?? '')
   const [followupNote, setFollowupNote] = useState('')
 
-  const valid = summary.trim() !== '' && (!addFollowup || (followupDate !== '' && followupTime !== ''))
+  const valid =
+    summary.trim() !== '' &&
+    (!addTask || taskTitle.trim() !== '') &&
+    (!addFollowup || (followupDate !== '' && followupTime !== ''))
 
   function submit() {
     onSubmit({
       meetingSummary: summary.trim(),
       attendeeStaffIds: attendees,
-      nextTask: taskTitle.trim()
+      nextTask: addTask && taskTitle.trim()
         ? {
             title: taskTitle.trim(),
             deadline: taskDeadline || undefined,
@@ -83,11 +87,15 @@ function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Om
         <Field label="Who from our team attended?" hint="Tick every colleague who was in the meeting.">
           <AttendeesPicker staff={staff} value={attendees} onChange={setAttendees} lockedId={owner} />
         </Field>
-        <div className="space-y-3 rounded-lg border border-[var(--border)] p-3">
-          <Field label="Next task" hint="Optional — what the client wants us to do next, e.g. “Send quotation”. It is added to Tasks.">
-            <Textarea value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} rows={2} />
-          </Field>
-          {taskTitle.trim() !== '' && (
+        <label className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-h)]">
+          <input type="checkbox" checked={addTask} onChange={(e) => setAddTask(e.target.checked)} />
+          Add a next task for this client
+        </label>
+        {addTask && (
+          <div className="space-y-3 rounded-lg border border-[var(--border)] p-3">
+            <Field label="Next task *" hint="What the client wants us to do next, e.g. “Send quotation”. It is added to Tasks.">
+              <Textarea value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} rows={2} />
+            </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Deadline" hint="Optional">
                 <Input type="datetime-local" value={taskDeadline} onChange={(e) => setTaskDeadline(e.target.value)} />
@@ -98,8 +106,8 @@ function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Om
                 </select>
               </Field>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         <label className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-h)]">
           <input type="checkbox" checked={addFollowup} onChange={(e) => setAddFollowup(e.target.checked)} />
           Schedule a follow-up with this client

@@ -4,6 +4,8 @@ import { LogOut, Megaphone, Phone, CalendarClock, Sun, Moon, Menu, X, Handshake,
 import { useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
+import { Button } from '@/components/ui/Button'
+import { Dialog } from '@/components/ui/Dialog'
 import { cn } from '@/lib/utils'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
 
@@ -45,12 +47,15 @@ export function AppShell() {
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
   const now = useClock()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
 
   useEffect(() => {
     startDeviceCallSync()
   }, [])
 
-  function handleLogout() {
+  // The logout buttons only ask; this runs once the executive confirms.
+  function confirmLogout() {
+    setConfirmLogoutOpen(false)
     logout()
     navigate('/login', { replace: true })
   }
@@ -91,7 +96,7 @@ export function AppShell() {
         </nav>
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => setConfirmLogoutOpen(true)}
           title="Log out"
           className="flex flex-col items-center gap-1 py-2.5 text-[var(--text-muted)] hover:text-[var(--error)]"
         >
@@ -185,13 +190,33 @@ export function AppShell() {
         </nav>
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => setConfirmLogoutOpen(true)}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--error)]"
         >
           <LogOut size={17} />
           Logout
         </button>
       </aside>
+
+      <Dialog
+        open={confirmLogoutOpen}
+        onClose={() => setConfirmLogoutOpen(false)}
+        className="max-w-sm self-center !h-auto rounded-[var(--radius-card)] border border-[var(--border)]"
+      >
+        <Dialog.Header>
+          <Dialog.Title>Log out</Dialog.Title>
+          <Dialog.CloseButton onClose={() => setConfirmLogoutOpen(false)} />
+        </Dialog.Header>
+        <Dialog.Body>
+          <p className="text-[13.5px] text-[var(--text)]">Are you sure you want to log out?</p>
+        </Dialog.Body>
+        <Dialog.Footer>
+          <Button variant="outline" onClick={() => setConfirmLogoutOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={confirmLogout}>Yes, log out</Button>
+        </Dialog.Footer>
+      </Dialog>
     </div>
   )
 }

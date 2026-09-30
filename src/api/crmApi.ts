@@ -289,6 +289,9 @@ export interface CrmCallLog {
   call_type: DeviceCallType | null
   call_time: string | null
   device_call_id: string | null
+  // When the call happened (the list's sort key) — call_time for a synced call
+  // or a disposition paired with one, else created_at.
+  occurred_at: string
   created_at: string
 }
 

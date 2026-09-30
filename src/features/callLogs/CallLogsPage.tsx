@@ -8,6 +8,7 @@ import { useMyCallLogsPage } from '@/api/queries'
 import { useState } from 'react'
 import type { CrmCallLog } from '@/api/crmApi'
 import { PlayRecordingButton } from './PlayRecordingButton'
+import { formatTalkTime } from '@/lib/utils'
 
 function OutcomeBadge({ log }: { log: CrmCallLog }) {
   if (log.source === 'device_sync') {
@@ -21,7 +22,7 @@ function OutcomeBadge({ log }: { log: CrmCallLog }) {
 }
 
 function CallLogRow({ log }: { log: CrmCallLog }) {
-  const timestamp = log.call_time ?? log.created_at
+  const timestamp = log.occurred_at
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3">
       <div className="flex min-w-0 items-start gap-2.5">
@@ -38,7 +39,7 @@ function CallLogRow({ log }: { log: CrmCallLog }) {
       <div className="flex items-center gap-3">
         <div className="text-right font-mono-num text-[11.5px] text-[var(--text-muted)]">
           <p>{new Date(timestamp).toLocaleString()}</p>
-          {log.duration_seconds !== null && <p>{log.duration_seconds}s</p>}
+          {log.duration_seconds !== null && <p>Talk time {formatTalkTime(log.duration_seconds)}</p>}
         </div>
         <PlayRecordingButton log={log} />
       </div>

@@ -74,7 +74,11 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
       {
         onSuccess: (lead) => {
           show({ title: 'Lead added successfully', tone: 'success' })
-          openContact(lead.id)
+          // Straight to the calling screen (Call button, timeline, disposition
+          // form) so the executive can dial right away. Not auto-dialed: a call
+          // still takes an explicit tap on Call.
+          onClose()
+          navigate(`/campaigns/${leadCampaignId}/call/${lead.id}`)
         },
         onError: (error) => {
           const info = duplicateLeadInfo(error)
