@@ -8,6 +8,9 @@ import type { CrmActivityEntry, CrmCallLog, CrmLead } from '@/api/crmApi'
 import { formatDate as formatIstDate, formatTime as formatIstTime } from '@/lib/followupFormat'
 import { cn, formatTalkTime } from '@/lib/utils'
 
+// Entries shown before "View more".
+const COLLAPSED_ENTRIES = 4
+
 type Tab = 'about' | 'timeline'
 
 // created_at / call_time are real UTC instants (unlike followup_date/time,
@@ -115,6 +118,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 // "Timeline" (every disposition, device call and activity entry, newest first).
 export function LeadHistoryPanel({ lead, showAbout = true }: { lead: CrmLead; showAbout?: boolean }) {
   const [tab, setTab] = useState<Tab>('timeline')
+  // Collapsed, the timeline shows only the newest entries; View more opens the rest.
+  const [expanded, setExpanded] = useState(false)
   const { data: callLogs = [], isLoading: loadingCalls } = useCallLogsForLead(lead.id)
   const { data: activity = [], isLoading: loadingActivity } = useLeadActivity(lead.id)
   const { data: statuses = [] } = useLeadStatuses()
@@ -144,6 +149,19 @@ export function LeadHistoryPanel({ lead, showAbout = true }: { lead: CrmLead; sh
   }, [callLogs, activity, statuses, lead.created_at])
 
   const latestRemark = callLogs.find((log) => log.remark)
+  const totalCount = groups.reduce((n, g) => n + g.items.length, 0)
+  const hiddenCount = Math.max(0, totalCount - COLLAPSED_ENTRIES)
+  const visibleGroups = useMemo(() => {
+    if (expanded) return groups
+    let left = COLLAPSED_ENTRIES
+    const out: typeof groups = []
+    for (const g of groups) {
+      if (left <= 0) break
+      out.push({ day: g.day, items: g.items.slice(0, left) })
+      left -= g.items.length
+    }
+    return out
+  }, [groups, expanded])
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
@@ -201,7 +219,7 @@ export function LeadHistoryPanel({ lead, showAbout = true }: { lead: CrmLead; sh
         <PageLoader label="Loading history…" />
       ) : (
         <div className="max-h-[440px] overflow-y-auto px-4 py-3">
-          {groups.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.day} className="grid grid-cols-[92px_1fr] gap-3">
               <div className="pt-1">
                 <span className="inline-block rounded-md bg-[var(--surface-hover)] px-2 py-1 text-[11px] font-medium text-[var(--text)]">
@@ -241,6 +259,15 @@ export function LeadHistoryPanel({ lead, showAbout = true }: { lead: CrmLead; sh
               </ol>
             </div>
           ))}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full rounded-lg border border-[var(--border)] py-2 text-[12.5px] font-medium text-[var(--text)] hover:bg-[var(--surface-hover)]"
+            >
+              {expanded ? 'Show less' : `View more (${hiddenCount} earlier ${hiddenCount === 1 ? 'entry' : 'entries'})`}
+            </button>
+          )}
         </div>
       )}
     </div>

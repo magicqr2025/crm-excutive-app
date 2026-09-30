@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { format } from 'date-fns'
 import { List, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -63,6 +64,8 @@ export function CampaignCard({ campaign }: { campaign: CrmMyLeadCampaign }) {
 
   const worked = campaign.assigned > 0 ? (campaign.assigned - campaign.uncontacted) / campaign.assigned : 0
 
+  const createdOn = campaign.created_at ? format(new Date(campaign.created_at), 'd MMM yyyy') : '—'
+
   async function startCalling() {
     setStarting(true)
     try {
@@ -85,6 +88,7 @@ export function CampaignCard({ campaign }: { campaign: CrmMyLeadCampaign }) {
         <div className="min-w-0">
           <p className="truncate text-[14.5px] font-semibold text-[var(--text-h)]">{campaign.name}</p>
           <p className="mt-0.5 font-mono-num text-[11px] text-[var(--text-muted)]">{String(campaign.lead_count).padStart(2, '0')} leads total</p>
+          <p className="mt-0.5 font-mono-num text-[11px] text-[var(--text-muted)]">Created {createdOn}</p>
         </div>
         <DialRing value={worked} />
       </Card.Header>

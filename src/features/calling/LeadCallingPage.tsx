@@ -1,6 +1,7 @@
-import { PageLoader } from '@/components/ui/Spinner'
+import { useState } from 'react'
+import { PageLoader, Spinner } from '@/components/ui/Spinner'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Phone } from 'lucide-react'
+import { ArrowLeft, History, Phone } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useLead } from '@/api/queries'
 import { fetchNextQueueLead } from '@/api/crmApi'
@@ -14,6 +15,9 @@ export function LeadCallingPage() {
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { data: lead, isLoading } = useLead(leadId)
   const { startCall, assignToMe, isClaiming } = useCallLead()
+  // Timeline is opt-in; remembering *which* lead opened it means moving on to the
+  // next lead in the queue starts collapsed again.
+  const [timelineLeadId, setTimelineLeadId] = useState<string | null>(null)
 
   // Fetched fresh here rather than read from a passively-rendered query hook:
   // the disposition can be submitted faster than a background "next lead"
@@ -43,6 +47,8 @@ export function LeadCallingPage() {
     )
   }
 
+  const showTimeline = timelineLeadId === lead.id
+
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-2.5">
@@ -57,8 +63,24 @@ export function LeadCallingPage() {
 
       <div className="mx-auto w-full max-w-lg space-y-4 p-4">
         <div className="rounded-2xl border border-[var(--border)] p-4">
-          <p className="text-[15px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
-          <p className="font-mono-num text-[13px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
+              <p className="font-mono-num text-[13px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
+            </div>
+            {lead.contact_phone && (
+              <button
+                type="button"
+                onClick={() => startCall({ leadId: lead.id, phone: lead.contact_phone, assignToStaffId: lead.assign_to_staff_id ?? null })}
+                disabled={isClaiming}
+                aria-label={isClaiming ? 'Assigning lead' : `Call ${lead.contact_phone}`}
+                title={`Call ${lead.contact_phone}`}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
+              >
+                {isClaiming ? <Spinner size={16} className="border-white/40 border-t-white" /> : <Phone size={16} />}
+              </button>
+            )}
+          </div>
           {!lead.assign_to_staff_id && (
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <p className="text-[12px] text-[var(--text-muted)]">Unassigned — calling assigns this lead to you.</p>
@@ -73,19 +95,23 @@ export function LeadCallingPage() {
             </div>
           )}
           {lead.deal_value && <p className="mt-2 text-[13px] text-[var(--text)]">Deal Amount: {lead.deal_value}</p>}
-          {lead.contact_phone && (
+          <div className="mt-3">
             <button
               type="button"
-              onClick={() => startCall({ leadId: lead.id, phone: lead.contact_phone, assignToStaffId: lead.assign_to_staff_id ?? null })}
-              disabled={isClaiming}
-              className="mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-[var(--success)] px-4 text-[13px] font-semibold text-[var(--ink)] hover:brightness-110 disabled:opacity-60"
+              aria-expanded={showTimeline}
+              onClick={() => setTimelineLeadId(showTimeline ? null : lead.id)}
+              className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold ${
+                showTimeline
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
+                  : 'border-[var(--border)] text-[var(--text)] hover:bg-[var(--surface-hover)]'
+              }`}
             >
-              <Phone size={14} /> {isClaiming ? 'Assigning…' : 'Call'} <span className="font-mono-num">{lead.contact_phone}</span>
+              <History size={14} /> {showTimeline ? 'Hide timeline' : 'Timeline'}
             </button>
-          )}
+          </div>
         </div>
 
-        <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} />
+        {showTimeline && <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} showAbout={false} />}
 
         <DispositionForm key={lead.id} lead={lead} onSubmitted={handleSubmitted} />
       </div>
