@@ -58,9 +58,10 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
   const [flagNote, setFlagNote] = useState('')
 
   // Reset the form whenever a new lead is loaded (sequential auto-advance
-  // reuses this component across leads rather than remounting it). Flags are
-  // sticky on the lead (not reset to false) — they seed from whatever an
-  // earlier call already flagged, same as orm-whatsapp's CallDispositionDialog.
+  // reuses this component across leads rather than remounting it). Flags
+  // describe THIS call, not a standing edit of the lead — reset blank every
+  // time, same as outcome/reason/remark above, rather than pre-filling from
+  // whatever an earlier call already flagged.
   useEffect(() => {
     setElapsed(0)
     setTimerStopped(false)
@@ -72,12 +73,12 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
     setQuickHours(null)
     setCustomDateTime('')
     setFlags({
-      need_attention: lead.need_attention,
-      feature_requirement: lead.feature_requirement,
-      special_meeting: lead.special_meeting,
-      premium_client: lead.premium_client,
+      need_attention: false,
+      feature_requirement: false,
+      special_meeting: false,
+      premium_client: false,
     })
-    setFlagNote(lead.flag_note ?? '')
+    setFlagNote('')
   }, [lead.id])
 
   // Timer runs automatically from when the lead is opened until submit -- no
