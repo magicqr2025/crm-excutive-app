@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { cn } from '@/lib/utils'
+import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
 
 const NAV_ITEMS = [
@@ -196,6 +197,7 @@ export function AppShell() {
           <LogOut size={17} />
           Logout
         </button>
+        <p className="px-3 pb-1 pt-2 text-[11.5px] text-[var(--text-muted)]">Version {APP_VERSION}</p>
       </aside>
 
       <Dialog
