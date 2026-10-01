@@ -20,6 +20,7 @@ import {
   type FollowupTab,
   fetchContactActiveFollowups,
   fetchDealsPage,
+  fetchMyTargets,
   fetchMeetingsPage,
   fetchPaymentsPage,
   fetchLeadsPage,
@@ -39,6 +40,7 @@ import {
   type CampaignLeadScope,
   type CreateCallLogInput,
   type CreateDealInput,
+  type DealPaymentStatus,
   type UpdateDealInput,
   type CreateMeetingInput,
   type CreatePaymentInput,
@@ -244,8 +246,15 @@ export function useDeals(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['deals', 'contact', contactId] : ['deals'], queryFn: () => fetchDeals(contactId) })
 }
 
-export function useDealsPage(search: string) {
-  return usePagedList({ queryKey: ['deals', 'paged', { search }], fetchPage: (page) => fetchDealsPage({ page, search }) })
+export function useDealsPage(search: string, paymentStatus?: DealPaymentStatus) {
+  return usePagedList({
+    queryKey: ['deals', 'paged', { search, paymentStatus }],
+    fetchPage: (page) => fetchDealsPage({ page, search, paymentStatus }),
+  })
+}
+
+export function useMyTargets() {
+  return useQuery({ queryKey: ['staff-targets', 'mine'], queryFn: fetchMyTargets })
 }
 
 export function useCreateDeal() {
@@ -301,8 +310,12 @@ export function useCreatePayment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: CreatePaymentInput) => createPayment(input),
+    // A payment changes the deal's balance, its collection task, and this month's target.
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['staff-targets'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })
