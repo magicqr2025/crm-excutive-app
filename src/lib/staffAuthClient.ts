@@ -26,6 +26,8 @@ export interface StaffMeResponse {
   name: string
   role: string | null
   businesses: StaffMeBusiness[]
+  /** The company's favicon (https URL), or null until an admin has signed in. */
+  brandFaviconUrl?: string | null
 }
 
 export async function staffLogin(payload: { email: string; password: string }): Promise<StaffAuthUser> {

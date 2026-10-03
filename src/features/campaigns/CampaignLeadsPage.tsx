@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useCampaignLeadsPage, useMyLeadCampaigns } from '@/api/queries'
 import type { CampaignLeadScope } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
+import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 
 const TABS: { value: CampaignLeadScope; label: string }[] = [
   { value: 'mine', label: 'My Leads' },
@@ -96,23 +97,41 @@ export function CampaignLeadsPage() {
               // Another executive's lead: view-only, can't be called from here.
               const othersLead = Boolean(lead.assign_to_staff_id) && lead.assign_to_staff_id !== userId
               return (
-                <button
+                // A div, not a <button>: the WhatsApp links inside can't be nested in one.
+                <div
                   key={lead.id}
-                  type="button"
-                  disabled={othersLead}
-                  onClick={() => navigate(`/campaigns/${campaignId}/call/${lead.id}`)}
+                  role="button"
+                  tabIndex={othersLead ? -1 : 0}
+                  aria-disabled={othersLead}
+                  onClick={() => {
+                    if (!othersLead) navigate(`/campaigns/${campaignId}/call/${lead.id}`)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !othersLead) navigate(`/campaigns/${campaignId}/call/${lead.id}`)
+                  }}
                   className={cn(
                     'rounded-xl border border-[var(--border)] p-3.5 text-left',
-                    othersLead ? 'cursor-default opacity-75' : 'hover:bg-[var(--surface-hover)]',
+                    othersLead ? 'cursor-default opacity-75' : 'cursor-pointer hover:bg-[var(--surface-hover)]',
                   )}
                 >
                   <div className="flex items-center gap-2.5">
                     <Avatar name={lead.contact_name ?? 'Unknown'} size={32} />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
                       <p className="text-[12px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
                     </div>
-                    {othersLead && <Lock size={14} className="ml-auto shrink-0 text-[var(--text-muted)]" />}
+                    {othersLead ? (
+                      <Lock size={14} className="shrink-0 text-[var(--text-muted)]" />
+                    ) : (
+                      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <LeadWhatsAppButtons
+                          contactId={lead.contact_id}
+                          phone={lead.contact_phone}
+                          countryCode={lead.contact_country_code}
+                          ownerStaffId={lead.assign_to_staff_id}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     <Badge tone={lead.lead_status ? 'accent' : 'warning'}>{lead.lead_status ?? 'Fresh Inquiry'}</Badge>
@@ -120,7 +139,7 @@ export function CampaignLeadsPage() {
                     {!lead.assign_to_staff_id && <Badge tone="warning">Unassigned</Badge>}
                     {othersLead && <Badge tone="neutral">{lead.assign_staff_name || 'Another executive'}</Badge>}
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>

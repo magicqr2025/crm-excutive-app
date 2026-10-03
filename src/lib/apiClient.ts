@@ -50,6 +50,14 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   return body.data as T
 }
 
+// For endpoints that stream raw bytes instead of the { success, data } envelope
+// (e.g. a chat attachment through /inbox/messages/:id/media).
+export async function apiRequestBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, credentials: 'include' })
+  if (!res.ok) throw new ApiError(`Request failed (${res.status})`, res.status)
+  return res.blob()
+}
+
 // Like apiRequest, but preserves `meta` (pagination) and any other sibling
 // top-level fields the backend sent alongside `data` (e.g. Deals' `summary`),
 // instead of discarding everything but `data`.

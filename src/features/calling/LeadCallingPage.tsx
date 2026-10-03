@@ -8,6 +8,7 @@ import { fetchNextQueueLead } from '@/api/crmApi'
 import { DispositionForm } from '@/features/calling/DispositionForm'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
 import { useCallLead } from '@/features/calling/useCallLead'
+import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 
 export function LeadCallingPage() {
   const { campaignId = '', leadId = '' } = useParams<{ campaignId: string; leadId: string }>()
@@ -68,6 +69,12 @@ export function LeadCallingPage() {
               <p className="text-[15px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
               <p className="font-mono-num text-[13px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
             </div>
+            <LeadWhatsAppButtons
+              contactId={lead.contact_id}
+              phone={lead.contact_phone}
+              countryCode={lead.contact_country_code}
+              ownerStaffId={lead.assign_to_staff_id}
+            />
             {lead.contact_phone && (
               <button
                 type="button"

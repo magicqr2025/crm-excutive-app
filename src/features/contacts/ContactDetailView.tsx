@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
 import { MeetingCard } from '@/features/meetings/MeetingCard'
 import { useCallLead } from '@/features/calling/useCallLead'
+import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 import {
   useCallLogsForLead,
   useLeadStatuses,
@@ -326,6 +327,13 @@ export function ContactDetailView({
                 </button>
               )}
             </div>
+            <LeadWhatsAppButtons
+              contactId={contactId}
+              phone={contactPhone}
+              countryCode={lead?.contact_country_code}
+              // undefined means "known to be yours" (see assignToStaffId above).
+              ownerStaffId={assignToStaffId === undefined ? userId : assignToStaffId}
+            />
             {contactPhone && (
               <button
                 type="button"

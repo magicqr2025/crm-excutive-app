@@ -16,6 +16,8 @@ import { MeetingsPage } from '@/features/meetings/MeetingsPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
 import { PaymentsPage } from '@/features/payments/PaymentsPage'
 import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
+import { InboxPage } from '@/features/inbox/InboxPage'
+import { ConversationPage } from '@/features/inbox/ConversationPage'
 
 export default function App() {
   return (
@@ -29,6 +31,8 @@ export default function App() {
             <Route path="/campaigns/:campaignId/call/:leadId" element={<LeadCallingPage />} />
             <Route path="/contacts" element={<ContactsPage />} />
             <Route path="/contacts/:leadId" element={<ContactDetailPage />} />
+            <Route path="/inbox" element={<InboxPage />} />
+            <Route path="/inbox/:conversationId" element={<ConversationPage />} />
             <Route path="/followups" element={<FollowupsPage />} />
             <Route path="/followups/:followupId" element={<FollowupDetailPage />} />
             <Route path="/call-logs" element={<CallLogsPage />} />

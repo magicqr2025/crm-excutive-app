@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
+import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 import { useLeadsPage, useLeadCount } from '@/api/queries'
 import { AddNewLeadDialog } from './AddNewLeadDialog'
 
@@ -103,17 +104,30 @@ export function ContactsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {contacts.map((lead) => (
-              <button
+              // A div, not a <button>: the WhatsApp links inside can't be nested in one.
+              <div
                 key={lead.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => navigate(`/contacts/${lead.id}`)}
-                className="rounded-xl border border-[var(--border)] p-3.5 text-left hover:bg-[var(--surface-hover)]"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') navigate(`/contacts/${lead.id}`)
+                }}
+                className="cursor-pointer rounded-xl border border-[var(--border)] p-3.5 text-left hover:bg-[var(--surface-hover)]"
               >
                 <div className="flex items-center gap-2.5">
                   <Avatar name={lead.contact_name ?? 'Unknown'} size={32} />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
                     <p className="text-[12px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
+                  </div>
+                  <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <LeadWhatsAppButtons
+                      contactId={lead.contact_id}
+                      phone={lead.contact_phone}
+                      countryCode={lead.contact_country_code}
+                      ownerStaffId={lead.assign_to_staff_id}
+                    />
                   </div>
                 </div>
                 {(lead.lead_status || lead.lead_campaigns.length > 0 || !lead.assign_to_staff_id) && (
@@ -127,7 +141,7 @@ export function ContactsPage() {
                     ))}
                   </div>
                 )}
-              </button>
+              </div>
             ))}
           </div>
         )}
