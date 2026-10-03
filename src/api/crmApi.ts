@@ -974,3 +974,36 @@ export async function setTaskStatus(id: string, status: Exclude<TaskStatus, 'cre
     body: JSON.stringify({ status }),
   })
 }
+
+// ---- My target ----
+
+export interface CrmIncentiveSlab {
+  from: number
+  to: number
+  rate: number
+}
+
+export interface CrmStaffTarget {
+  id: string
+  staff_id: string
+  target_month: number
+  target_year: number
+  target_amount: number
+  base_salary: number
+  /** Money received that month, net of refunds — computed by the server. */
+  achieved_amount: number
+  collected_from_earlier_months: number
+  booked_amount: number
+  pending_amount: number
+  incentive_slab: CrmIncentiveSlab[] | null
+  /** Set when that month has no target of its own and the latest earlier one is reused. */
+  carried_forward?: boolean
+  carried_from_month?: number
+  carried_from_year?: number
+}
+
+export async function fetchMyTarget(month: number, year: number): Promise<CrmStaffTarget | null> {
+  const params = new URLSearchParams({ business_id: getActiveBusinessId(), month: String(month), year: String(year) })
+  const rows = await apiRequest<CrmStaffTarget[]>(`/crm/staff-targets/list?${params}`, { headers: authHeaders() })
+  return rows.find((t) => t.target_month === month && t.target_year === year) ?? null
+}

@@ -23,6 +23,7 @@ import {
   fetchMyTargets,
   fetchMeetingsPage,
   fetchPaymentsPage,
+  fetchMyTarget,
   fetchLeadsPage,
   fetchLeadById,
   createFollowup,
@@ -418,4 +419,8 @@ export function useUpdateMeetingDetails() {
   return useMeetingMutation(({ id, patch }: { id: string; patch: Parameters<typeof updateMeetingDetails>[1] }) =>
     updateMeetingDetails(id, patch),
   )
+}
+
+export function useMyTarget(month: number, year: number) {
+  return useQuery({ queryKey: ['my-target', month, year], queryFn: () => fetchMyTarget(month, year) })
 }

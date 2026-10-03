@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Megaphone, Phone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, ListChecks, Wallet, Users, Settings, MessagesSquare } from 'lucide-react'
+import { LogOut, Megaphone, Phone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, ListChecks, Wallet, Users, Settings, MessagesSquare, Target } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { to: '/meetings', label: 'Meetings', icon: CalendarCheck },
   { to: '/tasks', label: 'Tasks', icon: ListChecks },
   { to: '/payments', label: 'Payments', icon: Wallet },
+  { to: '/target', label: 'Target', icon: Target },
   { to: '/settings/call-recording', label: 'Recording', icon: Settings },
 ]
 
