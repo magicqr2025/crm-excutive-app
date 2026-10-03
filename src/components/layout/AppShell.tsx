@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Megaphone, Phone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, ListChecks, Wallet, Users, Settings, MessagesSquare, Target } from 'lucide-react'
+import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
@@ -12,14 +12,13 @@ import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
 
 const NAV_ITEMS = [
+  { to: '/home', label: 'Home', icon: Home },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
   { to: '/inbox', label: 'Inbox', icon: MessagesSquare },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/followups', label: 'Follow-ups', icon: CalendarClock },
-  { to: '/call-logs', label: 'Call Logs', icon: Phone },
   { to: '/deals', label: 'Deals', icon: Handshake },
   { to: '/meetings', label: 'Meetings', icon: CalendarCheck },
-  { to: '/tasks', label: 'Tasks', icon: ListChecks },
   { to: '/payments', label: 'Payments', icon: Wallet },
   { to: '/target', label: 'Target', icon: Target },
   { to: '/settings/call-recording', label: 'Recording', icon: Settings },

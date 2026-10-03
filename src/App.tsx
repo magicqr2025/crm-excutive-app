@@ -3,6 +3,7 @@ import { LoginPage } from '@/features/auth/LoginPage'
 import { RequireAuth } from '@/features/auth/RequireAuth'
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { AppShell } from '@/components/layout/AppShell'
+import { HomePage } from '@/features/home/HomePage'
 import { CampaignsPage } from '@/features/campaigns/CampaignsPage'
 import { CampaignLeadsPage } from '@/features/campaigns/CampaignLeadsPage'
 import { LeadCallingPage } from '@/features/calling/LeadCallingPage'
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
+            <Route path="/home" element={<HomePage />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/campaigns/:campaignId/leads" element={<CampaignLeadsPage />} />
             <Route path="/campaigns/:campaignId/call/:leadId" element={<LeadCallingPage />} />
@@ -45,7 +47,7 @@ export default function App() {
             <Route path="/settings/call-recording" element={<CallRecordingSettingsPage />} />
           </Route>
         </Route>
-        <Route path="*" element={<Navigate to="/campaigns" replace />} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </ToastProvider>
   )
