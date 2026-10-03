@@ -19,7 +19,7 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login({ email, password })
-      navigate('/campaigns', { replace: true })
+      navigate('/home', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
