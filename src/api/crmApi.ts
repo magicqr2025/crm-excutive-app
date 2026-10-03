@@ -56,6 +56,7 @@ export interface CrmLead {
   contact_name: string | null
   contact_email: string | null
   contact_phone: string | null
+  contact_country_code?: string | null
   lead_status: string | null
   lead_status_color: string | null
   tag_id: string | null
