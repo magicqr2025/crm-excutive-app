@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "642363746845",
-    "project_id": "executive-app-aea67",
-    "storage_bucket": "executive-app-aea67.firebasestorage.app"
+    "project_number": "720726705310",
+    "project_id": "executive-app-test",
+    "storage_bucket": "executive-app-test.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:642363746845:android:07722c353f8be51b94f4f4",
+        "mobilesdk_app_id": "1:720726705310:android:61e6b667769b17cbfb278f",
         "android_client_info": {
           "package_name": "com.whatscrm.executive"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCsjeX3MJaAtg6skYB_FdcWrP8SA4WV1Co"
+          "current_key": "AIzaSyBfFyn1s9v8n5kpa3P7Az08xQXajAo10dc"
         }
       ],
       "services": {

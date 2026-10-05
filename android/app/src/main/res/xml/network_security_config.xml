@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allows plain HTTP (not HTTPS) to this one specific IP only — Android blocks
+  cleartext traffic by default since API 28 (this app targets 36). This exists
+  purely to test against a local dev crmbackend over LAN (see executive-webapp/.env's
+  VITE_API_BASE_URL). If you change networks and the dev machine's IP changes,
+  update the domain below to match, or switch the .env back to the HTTPS backend
+  and remove the networkSecurityConfig reference in AndroidManifest.xml.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.1.7</domain>
+    </domain-config>
+</network-security-config>
