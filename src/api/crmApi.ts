@@ -858,7 +858,8 @@ export async function createFollowup(input: CreateFollowupInput): Promise<CrmFol
 // ---- Tasks ----
 
 export type TaskStatus = 'created' | 'ongoing' | 'completed' | 'cancelled'
-export type TaskType = 'quotation' | 'call' | 'demo' | 'documents' | 'payment_collection' | 'other'
+export type TaskType = 'quotation' | 'call' | 'demo' | 'documents' | 'payment_collection' | 'ticket' | 'other'
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 /** List filter: a status, or 'open' = created + ongoing. */
 export type TaskStatusFilter = TaskStatus | 'open'
 
@@ -869,6 +870,7 @@ export interface CrmTask {
   meeting_id: string | null
   title: string
   task_type: TaskType
+  priority: TaskPriority
   status: TaskStatus
   deadline: string | null
   assign_to_staff_id: string
@@ -888,6 +890,7 @@ export interface StaffMember {
 export interface CreateTaskInput {
   title: string
   taskType?: TaskType
+  priority?: TaskPriority
   deadline?: string // datetime-local value or ISO
   assignToStaffId?: string
   contactId?: string
@@ -896,6 +899,7 @@ export interface CreateTaskInput {
 export interface UpdateTaskInput {
   title?: string
   taskType?: TaskType
+  priority?: TaskPriority
   deadline?: string | null // null clears it
   assignToStaffId?: string
 }
@@ -913,6 +917,8 @@ export async function fetchTasksPage(opts: {
   page: number
   search?: string
   status?: TaskStatusFilter
+  taskType?: TaskType
+  excludeTaskType?: TaskType
   assigneeId?: string
 }): Promise<PageResult<CrmTask>> {
   const businessId = getActiveBusinessId()
@@ -922,6 +928,8 @@ export async function fetchTasksPage(opts: {
     per_page: String(PAGE_SIZE),
     ...(opts.search ? { search: opts.search } : {}),
     ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.taskType ? { task_type: opts.taskType } : {}),
+    ...(opts.excludeTaskType ? { exclude_task_type: opts.excludeTaskType } : {}),
     ...(opts.assigneeId ? { assign_to_staff_id: opts.assigneeId } : {}),
   })
   const result = await apiRequestWithMeta<CrmTask[]>(`/crm/tasks/list?${params}`, { headers: authHeaders() })
@@ -937,6 +945,7 @@ export async function createTask(input: CreateTaskInput): Promise<CrmTask> {
       business_id: businessId,
       title: input.title,
       ...(input.taskType ? { task_type: input.taskType } : {}),
+      ...(input.priority ? { priority: input.priority } : {}),
       ...(input.deadline ? { deadline: new Date(input.deadline).toISOString() } : {}),
       ...(input.assignToStaffId ? { assign_to_staff_id: input.assignToStaffId } : {}),
       ...(input.contactId ? { contact_id: input.contactId } : {}),
@@ -951,6 +960,7 @@ export async function updateTask(id: string, patch: UpdateTaskInput): Promise<Cr
     body: JSON.stringify({
       ...(patch.title !== undefined ? { title: patch.title } : {}),
       ...(patch.taskType !== undefined ? { task_type: patch.taskType } : {}),
+      ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
       ...(patch.deadline !== undefined
         ? { deadline: patch.deadline === null ? null : new Date(patch.deadline).toISOString() }
         : {}),

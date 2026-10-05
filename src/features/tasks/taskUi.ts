@@ -1,4 +1,4 @@
-import type { CrmTask, StaffMember, TaskStatus, TaskType } from '@/api/crmApi'
+import type { CrmTask, StaffMember, TaskPriority, TaskStatus, TaskType } from '@/api/crmApi'
 
 export const TASK_TYPE_OPTIONS: { value: TaskType; label: string }[] = [
   { value: 'quotation', label: 'Send quotation' },
@@ -6,6 +6,7 @@ export const TASK_TYPE_OPTIONS: { value: TaskType; label: string }[] = [
   { value: 'demo', label: 'Demo' },
   { value: 'documents', label: 'Documents' },
   { value: 'payment_collection', label: 'Payment collection' },
+  { value: 'ticket', label: 'Ticket' },
   { value: 'other', label: 'Other' },
 ]
 
@@ -80,4 +81,18 @@ export function getTaskPermissions(task: CrmTask, userId: string, isAdmin: boole
     complete: open && (isAdmin || isAssignee),
     cancel: open && (isAdmin || isCreator),
   }
+}
+
+export const TASK_PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'urgent', label: 'Urgent' },
+]
+
+export const TASK_PRIORITY_TONE: Record<TaskPriority, 'neutral' | 'accent' | 'warning' | 'error'> = {
+  low: 'neutral',
+  medium: 'accent',
+  high: 'warning',
+  urgent: 'error',
 }

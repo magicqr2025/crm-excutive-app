@@ -61,6 +61,7 @@ import {
   type UpdateTaskInput,
   type TaskStatus,
   type TaskStatusFilter,
+  type TaskType,
 } from '@/api/crmApi'
 
 export function useMyLeadCampaigns() {
@@ -345,7 +346,7 @@ export function useStaffList() {
   return useQuery({ queryKey: ['staff-list'], queryFn: fetchStaff, staleTime: 5 * 60 * 1000 })
 }
 
-export function useTasksPage(filters: { search: string; status?: TaskStatusFilter; assigneeId?: string }) {
+export function useTasksPage(filters: { search: string; status?: TaskStatusFilter; assigneeId?: string; taskType?: TaskType; excludeTaskType?: TaskType }) {
   return usePagedList({
     queryKey: ['tasks', 'paged', filters],
     fetchPage: (page) => fetchTasksPage({ page, ...filters }),
