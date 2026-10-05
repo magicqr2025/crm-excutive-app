@@ -46,6 +46,7 @@ import {
   type UpdateDealInput,
   type CreateMeetingInput,
   type CreatePaymentInput,
+  type PaymentFilters,
   type UpdatePaymentInput,
   type UpdateLeadInput,
   fetchStaff,
@@ -309,8 +310,8 @@ export function usePayments(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['payments', 'contact', contactId] : ['payments'], queryFn: () => fetchPayments(contactId) })
 }
 
-export function usePaymentsPage(search: string) {
-  return usePagedList({ queryKey: ['payments', 'paged', { search }], fetchPage: (page) => fetchPaymentsPage({ page, search }) })
+export function usePaymentsPage(filters: PaymentFilters) {
+  return usePagedList({ queryKey: ['payments', 'paged', filters], fetchPage: (page) => fetchPaymentsPage({ page, ...filters }) })
 }
 
 export function useCreatePayment() {

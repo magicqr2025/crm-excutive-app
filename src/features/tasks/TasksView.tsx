@@ -112,15 +112,15 @@ export function TasksView({ userId, isAdmin, kind = 'task' }: TasksViewProps) {
       <div className="space-y-2 px-4 pt-3">
         <SearchBox value={search} onSubmit={setSearch} placeholder={`Search by ${noun} or client…`} />
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg border border-[var(--border)] p-1">
+          <div className="flex w-full items-center gap-1 overflow-x-auto rounded-lg border border-[var(--border)] p-1 sm:w-auto">
             {FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
                 className={
                   filter === f.value
-                    ? 'rounded-md bg-[var(--accent)] px-3 py-1.5 text-[12.5px] font-medium text-[var(--ink)]'
-                    : 'rounded-md px-3 py-1.5 text-[12.5px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-hover)]'
+                    ? 'flex-1 whitespace-nowrap rounded-md bg-[var(--accent)] px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--ink)]'
+                    : 'flex-1 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-hover)]'
                 }
               >
                 {f.label}

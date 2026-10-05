@@ -19,6 +19,7 @@ import {
   usePayments,
   useUpdateLead,
   useLeadActivity,
+  useActiveProducts,
   useCreateDeal,
   useUpdateDeal,
   useCreateMeeting,
@@ -116,6 +117,8 @@ export function ContactDetailView({
   const [dealName, setDealName] = useState('')
   const [dealAmount, setDealAmount] = useState('')
   const [dealDetails, setDealDetails] = useState('')
+  const [dealProductId, setDealProductId] = useState('')
+  const { data: products = [] } = useActiveProducts()
 
   const [meetingFormOpen, setMeetingFormOpen] = useState(false)
   const [meetingTime, setMeetingTime] = useState('')
@@ -176,13 +179,14 @@ export function ContactDetailView({
   function submitDeal() {
     if (!dealName.trim() || !dealAmount) return
     createDeal.mutate(
-      { contactId, dealName: dealName.trim(), dealAmount: Number(dealAmount), dealDetails: dealDetails.trim() || undefined },
+      { contactId, productId: dealProductId || undefined, dealName: dealName.trim(), dealAmount: Number(dealAmount), dealDetails: dealDetails.trim() || undefined },
       {
         onSuccess: () => {
           show({ title: 'Deal added', tone: 'success' })
           setDealName('')
           setDealAmount('')
           setDealDetails('')
+          setDealProductId('')
           setDealFormOpen(false)
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to add deal', tone: 'error' }),
@@ -299,11 +303,11 @@ export function ContactDetailView({
               <Badge tone={STATUS_TONE[followupStatus]}>{STATUS_LABEL[followupStatus]}</Badge>
             </div>
           )}
-          <div className="mt-3 grid grid-cols-5 gap-2">
+          <div className="mt-3 grid grid-cols-[2.5rem_2.5rem_repeat(3,minmax(0,1fr))] gap-1.5">
             <Button
               variant={activeTab === 'overview' ? 'primary' : 'outline'}
               size="sm"
-              className="justify-center px-2"
+              className="justify-center px-1"
               onClick={() => setActiveTab('overview')}
             >
               <LayoutGrid size={14} />
@@ -311,7 +315,7 @@ export function ContactDetailView({
             <Button
               variant={activeTab === 'followup' ? 'primary' : 'outline'}
               size="sm"
-              className="justify-center px-2"
+              className="justify-center px-1"
               aria-label="Follow-up"
               title="Follow-up"
               onClick={() => setActiveTab('followup')}
@@ -321,26 +325,26 @@ export function ContactDetailView({
             <Button
               variant={activeTab === 'deal' ? 'primary' : 'outline'}
               size="sm"
-              className="justify-center px-2"
+              className="justify-center px-1"
               onClick={() => setActiveTab('deal')}
             >
-              <Handshake size={14} /> Deal
+              <Handshake size={14} className="max-sm:hidden" /> Deal
             </Button>
             <Button
               variant={activeTab === 'meeting' ? 'primary' : 'outline'}
               size="sm"
-              className="justify-center px-2"
+              className="justify-center px-1"
               onClick={() => setActiveTab('meeting')}
             >
-              <CalendarCheck size={14} /> Meeting
+              <CalendarCheck size={14} className="max-sm:hidden" /> Meeting
             </Button>
             <Button
               variant={activeTab === 'payment' ? 'primary' : 'outline'}
               size="sm"
-              className="justify-center px-2"
+              className="justify-center px-1"
               onClick={() => setActiveTab('payment')}
             >
-              <Wallet size={14} /> Payment
+              <Wallet size={14} className="max-sm:hidden" /> Payment
             </Button>
           </div>
         </div>
@@ -477,6 +481,28 @@ export function ContactDetailView({
           </div>
           {dealFormOpen && (
             <div className="mt-2 space-y-3 rounded-lg border border-[var(--border)] p-3">
+              <Field label="Product" hint="Optional">
+                <select
+                  value={dealProductId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setDealProductId(id)
+                    const product = products.find((p) => p.id === id)
+                    if (!product) return
+                    // Fills the name and amount if still empty — both stay editable.
+                    if (!dealName.trim()) setDealName(product.name)
+                    if (!dealAmount && product.selling_price > 0) setDealAmount(String(product.selling_price))
+                  }}
+                  className="h-10 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
+                >
+                  <option value="">No product</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Deal name">
                 <Input value={dealName} onChange={(e) => setDealName(e.target.value)} placeholder="e.g. Annual plan upgrade" />
               </Field>
@@ -548,10 +574,11 @@ export function ContactDetailView({
                   </div>
                 ) : (
                   <div key={deal.id} className="rounded-lg border border-[var(--border)] p-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[12.5px] font-semibold text-[var(--text-h)]">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                      <p className="min-w-0 flex-1 basis-32 break-words text-[12.5px] font-semibold text-[var(--text-h)]">
                         <span className="font-normal text-[var(--text-muted)]">Deal name: </span>
                         {deal.deal_name}
+                        {deal.product_name && <span className="font-normal text-[var(--text-muted)]"> · {deal.product_name}</span>}
                       </p>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Badge tone={DEAL_STATUS_TONE[deal.status]}>Status: {deal.status}</Badge>

@@ -166,6 +166,12 @@
   ::-webkit-scrollbar-thumb:hover {
     background: color-mix(in srgb, var(--text-muted) 50%, transparent);
   }
+  /* Touch screens scroll by swipe — the bars only add clutter and steal width. */
+  @media (pointer: coarse) {
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }
 
 @layer utilities {

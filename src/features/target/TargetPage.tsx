@@ -26,15 +26,17 @@ export function TargetPage() {
         title="My target"
         subtitle="Your monthly target, pay and incentive."
         action={
-          <div className="flex items-center gap-2">
-            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className={SELECT_CLASSES} aria-label="Month">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className={`${SELECT_CLASSES} min-w-0 flex-1`} aria-label="Month">
               {MONTHS.map((m, i) => (
                 <option key={m} value={i + 1}>
                   {m}
                 </option>
               ))}
             </select>
-            <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value) || now.getFullYear())} className="w-24" aria-label="Year" />
+            <div className="w-24 shrink-0">
+              <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value) || now.getFullYear())} aria-label="Year" />
+            </div>
           </div>
         }
       />
