@@ -792,11 +792,31 @@ export async function fetchPayments(contactId?: string): Promise<{ payments: Crm
   return { payments: result.data, successAmount: result.summary?.success_amount ?? 0 }
 }
 
-export async function fetchPaymentsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmPayment>> {
+export interface PaymentFilters {
+  search?: string
+  month?: number
+  year?: number
+  mop?: string
+  kind?: 'payment' | 'refund'
+}
+
+export async function fetchPaymentsPage(opts: PaymentFilters & { page: number }): Promise<PageResult<CrmPayment>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
-  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number } }>(`/crm/payment/list?${params}`, { headers: authHeaders() })
-  return toPageResult(result.data, result.meta, { success_amount: result.summary?.success_amount ?? 0 })
+  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE) })
+  if (opts.search) params.set('search', opts.search)
+  if (opts.month) params.set('month', String(opts.month))
+  if (opts.year) params.set('year', String(opts.year))
+  if (opts.mop) params.set('mop', opts.mop)
+  if (opts.kind) params.set('kind', opts.kind)
+  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number; received_amount?: number; refunded_amount?: number } }>(
+    `/crm/payment/list?${params}`,
+    { headers: authHeaders() },
+  )
+  return toPageResult(result.data, result.meta, {
+    success_amount: result.summary?.success_amount ?? 0,
+    received_amount: result.summary?.received_amount ?? 0,
+    refunded_amount: result.summary?.refunded_amount ?? 0,
+  })
 }
 
 export interface CreatePaymentInput {
