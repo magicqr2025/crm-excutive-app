@@ -21,6 +21,7 @@ import {
   fetchContactActiveFollowups,
   fetchDealsPage,
   fetchActiveProducts,
+  fetchMyTargets,
   fetchMeetingsPage,
   fetchPaymentsPage,
   fetchMyTarget,
@@ -41,10 +42,10 @@ import {
   type CampaignLeadScope,
   type CreateCallLogInput,
   type CreateDealInput,
+  type DealPaymentStatus,
   type UpdateDealInput,
   type CreateMeetingInput,
   type CreatePaymentInput,
-  type PaymentFilters,
   type UpdatePaymentInput,
   type UpdateLeadInput,
   fetchStaff,
@@ -252,8 +253,15 @@ export function useActiveProducts() {
   return useQuery({ queryKey: ['products', 'active'], queryFn: fetchActiveProducts })
 }
 
-export function useDealsPage(search: string) {
-  return usePagedList({ queryKey: ['deals', 'paged', { search }], fetchPage: (page) => fetchDealsPage({ page, search }) })
+export function useDealsPage(search: string, paymentStatus?: DealPaymentStatus) {
+  return usePagedList({
+    queryKey: ['deals', 'paged', { search, paymentStatus }],
+    fetchPage: (page) => fetchDealsPage({ page, search, paymentStatus }),
+  })
+}
+
+export function useMyTargets() {
+  return useQuery({ queryKey: ['staff-targets', 'mine'], queryFn: fetchMyTargets })
 }
 
 export function useCreateDeal() {
@@ -301,18 +309,20 @@ export function usePayments(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['payments', 'contact', contactId] : ['payments'], queryFn: () => fetchPayments(contactId) })
 }
 
-export function usePaymentsPage(filters: PaymentFilters) {
-  return usePagedList({ queryKey: ['payments', 'paged', filters], fetchPage: (page) => fetchPaymentsPage({ page, ...filters }) })
+export function usePaymentsPage(search: string) {
+  return usePagedList({ queryKey: ['payments', 'paged', { search }], fetchPage: (page) => fetchPaymentsPage({ page, search }) })
 }
 
 export function useCreatePayment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: CreatePaymentInput) => createPayment(input),
+    // A payment changes the deal's balance, its collection task, and this month's target.
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })
-      queryClient.invalidateQueries({ queryKey: ['my-target'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['staff-targets'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })

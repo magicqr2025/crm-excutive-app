@@ -12,13 +12,16 @@ import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
 import { useActiveProducts, useDealsPage, useCreateDeal, useUpdateDeal } from '@/api/queries'
-import type { CrmContact, CrmDeal, DealStatus } from '@/api/crmApi'
+import type { CrmContact, CrmDeal, DealPaymentStatus, DealStatus } from '@/api/crmApi'
+import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
 
 const STATUS_TONE: Record<DealStatus, 'success' | 'error' | 'accent'> = {
   accepted: 'success',
   canceled: 'error',
   created: 'accent',
 }
+
+const PAYMENT_FILTER_LABEL: Record<DealPaymentStatus, string> = { partial: 'Partial', unpaid: 'Unpaid', paid: 'Paid' }
 
 const STATUS_OPTIONS: DealStatus[] = ['created', 'accepted', 'canceled']
 
@@ -31,7 +34,8 @@ export function DealsPage() {
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  const { items: deals, total, summary, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useDealsPage(search)
+  const [paymentFilter, setPaymentFilter] = useState<DealPaymentStatus | undefined>(undefined)
+  const { items: deals, total, summary, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useDealsPage(search, paymentFilter)
   const createDeal = useCreateDeal()
   const updateDeal = useUpdateDeal()
   const { show } = useToast()
@@ -179,6 +183,13 @@ export function DealsPage() {
               {total} {total === 1 ? 'result' : 'results'} for “{search}”
             </p>
           )}
+          <div className="flex gap-1.5">
+            {([undefined, 'partial', 'unpaid', 'paid'] as const).map((value) => (
+              <Button key={value ?? 'all'} size="sm" variant={paymentFilter === value ? 'primary' : 'outline'} onClick={() => setPaymentFilter(value)}>
+                {value ? PAYMENT_FILTER_LABEL[value] : 'All'}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {isLoading ? (
@@ -252,6 +263,7 @@ export function DealsPage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Badge tone={STATUS_TONE[deal.status]}>{deal.status}</Badge>
+                        {deal.status !== 'canceled' && <DealPaymentBadge status={deal.payment_status} />}
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -265,6 +277,7 @@ export function DealsPage() {
                       </div>
                     </div>
                     <p className="mt-2.5 font-mono-num text-[17px] font-semibold text-[var(--accent-strong)]">{formatMoney(deal.deal_amount)}</p>
+                    <DealPaymentSummary deal={deal} />
                     {deal.deal_details && <p className="mt-1 truncate text-[12px] text-[var(--text-muted)]">{deal.deal_details}</p>}
                   </Card.Body>
                 </Card>

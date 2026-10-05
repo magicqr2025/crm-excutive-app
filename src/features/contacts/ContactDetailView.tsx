@@ -22,17 +22,16 @@ import {
   useCreateDeal,
   useUpdateDeal,
   useCreateMeeting,
-  useCreatePayment,
   useCreateFollowup,
   useContactActiveFollowups,
-  useUpdatePayment,
 } from '@/api/queries'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
+import { RecordPaymentForm } from '@/features/payments/RecordPaymentForm'
+import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
 import { formatTalkTime } from '@/lib/utils'
-import type { CrmLead, DealStatus, CrmDeal, CrmPayment } from '@/api/crmApi'
+import type { CrmLead, DealStatus, CrmDeal } from '@/api/crmApi'
 
-const MOP_OPTIONS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
 
 function todayDateInput() {
   return new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, in the viewer's local calendar day
@@ -106,8 +105,6 @@ export function ContactDetailView({
   const createDeal = useCreateDeal()
   const updateDeal = useUpdateDeal()
   const createMeeting = useCreateMeeting()
-  const createPayment = useCreatePayment()
-  const updatePayment = useUpdatePayment()
   const { show } = useToast()
   const [discussionDraft, setDiscussionDraft] = useState('')
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
@@ -128,21 +125,12 @@ export function ContactDetailView({
   const [meetingPricing, setMeetingPricing] = useState('')
 
   const [paymentFormOpen, setPaymentFormOpen] = useState(false)
-  const [paymentAmount, setPaymentAmount] = useState('')
-  const [paymentCurrency, setPaymentCurrency] = useState('INR')
-  const [paymentMop, setPaymentMop] = useState(MOP_OPTIONS[0])
-  const [paymentNotes, setPaymentNotes] = useState('')
-  const [paymentDate, setPaymentDate] = useState(todayDateInput())
 
   const [editingDealId, setEditingDealId] = useState<string | null>(null)
   const [editDealName, setEditDealName] = useState('')
   const [editDealAmount, setEditDealAmount] = useState('')
   const [editDealDetails, setEditDealDetails] = useState('')
   const [editDealStatus, setEditDealStatus] = useState<DealStatus>('created')
-
-  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null)
-  const [editPaymentAmount, setEditPaymentAmount] = useState('')
-  const [editPaymentStatus, setEditPaymentStatus] = useState<0 | 1>(1)
 
   const [lastCall, ...earlierCalls] = callLogs
   const meetings = allMeetings
@@ -228,32 +216,6 @@ export function ContactDetailView({
     )
   }
 
-  function submitPayment() {
-    if (!paymentAmount) return
-    createPayment.mutate(
-      {
-        contactId,
-        amount: Number(paymentAmount),
-        currency: paymentCurrency,
-        mop: paymentMop,
-        notes: paymentNotes.trim() || undefined,
-        paymentDate: paymentDate || undefined,
-      },
-      {
-        onSuccess: () => {
-          show({ title: 'Payment logged', tone: 'success' })
-          setPaymentAmount('')
-          setPaymentCurrency('INR')
-          setPaymentMop(MOP_OPTIONS[0])
-          setPaymentNotes('')
-          setPaymentDate(todayDateInput())
-          setPaymentFormOpen(false)
-        },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to log payment', tone: 'error' }),
-      },
-    )
-  }
-
   function startEditDeal(deal: CrmDeal) {
     setEditingDealId(deal.id)
     setEditDealName(deal.deal_name)
@@ -275,26 +237,6 @@ export function ContactDetailView({
           setEditingDealId(null)
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to update deal', tone: 'error' }),
-      },
-    )
-  }
-
-  function startEditPayment(payment: CrmPayment) {
-    setEditingPaymentId(payment.id)
-    setEditPaymentAmount(String(payment.amount))
-    setEditPaymentStatus(payment.status)
-  }
-
-  function saveEditPayment() {
-    if (!editingPaymentId || !editPaymentAmount) return
-    updatePayment.mutate(
-      { id: editingPaymentId, patch: { amount: Number(editPaymentAmount), status: editPaymentStatus } },
-      {
-        onSuccess: () => {
-          show({ title: 'Payment updated', tone: 'success' })
-          setEditingPaymentId(null)
-        },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to update payment', tone: 'error' }),
       },
     )
   }
@@ -613,6 +555,7 @@ export function ContactDetailView({
                       </p>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Badge tone={DEAL_STATUS_TONE[deal.status]}>Status: {deal.status}</Badge>
+                        {deal.status !== 'canceled' && <DealPaymentBadge status={deal.payment_status} />}
                         <button
                           onClick={() => startEditDeal(deal)}
                           title="Edit deal"
@@ -626,6 +569,7 @@ export function ContactDetailView({
                       <span className="text-[12px] font-normal text-[var(--text-muted)]">Amount: </span>
                       Rs. <span className="font-mono-num">{formatMoney(deal.deal_amount)}</span>
                     </p>
+                    <DealPaymentSummary deal={deal} />
                     {deal.deal_details && (
                       <p className="mt-1 text-[12px] text-[var(--text-muted)]">
                         <span className="text-[var(--text-muted)]">Details: </span>
@@ -711,53 +655,8 @@ export function ContactDetailView({
             </Button>
           </div>
           {paymentFormOpen && (
-            <div className="mt-2 space-y-3 rounded-lg border border-[var(--border)] p-3">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Amount">
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    placeholder="0"
-                  />
-                </Field>
-                <Field label="Currency">
-                  <Input value={paymentCurrency} onChange={(e) => setPaymentCurrency(e.target.value.toUpperCase())} maxLength={3} />
-                </Field>
-              </div>
-              <Field label="Payment date">
-                <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
-              </Field>
-              <Field label="Payment method">
-                <select
-                  value={paymentMop}
-                  onChange={(e) => setPaymentMop(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
-                >
-                  {MOP_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Notes" hint="Optional">
-                <Textarea value={paymentNotes} onChange={(e) => setPaymentNotes(e.target.value)} rows={2} placeholder="Reference / notes…" />
-              </Field>
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setPaymentFormOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 justify-center"
-                  onClick={submitPayment}
-                  disabled={!paymentAmount || createPayment.isPending}
-                >
-                  {createPayment.isPending ? 'Saving…' : 'Save Payment'}
-                </Button>
-              </div>
+            <div className="mt-2">
+              <RecordPaymentForm contactId={contactId} onDone={() => setPaymentFormOpen(false)} onCancel={() => setPaymentFormOpen(false)} />
             </div>
           )}
           {isLoadingPayments ? (
@@ -766,55 +665,21 @@ export function ContactDetailView({
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">No payments from this contact yet.</p>
           ) : (
             <div className="mt-2 space-y-2">
-              {payments.map((payment) =>
-                editingPaymentId === payment.id ? (
-                  <div key={payment.id} className="space-y-3 rounded-lg border border-[var(--border)] p-2.5">
-                    <Field label="Amount">
-                      <Input type="number" inputMode="decimal" value={editPaymentAmount} onChange={(e) => setEditPaymentAmount(e.target.value)} />
-                    </Field>
-                    <Field label="Status">
-                      <select
-                        value={editPaymentStatus}
-                        onChange={(e) => setEditPaymentStatus(Number(e.target.value) as 0 | 1)}
-                        className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
-                      >
-                        <option value={1}>Paid</option>
-                        <option value={0}>Pending</option>
-                      </select>
-                    </Field>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setEditingPaymentId(null)}>
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 justify-center"
-                        onClick={saveEditPayment}
-                        disabled={!editPaymentAmount || updatePayment.isPending}
-                      >
-                        {updatePayment.isPending ? 'Saving…' : 'Save Changes'}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
+              {payments.map((payment) => {
+                const isRefund = payment.kind === 'refund'
+                return (
                   <div key={payment.id} className="rounded-lg border border-[var(--border)] p-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[14px] font-semibold text-[var(--accent-strong)]">
-                        <span className="text-[12px] font-normal text-[var(--text-muted)]">Amount: </span>
+                      <p className={`text-[14px] font-semibold ${isRefund ? 'text-[var(--error)]' : 'text-[var(--accent-strong)]'}`}>
+                        <span className="text-[12px] font-normal text-[var(--text-muted)]">{isRefund ? 'Refund: ' : 'Amount: '}</span>
+                        {isRefund ? '−' : ''}
                         {payment.currency} <span className="font-mono-num">{formatMoney(payment.amount)}</span>
                       </p>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Badge tone={payment.status === 1 ? 'success' : 'warning'}>
-                          Status: {payment.status === 1 ? 'Paid' : 'Pending'}
-                        </Badge>
-                        <button
-                          onClick={() => startEditPayment(payment)}
-                          title="Edit payment"
-                          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                      </div>
+                      {isRefund ? (
+                        <Badge tone="error">Refund</Badge>
+                      ) : (
+                        <Badge tone={payment.status === 1 ? 'success' : 'warning'}>{payment.status === 1 ? 'Paid' : 'Voided'}</Badge>
+                      )}
                     </div>
                     <p className="mt-1 text-[12px] text-[var(--text-muted)]">
                       <span>Method: </span>
@@ -833,8 +698,8 @@ export function ContactDetailView({
                       </p>
                     )}
                   </div>
-                ),
-              )}
+                )
+              })}
             </div>
           )}
         </div>

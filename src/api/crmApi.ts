@@ -478,13 +478,19 @@ export interface CrmDeal {
   status: DealStatus
   contact_id: string
   contact_name: string | null
-  /** Derived from the payment ledger on the server. */
-  net_paid_amount?: number
-  balance_amount?: number
-  expected_balance_date?: string | null
-  short_payment_reason?: string | null
+  /** Money received, refunds and balance are derived from the payment ledger on the server. */
+  paid_amount: number
+  refunded_amount: number
+  net_paid_amount: number
+  balance_amount: number
+  payment_status: DealPaymentStatus
+  /** Why the deal isn't fully paid (set when a short payment is recorded). */
+  short_payment_reason: string | null
+  expected_balance_date: string | null
   created_at: string
 }
+
+export type DealPaymentStatus = 'unpaid' | 'partial' | 'paid'
 
 export async function fetchDeals(contactId?: string): Promise<{ deals: CrmDeal[]; totalAmount: number }> {
   const businessId = getActiveBusinessId()
@@ -495,9 +501,15 @@ export async function fetchDeals(contactId?: string): Promise<{ deals: CrmDeal[]
   return { deals: result.data, totalAmount: result.summary?.total_amount ?? 0 }
 }
 
-export async function fetchDealsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmDeal>> {
+export async function fetchDealsPage(opts: { page: number; search?: string; paymentStatus?: DealPaymentStatus }): Promise<PageResult<CrmDeal>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
+  const params = new URLSearchParams({
+    business_id: businessId,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.paymentStatus ? { payment_status: opts.paymentStatus } : {}),
+  })
   const result = await apiRequestWithMeta<CrmDeal[], { summary?: { total_amount: number } }>(`/deal/list?${params}`, { headers: authHeaders() })
   return toPageResult(result.data, result.meta, { total_amount: result.summary?.total_amount ?? 0 })
 }
@@ -731,6 +743,26 @@ export async function updateMeetingDetails(id: string, patch: UpdateMeetingDetai
   })
 }
 
+// ---- Monthly target (own only; the server limits staff to their own row) ----
+
+export interface CrmStaffTarget {
+  id: string
+  staff_id: string
+  target_month: number
+  target_year: number
+  target_amount: number
+  /** Money actually received that month, net of refunds — computed on the server. */
+  achieved_amount: number
+  collected_from_earlier_months: number
+  booked_amount: number
+  pending_amount: number
+}
+
+export async function fetchMyTargets(): Promise<CrmStaffTarget[]> {
+  const businessId = getActiveBusinessId()
+  return apiRequest<CrmStaffTarget[]>(`/crm/staff-targets/list?business_id=${encodeURIComponent(businessId)}`, { headers: authHeaders() })
+}
+
 // ---- Payments ----
 
 export interface CrmPayment {
@@ -738,9 +770,9 @@ export interface CrmPayment {
   lead_id?: string | null
   contact_id: string
   contact_name: string | null
-  deal_name?: string | null
-  /** A refund is its own row (positive amount) that subtracts from totals. */
-  kind?: 'payment' | 'refund'
+  deal_id: string | null
+  /** A refund is its own ledger row (positive amount) that subtracts from totals. */
+  kind: 'payment' | 'refund'
   amount: number
   currency: string
   mop: string
@@ -760,40 +792,27 @@ export async function fetchPayments(contactId?: string): Promise<{ payments: Crm
   return { payments: result.data, successAmount: result.summary?.success_amount ?? 0 }
 }
 
-export interface PaymentFilters {
-  search?: string
-  month?: number
-  year?: number
-  mop?: string
-  kind?: 'payment' | 'refund'
-}
-
-export async function fetchPaymentsPage(opts: PaymentFilters & { page: number }): Promise<PageResult<CrmPayment>> {
+export async function fetchPaymentsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmPayment>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE) })
-  if (opts.search) params.set('search', opts.search)
-  if (opts.month) params.set('month', String(opts.month))
-  if (opts.year) params.set('year', String(opts.year))
-  if (opts.mop) params.set('mop', opts.mop)
-  if (opts.kind) params.set('kind', opts.kind)
-  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number; received_amount?: number; refunded_amount?: number } }>(
-    `/crm/payment/list?${params}`,
-    { headers: authHeaders() },
-  )
-  return toPageResult(result.data, result.meta, {
-    success_amount: result.summary?.success_amount ?? 0,
-    received_amount: result.summary?.received_amount ?? 0,
-    refunded_amount: result.summary?.refunded_amount ?? 0,
-  })
+  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
+  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number } }>(`/crm/payment/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta, { success_amount: result.summary?.success_amount ?? 0 })
 }
 
 export interface CreatePaymentInput {
   contactId: string
+  /** Link the money to a deal so balance, reason and target credit are tracked. */
+  dealId?: string
   amount: number
   currency: string
   mop: string
   notes?: string
   paymentDate?: string
+  /** Required by the server when the payment leaves a balance on the deal. */
+  reason?: string
+  expectedBalanceDate?: string
+  /** Generated once per form; a retried submit replays the original payment instead of duplicating it. */
+  clientRequestId?: string
 }
 
 export async function createPayment(input: CreatePaymentInput): Promise<CrmPayment> {
@@ -805,9 +824,13 @@ export async function createPayment(input: CreatePaymentInput): Promise<CrmPayme
     body: JSON.stringify({
       business_id: businessId,
       contact_id: input.contactId,
+      ...(input.dealId ? { deal_id: input.dealId } : {}),
       amount: input.amount,
       currency: input.currency,
       mop: input.mop,
+      ...(input.reason ? { reason: input.reason } : {}),
+      ...(input.expectedBalanceDate ? { expected_balance_date: input.expectedBalanceDate } : {}),
+      ...(input.clientRequestId ? { client_request_id: input.clientRequestId } : {}),
       ...(input.paymentDate ? { payment_date: input.paymentDate } : {}),
       ...(staffId ? { assign_to_staff_id: staffId } : {}),
       ...(input.notes ? { notes: input.notes } : {}),
