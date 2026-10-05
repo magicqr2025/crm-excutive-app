@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { useDealsPage, useCreateDeal, useUpdateDeal } from '@/api/queries'
+import { useActiveProducts, useDealsPage, useCreateDeal, useUpdateDeal } from '@/api/queries'
 import type { CrmContact, CrmDeal, DealPaymentStatus, DealStatus } from '@/api/crmApi'
 import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
 
@@ -41,6 +41,8 @@ export function DealsPage() {
   const { show } = useToast()
   const [formOpen, setFormOpen] = useState(Boolean(prefillContact))
   const [contact, setContact] = useState<CrmContact | null>(prefillContact)
+  const { data: products = [] } = useActiveProducts()
+  const [productId, setProductId] = useState('')
   const [dealName, setDealName] = useState('')
   const [dealAmount, setDealAmount] = useState('')
   const [dealDetails, setDealDetails] = useState('')
@@ -53,6 +55,7 @@ export function DealsPage() {
 
   function resetForm() {
     setContact(null)
+    setProductId('')
     setDealName('')
     setDealAmount('')
     setDealDetails('')
@@ -61,7 +64,7 @@ export function DealsPage() {
   function submit() {
     if (!contact || !dealName.trim() || !dealAmount) return
     createDeal.mutate(
-      { contactId: contact.id, dealName: dealName.trim(), dealAmount: Number(dealAmount), dealDetails: dealDetails.trim() || undefined },
+      { contactId: contact.id, productId: productId || undefined, dealName: dealName.trim(), dealAmount: Number(dealAmount), dealDetails: dealDetails.trim() || undefined },
       {
         onSuccess: () => {
           show({ title: 'Deal added', tone: 'success' })
@@ -131,6 +134,28 @@ export function DealsPage() {
           <div className="mb-4 space-y-3 rounded-2xl border border-[var(--border)] p-4">
             <Field label="Contact">
               <ContactPicker value={contact} onChange={setContact} />
+            </Field>
+            <Field label="Product" hint="Optional">
+              <select
+                value={productId}
+                onChange={(e) => {
+                  const id = e.target.value
+                  setProductId(id)
+                  const product = products.find((p) => p.id === id)
+                  if (!product) return
+                  // Fills the name and amount if still empty — both stay editable.
+                  if (!dealName.trim()) setDealName(product.name)
+                  if (!dealAmount && product.selling_price > 0) setDealAmount(String(product.selling_price))
+                }}
+                className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
+              >
+                <option value="">No product</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Deal name">
               <Input value={dealName} onChange={(e) => setDealName(e.target.value)} placeholder="e.g. Annual plan upgrade" />
@@ -231,7 +256,10 @@ export function DealsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-[13.5px] font-semibold text-[var(--text-h)]">{deal.deal_name}</p>
-                        <p className="truncate text-[12px] text-[var(--text-muted)]">{deal.contact_name ?? 'Unknown contact'}</p>
+                        <p className="truncate text-[12px] text-[var(--text-muted)]">
+                          {deal.contact_name ?? 'Unknown contact'}
+                          {deal.product_name ? ` · ${deal.product_name}` : ''}
+                        </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Badge tone={STATUS_TONE[deal.status]}>{deal.status}</Badge>

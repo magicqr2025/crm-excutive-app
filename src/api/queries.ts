@@ -20,6 +20,7 @@ import {
   type FollowupTab,
   fetchContactActiveFollowups,
   fetchDealsPage,
+  fetchActiveProducts,
   fetchMyTargets,
   fetchMeetingsPage,
   fetchPaymentsPage,
@@ -61,6 +62,7 @@ import {
   type UpdateTaskInput,
   type TaskStatus,
   type TaskStatusFilter,
+  type TaskType,
 } from '@/api/crmApi'
 
 export function useMyLeadCampaigns() {
@@ -247,6 +249,10 @@ export function useDeals(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['deals', 'contact', contactId] : ['deals'], queryFn: () => fetchDeals(contactId) })
 }
 
+export function useActiveProducts() {
+  return useQuery({ queryKey: ['products', 'active'], queryFn: fetchActiveProducts })
+}
+
 export function useDealsPage(search: string, paymentStatus?: DealPaymentStatus) {
   return usePagedList({
     queryKey: ['deals', 'paged', { search, paymentStatus }],
@@ -350,7 +356,7 @@ export function useStaffList() {
   return useQuery({ queryKey: ['staff-list'], queryFn: fetchStaff, staleTime: 5 * 60 * 1000 })
 }
 
-export function useTasksPage(filters: { search: string; status?: TaskStatusFilter; assigneeId?: string }) {
+export function useTasksPage(filters: { search: string; status?: TaskStatusFilter; assigneeId?: string; taskType?: TaskType; excludeTaskType?: TaskType }) {
   return usePagedList({
     queryKey: ['tasks', 'paged', filters],
     fetchPage: (page) => fetchTasksPage({ page, ...filters }),

@@ -5,6 +5,8 @@ import { useToast } from '@/components/ui/useToast'
 import { useSetTaskStatus } from '@/api/queries'
 import type { CrmTask, StaffMember } from '@/api/crmApi'
 import {
+  TASK_PRIORITY_OPTIONS,
+  TASK_PRIORITY_TONE,
   TASK_STATUS_LABEL,
   TASK_STATUS_TONE,
   formatDeadline,
@@ -43,6 +45,12 @@ export function TaskCard({ task, staff, userId, isAdmin, onEdit }: TaskCardProps
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 whitespace-pre-wrap break-words text-[13.5px] font-medium text-[var(--text-h)]">{task.title}</p>
         <div className="flex shrink-0 items-center gap-1.5">
+          {task.task_type === 'ticket' && <Badge tone="accent">Ticket #{task.id}</Badge>}
+          {task.task_type === 'ticket' && (
+            <Badge tone={TASK_PRIORITY_TONE[task.priority]}>
+              {TASK_PRIORITY_OPTIONS.find((o) => o.value === task.priority)?.label ?? task.priority}
+            </Badge>
+          )}
           {overdue && <Badge tone="error">Overdue</Badge>}
           <Badge tone={TASK_STATUS_TONE[task.status]}>{TASK_STATUS_LABEL[task.status]}</Badge>
           {can.edit && (
