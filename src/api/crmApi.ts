@@ -1052,3 +1052,47 @@ export async function fetchMyTarget(month: number, year: number): Promise<CrmSta
   const rows = await apiRequest<CrmStaffTarget[]>(`/crm/staff-targets/list?${params}`, { headers: authHeaders() })
   return rows.find((t) => t.target_month === month && t.target_year === year) ?? null
 }
+
+// ---- Email (ZeptoMail) ----
+// An admin connects ZeptoMail and enables templates in orm-whatsapp; executives
+// can only pick one of those templates and send it to a lead they can see.
+
+export interface ZeptomailStatus {
+  configured: boolean
+  from_email?: string
+}
+
+export interface EmailTemplateOption {
+  id: string
+  label: string
+}
+
+export interface EmailLogEntry {
+  id: string
+  lead_id: string | null
+  to_email: string
+  template_label: string
+  status: 'sending' | 'sent' | 'failed'
+  error: string | null
+  created_at: string
+}
+
+export async function fetchZeptomailStatus(): Promise<ZeptomailStatus> {
+  return apiRequest('/zeptomail/status', { headers: authHeaders() })
+}
+
+export async function fetchEmailTemplates(): Promise<EmailTemplateOption[]> {
+  return apiRequest('/zeptomail/mappings', { headers: authHeaders() })
+}
+
+export async function sendLeadEmail(input: { leadId: string; mappingId: string; idempotencyKey: string }): Promise<EmailLogEntry> {
+  return apiRequest('/zeptomail/send', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: input.leadId, mapping_id: input.mappingId, idempotency_key: input.idempotencyKey }),
+  })
+}
+
+export async function fetchEmailLogs(leadId: string): Promise<{ items: EmailLogEntry[]; total: number }> {
+  return apiRequest(`/zeptomail/logs?lead_id=${leadId}&per_page=50`, { headers: authHeaders() })
+}

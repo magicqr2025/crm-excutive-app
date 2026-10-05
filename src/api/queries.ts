@@ -2,6 +2,10 @@ import { usePagedList } from '@/lib/usePagedList'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchMyLeadCampaigns,
+  fetchZeptomailStatus,
+  fetchEmailTemplates,
+  fetchEmailLogs,
+  sendLeadEmail,
   fetchLeadsForCampaignPage,
   fetchNextQueueLead,
   updateLead,
@@ -430,4 +434,27 @@ export function useUpdateMeetingDetails() {
 
 export function useMyTarget(month: number, year: number) {
   return useQuery({ queryKey: ['my-target', month, year], queryFn: () => fetchMyTarget(month, year) })
+}
+
+// ---- Email (ZeptoMail) ----
+
+export function useZeptomailStatus() {
+  return useQuery({ queryKey: ['zeptomail-status'], queryFn: fetchZeptomailStatus })
+}
+
+export function useEmailTemplates() {
+  return useQuery({ queryKey: ['email-templates'], queryFn: fetchEmailTemplates })
+}
+
+export function useEmailLogs(leadId: string) {
+  return useQuery({ queryKey: ['email-logs', leadId], queryFn: () => fetchEmailLogs(leadId), enabled: Boolean(leadId) })
+}
+
+export function useSendLeadEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: sendLeadEmail,
+    // Refresh on failure too: the backend records failed attempts, so history changes either way.
+    onSettled: (_data, _err, vars) => queryClient.invalidateQueries({ queryKey: ['email-logs', vars.leadId] }),
+  })
 }
