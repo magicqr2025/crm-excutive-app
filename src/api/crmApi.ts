@@ -473,9 +473,16 @@ export interface CrmDeal {
   deal_name: string
   deal_amount: number
   deal_details: string | null
+  product_id?: string | null
+  product_name?: string | null
   status: DealStatus
   contact_id: string
   contact_name: string | null
+  /** Derived from the payment ledger on the server. */
+  net_paid_amount?: number
+  balance_amount?: number
+  expected_balance_date?: string | null
+  short_payment_reason?: string | null
   created_at: string
 }
 
@@ -495,7 +502,19 @@ export async function fetchDealsPage(opts: { page: number; search?: string }): P
   return toPageResult(result.data, result.meta, { total_amount: result.summary?.total_amount ?? 0 })
 }
 
+export interface CrmProduct {
+  id: string
+  name: string
+  selling_price: number
+}
+
+export async function fetchActiveProducts(): Promise<CrmProduct[]> {
+  const params = new URLSearchParams({ business_id: getActiveBusinessId(), status: 'active', per_page: '100' })
+  return apiRequest<CrmProduct[]>(`/crm/products/list?${params}`, { headers: authHeaders() })
+}
+
 export interface CreateDealInput {
+  productId?: string
   contactId: string
   dealName: string
   dealAmount: number
@@ -512,6 +531,7 @@ export async function createDeal(input: CreateDealInput): Promise<CrmDeal> {
       contact_id: input.contactId,
       deal_name: input.dealName,
       deal_amount: input.dealAmount,
+      ...(input.productId ? { product_id: input.productId } : {}),
       ...(input.dealDetails ? { deal_details: input.dealDetails } : {}),
     }),
   })
@@ -718,6 +738,9 @@ export interface CrmPayment {
   lead_id?: string | null
   contact_id: string
   contact_name: string | null
+  deal_name?: string | null
+  /** A refund is its own row (positive amount) that subtracts from totals. */
+  kind?: 'payment' | 'refund'
   amount: number
   currency: string
   mop: string
@@ -737,11 +760,31 @@ export async function fetchPayments(contactId?: string): Promise<{ payments: Crm
   return { payments: result.data, successAmount: result.summary?.success_amount ?? 0 }
 }
 
-export async function fetchPaymentsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmPayment>> {
+export interface PaymentFilters {
+  search?: string
+  month?: number
+  year?: number
+  mop?: string
+  kind?: 'payment' | 'refund'
+}
+
+export async function fetchPaymentsPage(opts: PaymentFilters & { page: number }): Promise<PageResult<CrmPayment>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
-  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number } }>(`/crm/payment/list?${params}`, { headers: authHeaders() })
-  return toPageResult(result.data, result.meta, { success_amount: result.summary?.success_amount ?? 0 })
+  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE) })
+  if (opts.search) params.set('search', opts.search)
+  if (opts.month) params.set('month', String(opts.month))
+  if (opts.year) params.set('year', String(opts.year))
+  if (opts.mop) params.set('mop', opts.mop)
+  if (opts.kind) params.set('kind', opts.kind)
+  const result = await apiRequestWithMeta<CrmPayment[], { summary?: { success_amount: number; received_amount?: number; refunded_amount?: number } }>(
+    `/crm/payment/list?${params}`,
+    { headers: authHeaders() },
+  )
+  return toPageResult(result.data, result.meta, {
+    success_amount: result.summary?.success_amount ?? 0,
+    received_amount: result.summary?.received_amount ?? 0,
+    refunded_amount: result.summary?.refunded_amount ?? 0,
+  })
 }
 
 export interface CreatePaymentInput {

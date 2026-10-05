@@ -20,6 +20,7 @@ import {
   type FollowupTab,
   fetchContactActiveFollowups,
   fetchDealsPage,
+  fetchActiveProducts,
   fetchMeetingsPage,
   fetchPaymentsPage,
   fetchMyTarget,
@@ -43,6 +44,7 @@ import {
   type UpdateDealInput,
   type CreateMeetingInput,
   type CreatePaymentInput,
+  type PaymentFilters,
   type UpdatePaymentInput,
   type UpdateLeadInput,
   fetchStaff,
@@ -245,6 +247,10 @@ export function useDeals(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['deals', 'contact', contactId] : ['deals'], queryFn: () => fetchDeals(contactId) })
 }
 
+export function useActiveProducts() {
+  return useQuery({ queryKey: ['products', 'active'], queryFn: fetchActiveProducts })
+}
+
 export function useDealsPage(search: string) {
   return usePagedList({ queryKey: ['deals', 'paged', { search }], fetchPage: (page) => fetchDealsPage({ page, search }) })
 }
@@ -294,8 +300,8 @@ export function usePayments(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['payments', 'contact', contactId] : ['payments'], queryFn: () => fetchPayments(contactId) })
 }
 
-export function usePaymentsPage(search: string) {
-  return usePagedList({ queryKey: ['payments', 'paged', { search }], fetchPage: (page) => fetchPaymentsPage({ page, search }) })
+export function usePaymentsPage(filters: PaymentFilters) {
+  return usePagedList({ queryKey: ['payments', 'paged', filters], fetchPage: (page) => fetchPaymentsPage({ page, ...filters }) })
 }
 
 export function useCreatePayment() {
@@ -304,6 +310,8 @@ export function useCreatePayment() {
     mutationFn: (input: CreatePaymentInput) => createPayment(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['my-target'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })

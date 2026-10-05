@@ -19,8 +19,10 @@ function daysLeftIn(month: number, year: number): number | null {
   return new Date(year, month, 0).getDate() - now.getDate() + 1
 }
 
-/** Incentive is the slab rate applied to the part of the collected amount that falls inside each slab. */
+/** Incentive (only once the target is reached) is the slab rate applied to the part of the collected amount that falls inside each slab. */
 function incentiveFor(target: CrmStaffTarget): number {
+  // Nothing is paid until the collected amount reaches the target.
+  if (!(target.target_amount > 0 && target.achieved_amount >= target.target_amount)) return 0
   const total = (target.incentive_slab ?? []).reduce((sum, slab) => {
     const inSlab = Math.max(0, Math.min(slab.to, target.achieved_amount) - Math.max(slab.from, 0))
     return sum + (inSlab * slab.rate) / 100
