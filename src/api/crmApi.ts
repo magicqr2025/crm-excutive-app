@@ -1158,15 +1158,19 @@ export async function fetchSubscriptionsPage(opts: {
   search?: string
   status?: SubscriptionStatusFilter
   contactId?: string
+  /** Only subscriptions that still owe money (the Pending view). */
+  hasBalance?: boolean
+  perPage?: number
 }): Promise<PageResult<CrmSubscription>> {
   const businessId = getActiveBusinessId()
   const params = new URLSearchParams({
     business_id: businessId,
     page: String(opts.page),
-    per_page: String(PAGE_SIZE),
+    per_page: String(opts.perPage ?? PAGE_SIZE),
     ...(opts.search ? { search: opts.search } : {}),
     ...(opts.status ? { status: opts.status } : {}),
     ...(opts.contactId ? { contact_id: opts.contactId } : {}),
+    ...(opts.hasBalance ? { has_balance: '1' } : {}),
   })
   const result = await apiRequestWithMeta<CrmSubscription[]>(`/crm/subscriptions/list?${params}`, {
     headers: authHeaders(),

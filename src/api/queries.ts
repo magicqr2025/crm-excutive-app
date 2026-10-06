@@ -440,6 +440,14 @@ export function useRecordSubscriptionPayment() {
   })
 }
 
+/** Subscriptions that still owe money — listed with unpaid deals under Pending. */
+export function usePendingSubscriptions() {
+  return useQuery({
+    queryKey: ['subscriptions', 'pending'],
+    queryFn: async () => (await fetchSubscriptionsPage({ page: 1, perPage: 100, hasBalance: true })).items,
+  })
+}
+
 /** Subscriptions for one customer (for the "For" picker on a payment). */
 export function useContactSubscriptions(contactId: string) {
   return useQuery({

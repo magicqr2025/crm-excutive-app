@@ -30,6 +30,8 @@ function newRequestId() {
 
 interface RecordPaymentFormProps {
   contactId: string
+  /** Open for this subscription's balance (a pending subscription), with no deal. */
+  defaultSubscriptionId?: string
   onDone: () => void
   onCancel: () => void
 }
@@ -40,7 +42,7 @@ interface RecordPaymentFormProps {
  * lets the app show the balance. If the payment leaves a balance, a reason and an
  * expected date are required — the server turns those into a collection task.
  */
-export function RecordPaymentForm({ contactId, onDone, onCancel }: RecordPaymentFormProps) {
+export function RecordPaymentForm({ contactId, defaultSubscriptionId, onDone, onCancel }: RecordPaymentFormProps) {
   const { show } = useToast()
   const createPayment = useCreatePayment()
   const sell = useSellSubscription()
@@ -52,13 +54,14 @@ export function RecordPaymentForm({ contactId, onDone, onCancel }: RecordPayment
   const payableSubs = contactSubs.filter(
     (s) => (s.status === 'active' || s.status === 'expired' || s.status === 'renewed') && (s.balance ?? 0) > 0,
   )
-  const [subChoice, setSubChoice] = useState<string | null>(null) // null = not touched yet
+  const [subChoice, setSubChoice] = useState<string | null>(defaultSubscriptionId ?? null) // null = not touched yet
   // "New subscription sale": one form records the sale and the money received for it.
   const [saleOn, setSaleOn] = useState(false)
   const [sale, setSale] = useState<SaleDraft>(newSaleDraft)
   const { data: activeProducts = [] } = useActiveProducts()
   const saleProducts = activeProducts.map((p) => ({ id: p.id, name: p.name, price: p.selling_price }))
-  const [dealChoice, setDealChoice] = useState<string | null>(null) // null = not touched yet
+  // Opening for a specific subscription means "No deal", even if the client has exactly one open deal.
+  const [dealChoice, setDealChoice] = useState<string | null>(defaultSubscriptionId ? '' : null) // null = not touched yet
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('INR')
   const [mop, setMop] = useState(MOP_OPTIONS[0])
