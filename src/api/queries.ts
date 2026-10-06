@@ -60,6 +60,15 @@ import {
   transferMeeting,
   updateMeetingDetails,
   fetchTasksPage,
+  fetchSubscriptionsPage,
+  renewSubscription,
+  markSubscriptionLost,
+  sellSubscription,
+  type SellSubscriptionInput,
+  recordSubscriptionPayment,
+  type SubscriptionPaymentInput,
+  type SubscriptionLostReason,
+  type SubscriptionStatusFilter,
   createTask,
   updateTask,
   setTaskStatus,
@@ -325,6 +334,7 @@ export function useCreatePayment() {
     // A payment changes the deal's balance, its collection task, and this month's target.
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['staff-targets'] })
@@ -389,6 +399,78 @@ export function useSetTaskStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: Exclude<TaskStatus, 'created'> }) => setTaskStatus(id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+// ---- Subscriptions ----
+
+export function useSubscriptionsPage(filters: { search: string; status?: SubscriptionStatusFilter }) {
+  return usePagedList({
+    queryKey: ['subscriptions', 'paged', filters],
+    fetchPage: (page) => fetchSubscriptionsPage({ page, ...filters }),
+  })
+}
+
+export function useRenewSubscription() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; endDate: string; startDate?: string; amount?: number; notes?: string; payment?: SubscriptionPaymentInput }) =>
+      renewSubscription(id, input),
+    // A renewal payment also changes this month's target and the payments list.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff-targets'] }),
+      ]),
+  })
+}
+
+export function useRecordSubscriptionPayment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & SubscriptionPaymentInput & { clientRequestId: string }) =>
+      recordSubscriptionPayment(id, input),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff-targets'] }),
+      ]),
+  })
+}
+
+/** Subscriptions for one customer (for the "For" picker on a payment). */
+export function useContactSubscriptions(contactId: string) {
+  return useQuery({
+    queryKey: ['subscriptions', 'contact', contactId],
+    queryFn: async () => (await fetchSubscriptionsPage({ page: 1, contactId })).items,
+    staleTime: 30 * 1000,
+  })
+}
+
+/** Sells a subscription and records its payment in one step (the Log payment form with a product). */
+export function useSellSubscription() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: SellSubscriptionInput) => sellSubscription(input),
+    // The sale adds a payment, so this month's target and the payments list change too.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff-targets'] }),
+        queryClient.invalidateQueries({ queryKey: ['lead-activity'] }),
+      ]),
+  })
+}
+
+export function useMarkSubscriptionLost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; reason: SubscriptionLostReason; note?: string }) =>
+      markSubscriptionLost(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
   })
 }
 

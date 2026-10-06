@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/useToast'
 function routeFor(data: Record<string, string> | undefined): string | null {
   if (data?.entityType === 'followup' && data.entityId) return `/followups/${data.entityId}`
   if (data?.entityType === 'meeting') return '/meetings'
+  if (data?.entityType === 'subscription') return '/subscriptions'
   return null
 }
 

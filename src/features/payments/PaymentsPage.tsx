@@ -282,6 +282,7 @@ export function PaymentsPage() {
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{payment.contact_name ?? 'Unknown contact'}</p>
                         <p className="truncate text-[11.5px] text-[var(--text-muted)]">
+                          {payment.subscription_name ? `Subscription: ${payment.subscription_name} · ` : ''}
                           {payment.mop} · {dateText(payment.payment_date ?? payment.created_at)}
                         </p>
                       </div>

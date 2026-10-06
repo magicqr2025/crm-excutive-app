@@ -771,6 +771,9 @@ export interface CrmPayment {
   contact_id: string
   contact_name: string | null
   deal_id: string | null
+  /** Set when the money was received for a subscription term. */
+  subscription_id?: string | null
+  subscription_name?: string | null
   /** A refund is its own ledger row (positive amount) that subtracts from totals. */
   kind: 'payment' | 'refund'
   amount: number
@@ -823,6 +826,8 @@ export interface CreatePaymentInput {
   contactId: string
   /** Link the money to a deal so balance, reason and target credit are tracked. */
   dealId?: string
+  /** Log the money against a subscription instead of a deal. */
+  subscriptionId?: string
   amount: number
   currency: string
   mop: string
@@ -845,6 +850,7 @@ export async function createPayment(input: CreatePaymentInput): Promise<CrmPayme
       business_id: businessId,
       contact_id: input.contactId,
       ...(input.dealId ? { deal_id: input.dealId } : {}),
+      ...(input.subscriptionId ? { subscription_id: input.subscriptionId } : {}),
       amount: input.amount,
       currency: input.currency,
       mop: input.mop,
@@ -1107,5 +1113,165 @@ export async function registerFcmToken(token: string): Promise<void> {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ token, device_type: 'android' }),
+  })
+}
+
+// ---- Subscriptions ----
+
+export type SubscriptionStatus = 'active' | 'expired' | 'renewed' | 'cancelled' | 'lost'
+export type SubscriptionLostReason = 'price_too_high' | 'switched_competitor' | 'no_longer_needed' | 'no_response' | 'other'
+/** List filter: a status, or 'expiring' = active and ending within 7 days. */
+export type SubscriptionStatusFilter = SubscriptionStatus | 'expiring'
+
+export interface CrmSubscription {
+  id: string
+  contact_id: string
+  /** The customer's name. */
+  name: string | null
+  contact_phone: string | null
+  /** YYYY-MM-DD calendar dates. */
+  start_date: string
+  end_date: string
+  salesperson_id: string
+  salesperson_name: string | null
+  product_id: string | null
+  product_name: string | null
+  deal_id: string | null
+  status: SubscriptionStatus
+  /** What this term costs; null when not recorded. */
+  amount: number | null
+  /** Money received for this term (payments minus refunds). */
+  paid_amount: number
+  /** What is still owed; null when no amount is set. */
+  balance: number | null
+  notes: string | null
+  /** Set only when status is 'lost'. */
+  lost_reason: SubscriptionLostReason | null
+  lost_at: string | null
+  /** Whole days until end_date (0 = ends today); null unless the term is active. */
+  days_left: number | null
+  renewed_from_id: string | null
+}
+
+export async function fetchSubscriptionsPage(opts: {
+  page: number
+  search?: string
+  status?: SubscriptionStatusFilter
+  contactId?: string
+}): Promise<PageResult<CrmSubscription>> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({
+    business_id: businessId,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.contactId ? { contact_id: opts.contactId } : {}),
+  })
+  const result = await apiRequestWithMeta<CrmSubscription[]>(`/crm/subscriptions/list?${params}`, {
+    headers: authHeaders(),
+  })
+  return toPageResult(result.data, result.meta)
+}
+
+export interface SubscriptionPaymentInput {
+  amount: number
+  mop: string
+  notes?: string
+}
+
+export async function renewSubscription(
+  id: string,
+  input: { endDate: string; startDate?: string; amount?: number; notes?: string; payment?: SubscriptionPaymentInput },
+): Promise<CrmSubscription> {
+  return apiRequest<CrmSubscription>(`/crm/subscriptions/renew/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      end_date: input.endDate,
+      ...(input.startDate ? { start_date: input.startDate } : {}),
+      ...(input.amount !== undefined ? { amount: input.amount } : {}),
+      ...(input.notes ? { notes: input.notes } : {}),
+      ...(input.payment ? { payment: input.payment } : {}),
+    }),
+  })
+}
+
+/**
+ * Money received for a term after the fact. It is credited to the salesperson
+ * and dated today, so it counts toward the month it actually arrived.
+ * `clientRequestId` makes a retried submit record one payment, not two.
+ */
+export async function recordSubscriptionPayment(
+  id: string,
+  input: SubscriptionPaymentInput & { clientRequestId: string },
+): Promise<CrmSubscription> {
+  return apiRequest<CrmSubscription>(`/crm/subscriptions/payment/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      amount: input.amount,
+      mop: input.mop,
+      client_request_id: input.clientRequestId,
+      ...(input.notes ? { notes: input.notes } : {}),
+    }),
+  })
+}
+
+/** The customer declined to renew: recorded with a reason, without cancelling. */
+export async function markSubscriptionLost(
+  id: string,
+  input: { reason: SubscriptionLostReason; note?: string },
+): Promise<CrmSubscription> {
+  return apiRequest<CrmSubscription>(`/crm/subscriptions/lost/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ reason: input.reason, ...(input.note ? { note: input.note } : {}) }),
+  })
+}
+
+export interface SellSubscriptionInput {
+  contactId: string
+  productId: string
+  /** What the customer is charged for the term. */
+  soldAmount: number
+  startDate: string
+  endDate: string
+  /** Admin only: sell under another salesperson (who then gets the credit and the renewal reminders). */
+  salespersonId?: string
+  notes?: string
+  payment: {
+    /** Money received now — the only part that counts toward the target. */
+    amount: number
+    mop: string
+    paymentDate?: string
+    notes?: string
+    /** One per form session — a retried submit returns the same subscription instead of selling twice. */
+    clientRequestId: string
+  }
+}
+
+/** Creates the subscription and the payment for it in one step. */
+export async function sellSubscription(input: SellSubscriptionInput): Promise<CrmSubscription> {
+  return apiRequest<CrmSubscription>('/crm/subscriptions/sell', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      business_id: getActiveBusinessId(),
+      contact_id: input.contactId,
+      product_id: input.productId,
+      sold_amount: input.soldAmount,
+      start_date: input.startDate,
+      end_date: input.endDate,
+      ...(input.salespersonId ? { salesperson_id: input.salespersonId } : {}),
+      ...(input.notes ? { notes: input.notes } : {}),
+      payment: {
+        amount: input.payment.amount,
+        mop: input.payment.mop,
+        client_request_id: input.payment.clientRequestId,
+        ...(input.payment.paymentDate ? { payment_date: input.payment.paymentDate } : {}),
+        ...(input.payment.notes ? { notes: input.payment.notes } : {}),
+      },
+    }),
   })
 }

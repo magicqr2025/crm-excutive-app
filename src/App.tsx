@@ -14,6 +14,7 @@ import { ContactDetailPage } from '@/features/contacts/ContactDetailPage'
 import { CallLogsPage } from '@/features/callLogs/CallLogsPage'
 import { DealsPage } from '@/features/deals/DealsPage'
 import { MeetingsPage } from '@/features/meetings/MeetingsPage'
+import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
 import { TicketsPage } from '@/features/tasks/TicketsPage'
 import { TargetPage } from '@/features/target/TargetPage'
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/call-logs" element={<CallLogsPage />} />
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
+            <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/target" element={<TargetPage />} />

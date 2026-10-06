@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, CalendarCheck, CalendarClock, Handshake, ListChecks, Phone, Target, Ticket, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowUpRight, CalendarCheck, CalendarClock, Handshake, ListChecks, Phone, Repeat, Target, Ticket, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -18,6 +18,7 @@ const TILES: Tile[] = [
   { to: '/followups', label: 'Follow-ups', hint: 'Calls and reminders due', icon: CalendarClock },
   { to: '/deals', label: 'Deals', hint: 'Deals you’ve closed and what’s unpaid', icon: Handshake },
   { to: '/call-logs', label: 'Call Logs', hint: 'Calls you’ve made and received', icon: Phone },
+  { to: '/subscriptions', label: 'Subscriptions', hint: 'Renewals coming up for your customers', icon: Repeat },
   { to: '/tasks', label: 'Tasks', hint: 'What you need to do next', icon: ListChecks },
   { to: '/tickets', label: 'Tickets', hint: 'Issues reported and their priority', icon: Ticket },
 ]
