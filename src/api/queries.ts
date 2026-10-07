@@ -2,6 +2,10 @@ import { usePagedList } from '@/lib/usePagedList'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchMyLeadCampaigns,
+  fetchZeptomailStatus,
+  fetchEmailTemplates,
+  fetchEmailLogs,
+  sendLeadEmail,
   fetchLeadsForCampaignPage,
   fetchNextQueueLead,
   updateLead,
@@ -56,6 +60,15 @@ import {
   transferMeeting,
   updateMeetingDetails,
   fetchTasksPage,
+  fetchSubscriptionsPage,
+  renewSubscription,
+  markSubscriptionLost,
+  sellSubscription,
+  type SellSubscriptionInput,
+  recordSubscriptionPayment,
+  type SubscriptionPaymentInput,
+  type SubscriptionLostReason,
+  type SubscriptionStatusFilter,
   createTask,
   updateTask,
   setTaskStatus,
@@ -321,6 +334,7 @@ export function useCreatePayment() {
     // A payment changes the deal's balance, its collection task, and this month's target.
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['staff-targets'] })
@@ -388,6 +402,86 @@ export function useSetTaskStatus() {
   })
 }
 
+// ---- Subscriptions ----
+
+export function useSubscriptionsPage(filters: { search: string; status?: SubscriptionStatusFilter }) {
+  return usePagedList({
+    queryKey: ['subscriptions', 'paged', filters],
+    fetchPage: (page) => fetchSubscriptionsPage({ page, ...filters }),
+  })
+}
+
+export function useRenewSubscription() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; endDate: string; startDate?: string; amount?: number; notes?: string; payment?: SubscriptionPaymentInput }) =>
+      renewSubscription(id, input),
+    // A renewal payment also changes this month's target and the payments list.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff-targets'] }),
+      ]),
+  })
+}
+
+export function useRecordSubscriptionPayment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & SubscriptionPaymentInput & { clientRequestId: string }) =>
+      recordSubscriptionPayment(id, input),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff-targets'] }),
+      ]),
+  })
+}
+
+/** Subscriptions that still owe money — listed with unpaid deals under Pending. */
+export function usePendingSubscriptions() {
+  return useQuery({
+    queryKey: ['subscriptions', 'pending'],
+    queryFn: async () => (await fetchSubscriptionsPage({ page: 1, perPage: 100, hasBalance: true })).items,
+  })
+}
+
+/** Subscriptions for one customer (for the "For" picker on a payment). */
+export function useContactSubscriptions(contactId: string) {
+  return useQuery({
+    queryKey: ['subscriptions', 'contact', contactId],
+    queryFn: async () => (await fetchSubscriptionsPage({ page: 1, contactId })).items,
+    staleTime: 30 * 1000,
+  })
+}
+
+/** Sells a subscription and records its payment in one step (the Log payment form with a product). */
+export function useSellSubscription() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: SellSubscriptionInput) => sellSubscription(input),
+    // The sale adds a payment, so this month's target and the payments list change too.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff-targets'] }),
+        queryClient.invalidateQueries({ queryKey: ['lead-activity'] }),
+      ]),
+  })
+}
+
+export function useMarkSubscriptionLost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; reason: SubscriptionLostReason; note?: string }) =>
+      markSubscriptionLost(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+  })
+}
+
 // ---- Meeting lifecycle ----
 
 // A meeting action can also create a task or a follow-up, so refresh those lists too.
@@ -430,4 +524,27 @@ export function useUpdateMeetingDetails() {
 
 export function useMyTarget(month: number, year: number) {
   return useQuery({ queryKey: ['my-target', month, year], queryFn: () => fetchMyTarget(month, year) })
+}
+
+// ---- Email (ZeptoMail) ----
+
+export function useZeptomailStatus() {
+  return useQuery({ queryKey: ['zeptomail-status'], queryFn: fetchZeptomailStatus })
+}
+
+export function useEmailTemplates() {
+  return useQuery({ queryKey: ['email-templates'], queryFn: fetchEmailTemplates })
+}
+
+export function useEmailLogs(leadId: string) {
+  return useQuery({ queryKey: ['email-logs', leadId], queryFn: () => fetchEmailLogs(leadId), enabled: Boolean(leadId) })
+}
+
+export function useSendLeadEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: sendLeadEmail,
+    // Refresh on failure too: the backend records failed attempts, so history changes either way.
+    onSettled: (_data, _err, vars) => queryClient.invalidateQueries({ queryKey: ['email-logs', vars.leadId] }),
+  })
 }

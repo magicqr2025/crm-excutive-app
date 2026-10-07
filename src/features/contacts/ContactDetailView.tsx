@@ -1,6 +1,6 @@
 import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
-import { Phone, Handshake, CalendarCheck, Wallet, Send, LayoutGrid, Plus, X, Pencil, BellRing } from 'lucide-react'
+import { Mail, Phone, Handshake, CalendarCheck, Wallet, Send, LayoutGrid, Plus, X, Pencil, BellRing } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { MeetingCard } from '@/features/meetings/MeetingCard'
 import { useCallLead } from '@/features/calling/useCallLead'
 import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
+import { SendLeadEmailDialog } from '@/components/SendLeadEmailDialog'
 import {
   useCallLogsForLead,
   useLeadStatuses,
@@ -113,6 +114,7 @@ export function ContactDetailView({
   const [newFollowupDate, setNewFollowupDate] = useState('')
   const [followupTimeInput, setFollowupTimeInput] = useState('')
 
+  const [sendEmailOpen, setSendEmailOpen] = useState(false)
   const [dealFormOpen, setDealFormOpen] = useState(false)
   const [dealName, setDealName] = useState('')
   const [dealAmount, setDealAmount] = useState('')
@@ -280,6 +282,17 @@ export function ContactDetailView({
               // undefined means "known to be yours" (see assignToStaffId above).
               ownerStaffId={assignToStaffId === undefined ? userId : assignToStaffId}
             />
+            {leadId && lead?.contact_email && (
+              <button
+                type="button"
+                onClick={() => setSendEmailOpen(true)}
+                aria-label="Send email"
+                title="Send email"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--accent-strong)] hover:bg-[var(--accent-bg)]"
+              >
+                <Mail size={16} />
+              </button>
+            )}
             {contactPhone && (
               <button
                 type="button"
@@ -732,6 +745,10 @@ export function ContactDetailView({
         </div>
       )}
       </div>
+
+      {leadId && lead?.contact_email && (
+        <SendLeadEmailDialog open={sendEmailOpen} onClose={() => setSendEmailOpen(false)} leadId={leadId} toEmail={lead.contact_email} />
+      )}
 
       {leadId && (
         <div className="mx-auto w-full max-w-lg shrink-0 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3">

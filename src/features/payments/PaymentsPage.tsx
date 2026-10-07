@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { useToast } from '@/components/ui/useToast'
-import { useDeals, useMyTargets, usePaymentsPage } from '@/api/queries'
-import type { CrmContact, CrmDeal, CrmPayment } from '@/api/crmApi'
+import { useDeals, useMyTargets, usePaymentsPage, usePendingSubscriptions } from '@/api/queries'
+import type { CrmContact, CrmPayment } from '@/api/crmApi'
 import { RecordPaymentForm } from './RecordPaymentForm'
 
 const MOP_FILTERS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
@@ -83,6 +83,20 @@ function TargetStrip({ month, year }: { month: number; year: number }) {
   )
 }
 
+interface PendingRow {
+  key: string
+  contactId: string
+  client: string
+  label: string
+  total: number
+  received: number
+  balance: number
+  expected: string | null
+  expectedLabel: string
+  reason: string | null
+  subscriptionId?: string
+}
+
 export function PaymentsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
@@ -104,21 +118,27 @@ export function PaymentsPage() {
     kind: kind || undefined,
   })
   const { data: dealsData, isLoading: dealsLoading } = useDeals()
+  // Subscriptions sold straight from the payment form have no deal, so they are listed separately.
+  const { data: pendingSubs = [], isLoading: subsLoading } = usePendingSubscriptions()
 
   const [formOpen, setFormOpen] = useState(Boolean(prefillContact))
   const [contact, setContact] = useState<CrmContact | null>(prefillContact)
   // Set when "Log payment" is tapped on a pending deal — the client is already known.
   const [dealContactId, setDealContactId] = useState<string | null>(null)
+  // Set too when it was a pending subscription, so the form opens on it.
+  const [pendingSubscriptionId, setPendingSubscriptionId] = useState<string | undefined>(undefined)
   const formContactId = dealContactId ?? contact?.id ?? null
 
   function closeForm() {
     setContact(null)
     setDealContactId(null)
+    setPendingSubscriptionId(undefined)
     setFormOpen(false)
   }
 
-  function logForDeal(deal: CrmDeal) {
-    setDealContactId(deal.contact_id)
+  function logForPending(row: PendingRow) {
+    setDealContactId(row.contactId)
+    setPendingSubscriptionId(row.subscriptionId)
     setContact(null)
     setFormOpen(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -133,10 +153,41 @@ export function PaymentsPage() {
     navigate(`/contacts/${payment.lead_id}?tab=payment`)
   }
 
-  const pending = (dealsData?.deals ?? [])
-    .filter((d) => d.status !== 'canceled' && d.balance_amount > 0)
-    .sort((a, b) => (a.expected_balance_date ?? '9999').localeCompare(b.expected_balance_date ?? '9999'))
-  const pendingTotal = pending.reduce((sum, d) => sum + d.balance_amount, 0)
+  const pendingDeals = (dealsData?.deals ?? []).filter((d) => d.status !== 'canceled' && d.balance_amount > 0)
+  // One list for both: unpaid deals and unpaid subscriptions, soonest due first.
+  const pending: PendingRow[] = [
+    ...pendingDeals.map(
+      (d): PendingRow => ({
+        key: 'deal-' + d.id,
+        contactId: d.contact_id,
+        client: d.contact_name ?? 'Unknown client',
+        label: d.deal_name,
+        total: d.deal_amount,
+        received: d.net_paid_amount,
+        balance: d.balance_amount,
+        expected: d.expected_balance_date ? d.expected_balance_date.slice(0, 10) : null,
+        expectedLabel: 'Expected by',
+        reason: d.short_payment_reason ?? null,
+      }),
+    ),
+    ...pendingSubs.map(
+      (s): PendingRow => ({
+        key: 'sub-' + s.id,
+        contactId: s.contact_id,
+        client: s.name ?? 'Unknown client',
+        label: 'Subscription: ' + (s.product_name ?? 'Subscription'),
+        total: s.amount ?? 0,
+        received: s.paid_amount,
+        balance: s.balance ?? 0,
+        // A subscription is due by the time its term ends.
+        expected: s.end_date,
+        expectedLabel: 'Term ends',
+        reason: null,
+        subscriptionId: s.id,
+      }),
+    ),
+  ].sort((a, b) => (a.expected ?? '9999').localeCompare(b.expected ?? '9999'))
+  const pendingTotal = pending.reduce((sum, r) => sum + r.balance, 0)
   const today = todayInput()
 
   return (
@@ -156,14 +207,14 @@ export function PaymentsPage() {
           <div className="space-y-3">
             {dealContactId ? (
               <p className="text-[13px] text-[var(--text-muted)]">
-                Logging a payment for <span className="font-semibold text-[var(--text-h)]">{pending.find((d) => d.contact_id === dealContactId)?.contact_name ?? 'this client'}</span>
+                Logging a payment for <span className="font-semibold text-[var(--text-h)]">{pending.find((r) => r.contactId === dealContactId)?.client ?? 'this client'}</span>
               </p>
             ) : (
               <Field label="Contact">
                 <ContactPicker value={contact} onChange={setContact} />
               </Field>
             )}
-            {formContactId && <RecordPaymentForm key={formContactId} contactId={formContactId} onDone={closeForm} onCancel={closeForm} />}
+            {formContactId && <RecordPaymentForm key={formContactId + (pendingSubscriptionId ?? '')} contactId={formContactId} defaultSubscriptionId={pendingSubscriptionId} onDone={closeForm} onCancel={closeForm} />}
           </div>
         )}
 
@@ -180,35 +231,35 @@ export function PaymentsPage() {
 
         {tab === 'pending' ? (
           <div className="space-y-3">
-            <Stat label={`Still to collect · ${pending.length} deal${pending.length === 1 ? '' : 's'}`} value={inr(pendingTotal)} />
-            {dealsLoading ? (
+            <Stat label={`Still to collect · ${pending.length} item${pending.length === 1 ? '' : 's'}`} value={inr(pendingTotal)} />
+            {dealsLoading || subsLoading ? (
               <PageLoader />
             ) : pending.length === 0 ? (
-              <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">Nothing pending — every deal is paid in full.</p>
+              <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">Nothing pending — every deal and subscription is paid in full.</p>
             ) : (
               <div className="space-y-2">
-                {pending.map((deal) => {
-                  const overdue = Boolean(deal.expected_balance_date) && deal.expected_balance_date!.slice(0, 10) < today
+                {pending.map((row) => {
+                  const overdue = row.expected !== null && row.expected < today
                   return (
-                    <div key={deal.id} className="rounded-lg border border-[var(--border)] p-3">
+                    <div key={row.key} className="rounded-lg border border-[var(--border)] p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{deal.contact_name ?? 'Unknown client'}</p>
-                          <p className="truncate text-[12px] text-[var(--text-muted)]">{deal.deal_name}</p>
+                          <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{row.client}</p>
+                          <p className="truncate text-[12px] text-[var(--text-muted)]">{row.label}</p>
                         </div>
-                        <p className="font-mono-num shrink-0 text-[14px] font-semibold text-[var(--warning)]">{inr(deal.balance_amount)}</p>
+                        <p className="font-mono-num shrink-0 text-[14px] font-semibold text-[var(--warning)]">{inr(row.balance)}</p>
                       </div>
                       <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        Received {inr(deal.net_paid_amount)} of {inr(deal.deal_amount)}
+                        Received {inr(row.received)} of {inr(row.total)}
                       </p>
-                      {deal.expected_balance_date && (
+                      {row.expected && (
                         <p className={`mt-0.5 text-[12px] ${overdue ? 'font-medium text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
-                          Expected by {dateText(deal.expected_balance_date)}
+                          {row.expectedLabel} {dateText(row.expected)}
                           {overdue && ' · overdue'}
                         </p>
                       )}
-                      {deal.short_payment_reason && <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">{deal.short_payment_reason}</p>}
-                      <Button size="sm" variant="secondary" className="mt-2" onClick={() => logForDeal(deal)}>
+                      {row.reason && <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">{row.reason}</p>}
+                      <Button size="sm" variant="secondary" className="mt-2" onClick={() => logForPending(row)}>
                         Log payment
                       </Button>
                     </div>
@@ -282,6 +333,7 @@ export function PaymentsPage() {
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{payment.contact_name ?? 'Unknown contact'}</p>
                         <p className="truncate text-[11.5px] text-[var(--text-muted)]">
+                          {payment.subscription_name ? `Subscription: ${payment.subscription_name} · ` : ''}
                           {payment.mop} · {dateText(payment.payment_date ?? payment.created_at)}
                         </p>
                       </div>

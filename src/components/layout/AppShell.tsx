@@ -10,6 +10,7 @@ import { RouteFetchBar } from '@/components/layout/RouteFetchBar'
 import { cn } from '@/lib/utils'
 import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
+import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Home', icon: Home },
@@ -51,6 +52,8 @@ export function AppShell() {
   const now = useClock()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
+
+  usePushNotifications()
 
   useEffect(() => {
     startDeviceCallSync()
