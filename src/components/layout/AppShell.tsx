@@ -72,9 +72,7 @@ export function AppShell() {
         className="hidden shrink-0 flex-col items-center border-r border-[var(--border)] bg-[var(--surface)] py-4 md:flex"
         style={{ width: 'var(--rail-width)' }}
       >
-        <div className="mb-6 flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)]">
-          <span className="font-mono-num text-[12px] font-semibold text-[var(--accent-strong)]">EC</span>
-        </div>
+        <img src="/logo.png" alt="Magicbolt Crm" className="mb-6 h-9 w-9 rounded-full" />
         <nav className="flex flex-1 flex-col items-center gap-1 px-2">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} title={label} className="relative flex w-full flex-col items-center gap-1 rounded-lg py-2.5">
@@ -157,10 +155,8 @@ export function AppShell() {
       >
         <div className="flex items-center justify-between px-1 py-2">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)]">
-              <span className="font-mono-num text-[11px] font-semibold text-[var(--accent-strong)]">EC</span>
-            </div>
-            <span className="font-display text-[14px] font-semibold text-[var(--text-h)]">Executive Console</span>
+            <img src="/logo.png" alt="Magicbolt Crm" className="h-8 w-8 rounded-full" />
+            <span className="font-display text-[14px] font-semibold text-[var(--text-h)]">Magicbolt Crm</span>
           </div>
           <button
             type="button"

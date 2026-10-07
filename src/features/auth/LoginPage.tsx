@@ -31,11 +31,9 @@ export function LoginPage() {
     <div className="flex h-dvh items-center justify-center bg-[var(--bg)] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
-            <span className="font-mono-num text-[15px] font-semibold text-[var(--accent-strong)]">EC</span>
-          </div>
+          <img src="/logo.png" alt="Magicbolt Crm" className="h-20 w-20 rounded-full shadow-[var(--shadow-md)]" />
           <div>
-            <p className="text-[20px] font-semibold text-[var(--text-h)]">Executive Console</p>
+            <p className="text-[22px] font-semibold text-[var(--text-h)]">Magicbolt Crm</p>
             <p className="mt-1 text-[13px] text-[var(--text-muted)]">Sign in to start your calling shift.</p>
           </div>
         </div>

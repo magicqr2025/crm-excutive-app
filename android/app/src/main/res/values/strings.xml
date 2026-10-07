@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">executive-webapp</string>
-    <string name="title_activity_main">executive-webapp</string>
+    <string name="app_name">Magicbolt Crm</string>
+    <string name="title_activity_main">Magicbolt Crm</string>
     <string name="package_name">com.whatscrm.executive</string>
     <string name="custom_url_scheme">com.whatscrm.executive</string>
 </resources>
