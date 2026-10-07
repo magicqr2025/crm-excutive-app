@@ -6,6 +6,31 @@ import { LocalNotifications } from '@capacitor/local-notifications'
 import { registerFcmToken } from '@/api/crmApi'
 import { useToast } from '@/components/ui/useToast'
 
+// Android 8+ ties a notification's sound/vibration/importance to its channel,
+// not to the individual notification — so a custom sound means a dedicated
+// channel, created once and referenced by id on every notification afterward
+// (both the FCM-delivered one below, see crmbackend's notifications.service.js,
+// and the one we post ourselves for the foreground case). A fresh id (not the
+// FCM default channel) guarantees this takes effect even on a device that
+// already received notifications before this existed — Android locks a
+// channel's settings after first creation; recycling an old id would do nothing.
+export const REMINDER_CHANNEL_ID = 'executive_reminders'
+
+async function ensureReminderChannel() {
+  if (Capacitor.getPlatform() !== 'android') return
+  // The sound file lives at android/app/src/main/res/raw/notification_sound.wav
+  // — Channel.sound wants the filename with extension (unlike FCM's own
+  // android.notification.sound field, which wants it without).
+  await PushNotifications.createChannel({
+    id: REMINDER_CHANNEL_ID,
+    name: 'Reminders',
+    description: 'Follow-up, meeting, task and subscription reminders',
+    sound: 'notification_sound.wav',
+    importance: 4, // IMPORTANCE_HIGH — pops up with sound; 5 isn't a real Android level
+    visibility: 1,
+  }).catch((err) => console.error('Failed to create reminder notification channel', err))
+}
+
 // Sent by crmbackend's reminder job (see crmbackend src/jobs/followupReminderJob.js):
 // data = { entityType: 'followup' | 'meeting', entityId: string }.
 function routeFor(data: Record<string, string> | undefined): string | null {
@@ -71,6 +96,7 @@ export function usePushNotifications() {
               title: n.title ?? 'Reminder',
               body: n.body ?? '',
               extra: data,
+              channelId: REMINDER_CHANNEL_ID,
             },
           ],
         }).catch((err) => console.error('Failed to post local notification', err))
@@ -88,6 +114,7 @@ export function usePushNotifications() {
     )
 
     void (async () => {
+      await ensureReminderChannel()
       let { receive } = await PushNotifications.checkPermissions()
       if (receive === 'prompt' || receive === 'prompt-with-rationale') {
         ;({ receive } = await PushNotifications.requestPermissions())
