@@ -1,17 +1,19 @@
 import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check } from 'lucide-react'
+import { Check, Plus, X } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { Input, Field } from '@/components/ui/Input'
+import { ContactPicker } from '@/components/ui/ContactPicker'
 import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useMarkFollowupDone, useMyFollowupsTabPage, useOverdueFollowupCount } from '@/api/queries'
-import type { FollowupTab } from '@/api/crmApi'
+import { useCreateFollowup, useMarkFollowupDone, useMyFollowupsTabPage, useOverdueFollowupCount } from '@/api/queries'
+import type { CrmContact, FollowupTab } from '@/api/crmApi'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 
 export { STATUS_LABEL, STATUS_TONE, formatDate, formatTime }
@@ -43,6 +45,29 @@ export function FollowupsPage() {
   const { items: followups, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyFollowupsTabPage(userId, tab, search)
   const { data: overdueCount = 0 } = useOverdueFollowupCount(userId)
   const markDone = useMarkFollowupDone()
+  const createFollowup = useCreateFollowup()
+  const [formOpen, setFormOpen] = useState(false)
+  const [contact, setContact] = useState<CrmContact | null>(null)
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+
+  function submit() {
+    if (!contact || !date || !time) return
+    // Executives always assign follow-ups to themselves.
+    createFollowup.mutate(
+      { contactId: contact.id, assignToStaffId: userId, followupDate: date, followupTime: time },
+      {
+        onSuccess: () => {
+          show({ title: 'Follow-up scheduled', tone: 'success' })
+          setContact(null)
+          setDate('')
+          setTime('')
+          setFormOpen(false)
+        },
+        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to schedule follow-up', tone: 'error' }),
+      },
+    )
+  }
 
   function done(id: string) {
     markDone.mutate(id, {
@@ -53,8 +78,35 @@ export function FollowupsPage() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
-      <PageHeader title="Follow-ups" subtitle={SUBTITLES[tab]} />
+      <PageHeader
+        title="Follow-ups"
+        subtitle={SUBTITLES[tab]}
+        action={
+          <Button size="sm" onClick={() => setFormOpen((v) => !v)} className="gap-1.5">
+            {formOpen ? <X size={14} /> : <Plus size={14} />}
+            {formOpen ? 'Close' : 'Create'}
+          </Button>
+        }
+      />
       <div className="space-y-4 p-4">
+        {formOpen && (
+          <div className="space-y-3 rounded-2xl border border-[var(--border)] p-4">
+            <Field label="Contact">
+              <ContactPicker value={contact} onChange={setContact} />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Date">
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </Field>
+              <Field label="Time">
+                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              </Field>
+            </div>
+            <Button className="w-full justify-center" onClick={submit} disabled={!contact || !date || !time || createFollowup.isPending}>
+              {createFollowup.isPending ? 'Saving…' : 'Create Follow-up'}
+            </Button>
+          </div>
+        )}
         <div className="flex items-center gap-1 self-start rounded-lg border border-[var(--border)] p-1" role="tablist">
           {TABS.map((t) => (
             <button
