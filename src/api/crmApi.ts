@@ -1091,11 +1091,31 @@ export async function fetchEmailTemplates(): Promise<EmailTemplateOption[]> {
   return apiRequest('/zeptomail/mappings', { headers: authHeaders() })
 }
 
-export async function sendLeadEmail(input: { leadId: string; mappingId: string; idempotencyKey: string }): Promise<EmailLogEntry> {
+export interface EmailSendFormField {
+  name: string
+  value: string
+  sample: string | null
+}
+
+export async function fetchEmailSendForm(mappingId: string, leadId: string): Promise<{ fields_available: boolean; fields: EmailSendFormField[] }> {
+  return apiRequest(`/zeptomail/mappings/${mappingId}/send-form?lead_id=${leadId}`, { headers: authHeaders() })
+}
+
+export async function sendLeadEmail(input: {
+  leadId: string
+  mappingId: string
+  idempotencyKey: string
+  mergeValues?: Record<string, string>
+}): Promise<EmailLogEntry> {
   return apiRequest('/zeptomail/send', {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ lead_id: input.leadId, mapping_id: input.mappingId, idempotency_key: input.idempotencyKey }),
+    body: JSON.stringify({
+      lead_id: input.leadId,
+      mapping_id: input.mappingId,
+      idempotency_key: input.idempotencyKey,
+      ...(input.mergeValues && { merge_values: input.mergeValues }),
+    }),
   })
 }
 

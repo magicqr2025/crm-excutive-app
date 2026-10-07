@@ -5,6 +5,7 @@ import {
   fetchZeptomailStatus,
   fetchEmailTemplates,
   fetchEmailLogs,
+  fetchEmailSendForm,
   sendLeadEmail,
   fetchLeadsForCampaignPage,
   fetchNextQueueLead,
@@ -534,6 +535,15 @@ export function useZeptomailStatus() {
 
 export function useEmailTemplates() {
   return useQuery({ queryKey: ['email-templates'], queryFn: fetchEmailTemplates })
+}
+
+export function useEmailSendForm(mappingId: string, leadId: string) {
+  return useQuery({
+    queryKey: ['email-send-form', mappingId, leadId],
+    queryFn: () => fetchEmailSendForm(mappingId, leadId),
+    enabled: Boolean(mappingId) && Boolean(leadId),
+    staleTime: 0,
+  })
 }
 
 export function useEmailLogs(leadId: string) {

@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
-import { Field } from '@/components/ui/Input'
+import { Field, Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
-import { useEmailLogs, useEmailTemplates, useSendLeadEmail, useZeptomailStatus } from '@/api/queries'
+import { useEmailLogs, useEmailSendForm, useEmailTemplates, useSendLeadEmail, useZeptomailStatus } from '@/api/queries'
 import type { EmailLogEntry } from '@/api/crmApi'
 
 const SELECT_CLASS =
@@ -39,6 +39,10 @@ function SendLeadEmailBody({ leadId, toEmail, onClose }: { leadId: string; toEma
   const { data: logs } = useEmailLogs(leadId)
   const send = useSendLeadEmail()
   const [mappingId, setMappingId] = useState('')
+  // The template's merge fields, pre-filled from the lead where known; the user fills the rest.
+  const { data: form, isFetching: formLoading } = useEmailSendForm(mappingId, leadId)
+  const [edits, setEdits] = useState<Record<string, string>>({})
+  const fields = form?.fields ?? []
   // One key per intended send: a double-click or retried request reuses it so the
   // backend returns the original attempt. A failed send gets a new key (retry = new send).
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
@@ -49,7 +53,12 @@ function SendLeadEmailBody({ leadId, toEmail, onClose }: { leadId: string; toEma
       return
     }
     send.mutate(
-      { leadId, mappingId, idempotencyKey },
+      {
+        leadId,
+        mappingId,
+        idempotencyKey,
+        ...(fields.length > 0 && { mergeValues: Object.fromEntries(fields.map((f) => [f.name, edits[f.name] ?? f.value])) }),
+      },
       {
         onSuccess: () => {
           show({ title: `Email sent to ${toEmail}`, tone: 'success' })
@@ -86,7 +95,14 @@ function SendLeadEmailBody({ leadId, toEmail, onClose }: { leadId: string; toEma
             <p className="text-[13px] text-[var(--text-muted)]">No email templates are enabled yet. Ask an admin to add one.</p>
           ) : (
             <Field label="Template">
-              <select className={SELECT_CLASS} value={mappingId} onChange={(e) => setMappingId(e.target.value)}>
+              <select
+                className={SELECT_CLASS}
+                value={mappingId}
+                onChange={(e) => {
+                  setMappingId(e.target.value)
+                  setEdits({})
+                }}
+              >
                 <option value="">Select a template</option>
                 {mappings.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -95,6 +111,17 @@ function SendLeadEmailBody({ leadId, toEmail, onClose }: { leadId: string; toEma
                 ))}
               </select>
             </Field>
+          )}
+          {mappingId && formLoading && <p className="text-[12px] text-[var(--text-muted)]">Loading template fields…</p>}
+          {mappingId && !formLoading && fields.length > 0 && (
+            <div className="flex max-h-72 flex-col gap-3 overflow-y-auto pr-1">
+              <p className="text-[12px] text-[var(--text-muted)]">Fill in the details for this email. Known details are already filled.</p>
+              {fields.map((f) => (
+                <Field key={f.name} label={f.name}>
+                  <Input value={edits[f.name] ?? f.value} onChange={(e) => setEdits((prev) => ({ ...prev, [f.name]: e.target.value }))} />
+                </Field>
+              ))}
+            </div>
           )}
           {logs && logs.items.length > 0 && (
             <div>

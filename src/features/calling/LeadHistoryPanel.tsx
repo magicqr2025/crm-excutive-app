@@ -1,7 +1,7 @@
 import { PageLoader } from '@/components/ui/Spinner'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowRightLeft, BellRing, CalendarCheck, ClipboardEdit, Handshake, Wallet, MessageSquareText, PhoneIncoming, PhoneMissed, PhoneOutgoing, Tag, UserPlus } from 'lucide-react'
+import { ArrowRightLeft, BellRing, CalendarCheck, ClipboardEdit, Handshake, Mail, Wallet, MessageSquareText, PhoneIncoming, PhoneMissed, PhoneOutgoing, Tag, UserPlus } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { useCallLogsForLead, useLeadActivity, useLeadStatuses } from '@/api/queries'
 import type { CrmActivityEntry, CrmCallLog, CrmLead } from '@/api/crmApi'
@@ -84,6 +84,7 @@ const ACTIVITY_ICON: Record<string, ReactNode> = {
   deal: <Handshake size={13} />,
   meeting: <CalendarCheck size={13} />,
   payment: <Wallet size={13} />,
+  email: <Mail size={13} />,
 }
 
 function activityItem(entry: CrmActivityEntry): TimelineItem {
