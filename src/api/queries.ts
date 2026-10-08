@@ -7,6 +7,10 @@ import {
   fetchEmailLogs,
   fetchEmailSendForm,
   sendLeadEmail,
+  sendBulkEmail,
+  fetchEmailBatches,
+  fetchEmailBatch,
+  retryFailedEmails,
   fetchLeadsForCampaignPage,
   fetchNextQueueLead,
   updateLead,
@@ -549,6 +553,39 @@ export function useEmailSendForm(mappingId: string, leadId: string) {
 export function useEmailLogs(leadId: string) {
   return useQuery({ queryKey: ['email-logs', leadId], queryFn: () => fetchEmailLogs(leadId), enabled: Boolean(leadId) })
 }
+
+// ---- Bulk email ----
+
+export function useSendBulkEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: Parameters<typeof sendBulkEmail>[0]) => sendBulkEmail(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['email-batches'] }),
+  })
+}
+
+export function useEmailBatches(enabled = true) {
+  return useQuery({ queryKey: ['email-batches', 'list'], queryFn: () => fetchEmailBatches(), enabled })
+}
+
+// Polls every 2s while the batch is still going, then stops.
+export function useEmailBatch(id: string | null) {
+  return useQuery({
+    queryKey: ['email-batches', 'detail', id],
+    queryFn: () => fetchEmailBatch(id as string),
+    enabled: Boolean(id),
+    refetchInterval: (query) => (query.state.data?.status === 'completed' ? false : 2000),
+  })
+}
+
+export function useRetryFailedEmails() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => retryFailedEmails(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['email-batches'] }),
+  })
+}
+
 
 export function useSendLeadEmail() {
   const queryClient = useQueryClient()

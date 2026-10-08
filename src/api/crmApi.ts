@@ -1066,6 +1066,8 @@ export async function fetchMyTarget(month: number, year: number): Promise<CrmSta
 export interface ZeptomailStatus {
   configured: boolean
   from_email?: string
+  /** Admin, or a role granted "Custom Email Addresses" — may type recipient addresses in a bulk email. */
+  can_send_custom_emails?: boolean
 }
 
 export interface EmailTemplateOption {
@@ -1122,6 +1124,77 @@ export async function sendLeadEmail(input: {
 export async function fetchEmailLogs(leadId: string): Promise<{ items: EmailLogEntry[]; total: number }> {
   return apiRequest(`/zeptomail/logs?lead_id=${leadId}&per_page=50`, { headers: authHeaders() })
 }
+
+// ---- Bulk email ----
+
+export interface EmailBatch {
+  id: string
+  template_label: string
+  status: 'queued' | 'sending' | 'completed'
+  total_count: number
+  sent_count: number
+  failed_count: number
+  pending_count: number
+  skipped_count: number
+  created_by_user_id: string
+  created_by_name: string | null
+  created_at: string
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface EmailBatchSkipped {
+  lead_id: string | null
+  email: string | null
+  reason: string
+}
+
+export interface EmailBatchRecipient {
+  id: string
+  lead_id: string | null
+  to_email: string
+  to_name: string | null
+  status: 'sending' | 'sent' | 'failed'
+  error: string | null
+}
+
+export interface EmailBatchDetail extends EmailBatch {
+  skipped: EmailBatchSkipped[]
+  recipients: EmailBatchRecipient[]
+}
+
+export async function sendBulkEmail(input: {
+  mappingId: string
+  batchKey: string
+  leadIds: string[]
+  emails: string[]
+  mergeValues?: Record<string, string>
+}): Promise<EmailBatch & { skipped: EmailBatchSkipped[] }> {
+  return apiRequest('/zeptomail/send-bulk', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mapping_id: input.mappingId,
+      batch_key: input.batchKey,
+      lead_ids: input.leadIds,
+      emails: input.emails,
+      ...(input.mergeValues && { merge_values: input.mergeValues }),
+    }),
+  })
+}
+
+export async function fetchEmailBatches(): Promise<{ items: EmailBatch[]; total: number }> {
+  return apiRequest('/zeptomail/batches?per_page=30', { headers: authHeaders() })
+}
+
+export async function fetchEmailBatch(id: string): Promise<EmailBatchDetail> {
+  return apiRequest(`/zeptomail/batches/${id}`, { headers: authHeaders() })
+}
+
+export async function retryFailedEmails(id: string): Promise<EmailBatch> {
+  return apiRequest(`/zeptomail/batches/${id}/retry-failed`, { method: 'POST', headers: authHeaders() })
+}
+
 
 // ---- Push notifications (FCM device token) ----
 // Registers this device for the signed-in staff member; crmbackend takes the
