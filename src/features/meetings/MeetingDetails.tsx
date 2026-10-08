@@ -1,4 +1,5 @@
 import type { CrmMeeting, StaffMember } from '@/api/crmApi'
+import { useEmailTemplates } from '@/api/queries'
 import { cancelReasonLabel, formatMeetingWhen, staffName } from './meetingUi'
 
 interface MeetingDetailsProps {
@@ -7,6 +8,8 @@ interface MeetingDetailsProps {
 }
 
 export function MeetingDetails({ meeting, staff }: MeetingDetailsProps) {
+  const { data: templates = [] } = useEmailTemplates()
+  const reminderLabel = meeting.reminder ? (templates.find((t) => t.id === meeting.reminder?.mapping_id)?.label ?? 'selected template') : null
   const cancelledBy = meeting.cancelled_by ? staffName(staff, meeting.cancelled_by) : null
   return (
     <div className="mt-1 space-y-1.5">
@@ -22,6 +25,11 @@ export function MeetingDetails({ meeting, staff }: MeetingDetailsProps) {
             {meeting.meeting_status === 'completed' ? 'Discussion: ' : 'Notes: '}
           </span>
           {meeting.meeting_summary}
+        </p>
+      )}
+      {meeting.meeting_status === 'scheduled' && meeting.reminder && (
+        <p className="text-[12px] text-[var(--text-muted)]">
+          Client reminder email: {reminderLabel} · {[meeting.reminder.remind_24h && '1 day before', meeting.reminder.remind_1h && '1 hour before'].filter(Boolean).join(' + ')}
         </p>
       )}
       {meeting.tasks.length > 0 && (

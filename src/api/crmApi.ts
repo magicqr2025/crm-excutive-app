@@ -608,6 +608,7 @@ export interface CrmMeeting {
   next_meeting_id: string | null
   attendees: CrmMeetingAttendee[]
   tasks: CrmMeetingTask[]
+  reminder: MeetingReminder | null
   created_at: string
 }
 
@@ -634,6 +635,7 @@ export interface CreateMeetingInput {
   meetingLink?: string
   meetingSummary?: string
   pricing?: number
+  reminder?: MeetingReminder
 }
 
 export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeting> {
@@ -651,6 +653,7 @@ export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeti
       ...(input.meetingLink ? { meeting_link: input.meetingLink } : {}),
       ...(input.meetingSummary ? { meeting_summary: input.meetingSummary } : {}),
       ...(input.pricing !== undefined ? { pricing: input.pricing } : {}),
+      ...(input.reminder ? { reminder: input.reminder } : {}),
     }),
   })
 }
@@ -727,6 +730,8 @@ export interface UpdateMeetingDetailsInput {
   meetingLink?: string
   pricing?: number
   meetingSummary?: string
+  /** null removes the client reminder email. */
+  reminder?: MeetingReminder | null
 }
 
 // The only fields PUT /crm/meetings/update/:id still accepts; time, status and
@@ -739,6 +744,7 @@ export async function updateMeetingDetails(id: string, patch: UpdateMeetingDetai
       ...(patch.meetingLink !== undefined ? { meeting_link: patch.meetingLink } : {}),
       ...(patch.pricing !== undefined ? { pricing: patch.pricing } : {}),
       ...(patch.meetingSummary !== undefined ? { meeting_summary: patch.meetingSummary } : {}),
+      ...(patch.reminder !== undefined ? { reminder: patch.reminder } : {}),
     }),
   })
 }
@@ -1062,6 +1068,13 @@ export async function fetchMyTarget(month: number, year: number): Promise<CrmSta
 // ---- Email (ZeptoMail) ----
 // An admin connects ZeptoMail and enables templates in orm-whatsapp; executives
 // can only pick one of those templates and send it to a lead they can see.
+
+/** Client reminder email chosen on a meeting: which template, and when (1 day and/or 1 hour before). */
+export interface MeetingReminder {
+  mapping_id: string
+  remind_24h: boolean
+  remind_1h: boolean
+}
 
 export interface ZeptomailStatus {
   configured: boolean

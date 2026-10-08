@@ -13,6 +13,8 @@ import { useMeetingsPage, useCreateMeeting } from '@/api/queries'
 import { useAuthStore } from '@/store/useAuthStore'
 import type { CrmContact, CrmMeeting } from '@/api/crmApi'
 import { MeetingCard } from './MeetingCard'
+import { MeetingReminderPicker } from './MeetingReminderPicker'
+import type { MeetingReminder } from '@/api/crmApi'
 import { isOverdue } from './meetingUi'
 
 export function MeetingsPage() {
@@ -31,6 +33,7 @@ export function MeetingsPage() {
   const [meetingLink, setMeetingLink] = useState('')
   const [meetingSummary, setMeetingSummary] = useState('')
   const [meetingPricing, setMeetingPricing] = useState('')
+  const [reminder, setReminder] = useState<MeetingReminder | null>(null)
 
   const overdueCount = meetings.filter((m) => isOverdue(m)).length
 
@@ -41,10 +44,15 @@ export function MeetingsPage() {
     setMeetingLink('')
     setMeetingSummary('')
     setMeetingPricing('')
+    setReminder(null)
   }
 
   function submit() {
     if (!contact || !meetingTime) return
+    if (reminder && !reminder.remind_24h && !reminder.remind_1h) {
+      show({ title: 'Choose when to send the reminder', tone: 'error' })
+      return
+    }
     createMeeting.mutate(
       {
         contactId: contact.id,
@@ -53,6 +61,7 @@ export function MeetingsPage() {
         meetingLink: meetingLink.trim() || undefined,
         meetingSummary: meetingSummary.trim() || undefined,
         pricing: meetingPricing ? Number(meetingPricing) : undefined,
+        reminder: reminder ?? undefined,
       },
       {
         onSuccess: () => {
@@ -108,6 +117,7 @@ export function MeetingsPage() {
             <Field label="Summary" hint="Optional">
               <Textarea value={meetingSummary} onChange={(e) => setMeetingSummary(e.target.value)} rows={3} placeholder="Agenda or notes…" />
             </Field>
+            <MeetingReminderPicker value={reminder} onChange={setReminder} />
             <Button className="w-full justify-center" onClick={submit} disabled={!contact || !meetingTime || createMeeting.isPending}>
               {createMeeting.isPending ? 'Saving…' : 'Schedule Meeting'}
             </Button>
