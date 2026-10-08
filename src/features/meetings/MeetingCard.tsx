@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input, Textarea } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { useStaffList, useUpdateMeetingDetails } from '@/api/queries'
+import type { MeetingReminder } from '@/api/crmApi'
+import { MeetingReminderPicker } from './MeetingReminderPicker'
 import type { CrmMeeting } from '@/api/crmApi'
 import { MeetingActions } from './MeetingActions'
 import { MeetingDetails } from './MeetingDetails'
@@ -35,6 +37,7 @@ export function MeetingCard({ meeting, userId, isAdmin, showContact = false, onO
   const [link, setLink] = useState('')
   const [pricing, setPricing] = useState('')
   const [summary, setSummary] = useState('')
+  const [reminder, setReminder] = useState<MeetingReminder | null>(null)
 
   const overdue = isOverdue(meeting)
   const can = getMeetingPermissions(meeting, userId, isAdmin)
@@ -44,12 +47,17 @@ export function MeetingCard({ meeting, userId, isAdmin, showContact = false, onO
     setLink(meeting.meeting_link ?? '')
     setPricing(String(meeting.pricing ?? 0))
     setSummary(meeting.meeting_summary ?? '')
+    setReminder(meeting.reminder)
     setEditing(true)
   }
 
   function saveEdit() {
+    if (reminder && !reminder.remind_24h && !reminder.remind_1h) {
+      show({ title: 'Choose when to send the reminder', tone: 'error' })
+      return
+    }
     updateDetails.mutate(
-      { id: meeting.id, patch: { meetingLink: link.trim(), pricing: pricing ? Number(pricing) : 0, meetingSummary: summary.trim() } },
+      { id: meeting.id, patch: { meetingLink: link.trim(), pricing: pricing ? Number(pricing) : 0, meetingSummary: summary.trim(), reminder } },
       {
         onSuccess: () => {
           show({ title: 'Meeting updated', tone: 'success' })
@@ -72,6 +80,7 @@ export function MeetingCard({ meeting, userId, isAdmin, showContact = false, onO
         <Field label="Agenda / notes" hint="Optional">
           <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={2} />
         </Field>
+        <MeetingReminderPicker value={reminder} onChange={setReminder} />
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setEditing(false)}>
             Cancel
@@ -112,7 +121,7 @@ export function MeetingCard({ meeting, userId, isAdmin, showContact = false, onO
                 e.stopPropagation()
                 startEdit()
               }}
-              title="Edit link, pricing and notes"
+              title="Edit link, pricing, notes and reminder"
               className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
             >
               <Pencil size={12} />

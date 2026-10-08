@@ -8,6 +8,7 @@ import { Input, Field, Textarea } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
 import { MeetingCard } from '@/features/meetings/MeetingCard'
+import { MeetingReminderPicker } from '@/features/meetings/MeetingReminderPicker'
 import { useCallLead } from '@/features/calling/useCallLead'
 import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 import { SendLeadEmailDialog } from '@/components/SendLeadEmailDialog'
@@ -32,7 +33,7 @@ import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
 import { RecordPaymentForm } from '@/features/payments/RecordPaymentForm'
 import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
 import { formatTalkTime } from '@/lib/utils'
-import type { CrmLead, DealStatus, CrmDeal } from '@/api/crmApi'
+import type { CrmLead, DealStatus, CrmDeal, MeetingReminder } from '@/api/crmApi'
 
 
 function todayDateInput() {
@@ -128,6 +129,7 @@ export function ContactDetailView({
   const [meetingLink, setMeetingLink] = useState('')
   const [meetingSummary, setMeetingSummary] = useState('')
   const [meetingPricing, setMeetingPricing] = useState('')
+  const [meetingReminder, setMeetingReminder] = useState<MeetingReminder | null>(null)
 
   const [paymentFormOpen, setPaymentFormOpen] = useState(false)
 
@@ -198,6 +200,10 @@ export function ContactDetailView({
 
   function submitMeeting() {
     if (!meetingTime) return
+    if (meetingReminder && !meetingReminder.remind_24h && !meetingReminder.remind_1h) {
+      show({ title: 'Choose when to send the reminder', tone: 'error' })
+      return
+    }
     createMeeting.mutate(
       {
         contactId,
@@ -206,6 +212,7 @@ export function ContactDetailView({
         meetingLink: meetingLink.trim() || undefined,
         meetingSummary: meetingSummary.trim() || undefined,
         pricing: meetingPricing ? Number(meetingPricing) : undefined,
+        reminder: meetingReminder ?? undefined,
       },
       {
         onSuccess: () => {
@@ -215,6 +222,7 @@ export function ContactDetailView({
           setMeetingLink('')
           setMeetingSummary('')
           setMeetingPricing('')
+          setMeetingReminder(null)
           setMeetingFormOpen(false)
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to schedule meeting', tone: 'error' }),
@@ -656,6 +664,7 @@ export function ContactDetailView({
               <Field label="Summary" hint="Optional">
                 <Textarea value={meetingSummary} onChange={(e) => setMeetingSummary(e.target.value)} rows={2} placeholder="Agenda or notes…" />
               </Field>
+              <MeetingReminderPicker value={meetingReminder} onChange={setMeetingReminder} />
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setMeetingFormOpen(false)}>
                   Cancel
