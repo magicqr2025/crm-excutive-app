@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/useToast'
 import { useDeals, useMyTargets, usePaymentsPage, usePendingSubscriptions } from '@/api/queries'
 import type { CrmContact, CrmPayment } from '@/api/crmApi'
 import { RecordPaymentForm } from './RecordPaymentForm'
+import { formatDate } from '@/lib/dateFormat'
 
 const MOP_FILTERS = ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Other']
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({
@@ -24,7 +25,7 @@ const SELECT_CLASSES =
 
 const inr = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 const todayInput = () => new Date().toLocaleDateString('en-CA')
-const dateText = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })
+const dateText = (iso: string) => formatDate(iso, 'UTC')
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'error' }) {
   const color = tone === 'success' ? 'text-[var(--success)]' : tone === 'error' ? 'text-[var(--error)]' : 'text-[var(--text-h)]'

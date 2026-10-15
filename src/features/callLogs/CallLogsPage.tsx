@@ -40,7 +40,7 @@ function formatWhen(iso: string) {
   const time = format(d, 'h:mm a')
   if (isToday(d)) return `Today, ${time}`
   if (isYesterday(d)) return `Yesterday, ${time}`
-  return `${format(d, 'd MMM')}, ${time}`
+  return `${format(d, 'dd/MM/yyyy')}, ${time}`
 }
 
 function CallLogRow({ log }: { log: CrmCallLog }) {

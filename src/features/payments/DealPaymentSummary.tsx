@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/Badge'
 import type { CrmDeal, DealPaymentStatus } from '@/api/crmApi'
+import { formatDate } from '@/lib/dateFormat'
 
 const STATUS_TONE: Record<DealPaymentStatus, 'success' | 'warning' | 'neutral'> = {
   paid: 'success',
@@ -33,7 +34,7 @@ export function DealPaymentSummary({ deal }: { deal: CrmDeal }) {
       {deal.balance_amount > 0 && deal.short_payment_reason && (
         <p>
           Reason: {deal.short_payment_reason}
-          {deal.expected_balance_date && ` · expected ${new Date(deal.expected_balance_date).toLocaleDateString(undefined, { timeZone: 'UTC' })}`}
+          {deal.expected_balance_date && ` · expected ${formatDate(deal.expected_balance_date, 'UTC')}`}
         </p>
       )}
     </div>

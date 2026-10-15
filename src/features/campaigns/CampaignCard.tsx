@@ -64,7 +64,7 @@ export function CampaignCard({ campaign }: { campaign: CrmMyLeadCampaign }) {
 
   const worked = campaign.assigned > 0 ? (campaign.assigned - campaign.uncontacted) / campaign.assigned : 0
 
-  const createdOn = campaign.created_at ? format(new Date(campaign.created_at), 'd MMM yyyy') : '—'
+  const createdOn = campaign.created_at ? format(new Date(campaign.created_at), 'dd/MM/yyyy') : '—'
 
   async function startCalling() {
     setStarting(true)

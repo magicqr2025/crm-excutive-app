@@ -1,3 +1,4 @@
+import { formatDate } from '@/lib/dateFormat'
 export function isSessionOpen(sessionExpiresAt: string | null): boolean {
   return sessionExpiresAt ? new Date(sessionExpiresAt).getTime() > Date.now() : false
 }
@@ -10,5 +11,5 @@ export function formatClock(iso: string): string {
 export function formatListTime(iso: string): string {
   const date = new Date(iso)
   const sameDay = date.toDateString() === new Date().toDateString()
-  return sameDay ? formatClock(iso) : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return sameDay ? formatClock(iso) : formatDate(date)
 }

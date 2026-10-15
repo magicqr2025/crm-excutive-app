@@ -1,4 +1,5 @@
 import type { CrmTask, StaffMember, TaskPriority, TaskStatus, TaskType } from '@/api/crmApi'
+import { formatDateTime } from '@/lib/dateFormat'
 
 export const TASK_TYPE_OPTIONS: { value: TaskType; label: string }[] = [
   { value: 'quotation', label: 'Send quotation' },
@@ -44,7 +45,7 @@ export function formatDeadline(iso: string): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
     ? iso
-    : d.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : formatDateTime(d)
 }
 
 export function toDatetimeLocalValue(iso: string): string {

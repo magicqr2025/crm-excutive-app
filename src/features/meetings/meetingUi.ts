@@ -1,4 +1,5 @@
 import type { CancelReason, CrmMeeting, MeetingStatus, StaffMember } from '@/api/crmApi'
+import { formatDateTime } from '@/lib/dateFormat'
 
 export const MEETING_STATUS_LABEL: Record<MeetingStatus, string> = {
   scheduled: 'Scheduled',
@@ -36,7 +37,7 @@ export function formatMeetingWhen(iso: string): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
     ? iso
-    : d.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : formatDateTime(d)
 }
 
 export function toDatetimeLocalValue(iso: string): string {

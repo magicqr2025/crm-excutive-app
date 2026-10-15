@@ -7,6 +7,7 @@ import { useCallLogsForLead, useLeadActivity, useLeadStatuses } from '@/api/quer
 import type { CrmActivityEntry, CrmCallLog, CrmLead } from '@/api/crmApi'
 import { formatDate as formatIstDate, formatTime as formatIstTime } from '@/lib/followupFormat'
 import { cn, formatTalkTime } from '@/lib/utils'
+import { formatDate } from '@/lib/dateFormat'
 
 // Entries shown before "View more".
 const COLLAPSED_ENTRIES = 4
@@ -16,7 +17,7 @@ type Tab = 'about' | 'timeline'
 // created_at / call_time are real UTC instants (unlike followup_date/time,
 // which need followupFormat's IST decoding), so plain locale formatting.
 function dayLabel(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+  return formatDate(iso)
 }
 function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
