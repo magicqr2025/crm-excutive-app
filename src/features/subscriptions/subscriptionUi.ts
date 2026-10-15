@@ -1,16 +1,12 @@
 import type { CrmSubscription, SubscriptionLostReason } from '@/api/crmApi'
+import { formatDate as fmtDate } from '@/lib/dateFormat'
 
 type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'error'
 
-/** 2026-10-10 → "10 Oct 2026". Dates are calendar dates, so format without time-zone shifts. */
+/** 2026-10-10 → "10/10/2026". Dates are calendar dates, so format without time-zone shifts. */
 export function formatDate(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
+  return fmtDate(new Date(Date.UTC(y, m - 1, d)), 'UTC')
 }
 
 /** Adds whole days to a YYYY-MM-DD date. */

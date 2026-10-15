@@ -34,6 +34,7 @@ import { RecordPaymentForm } from '@/features/payments/RecordPaymentForm'
 import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
 import { formatTalkTime } from '@/lib/utils'
 import type { CrmLead, DealStatus, CrmDeal, MeetingReminder } from '@/api/crmApi'
+import { formatDate as fmtDate } from '@/lib/dateFormat'
 
 
 function todayDateInput() {
@@ -737,7 +738,7 @@ export function ContactDetailView({
                     {payment.payment_date && (
                       <p className="mt-1 text-[12px] text-[var(--text-muted)]">
                         <span>Payment date: </span>
-                        {new Date(payment.payment_date).toLocaleDateString(undefined, { timeZone: 'UTC' })}
+                        {fmtDate(payment.payment_date, 'UTC')}
                       </p>
                     )}
                     {payment.notes && (

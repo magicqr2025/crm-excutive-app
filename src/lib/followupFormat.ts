@@ -18,7 +18,7 @@ export function formatDate(iso: string) {
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
     ? iso
-    : toRealInstant(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', timeZone: IST_TIME_ZONE })
+    : toRealInstant(d).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: IST_TIME_ZONE })
 }
 
 export function formatTime(iso: string) {
