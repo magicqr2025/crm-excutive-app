@@ -930,6 +930,9 @@ export interface CrmTask {
   deadline: string | null
   assign_to_staff_id: string
   created_by: string | null
+  /** What the assignee did and how it works: rich text (sanitized HTML). */
+  work_notes?: string | null
+  work_notes_updated_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -1005,6 +1008,15 @@ export async function createTask(input: CreateTaskInput): Promise<CrmTask> {
       ...(input.assignToStaffId ? { assign_to_staff_id: input.assignToStaffId } : {}),
       ...(input.contactId ? { contact_id: input.contactId } : {}),
     }),
+  })
+}
+
+/** What the assignee did, as rich text (the server cleans the HTML). null clears it. */
+export async function saveTaskWorkNotes(id: string, workNotes: string | null): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/work-notes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ work_notes: workNotes }),
   })
 }
 
@@ -1383,5 +1395,33 @@ export async function sellSubscription(input: SellSubscriptionInput): Promise<Cr
         ...(input.payment.notes ? { notes: input.payment.notes } : {}),
       },
     }),
+  })
+}
+
+// ---------- Team booking links ----------
+
+/** A meeting a lead booked through a team link that nobody has taken yet. Contact details stay hidden until it is taken. */
+export interface CrmUnclaimedBooking {
+  id: string
+  event_title: string
+  invitee_name: string
+  start_utc: string
+  end_utc: string
+  duration_minutes: number
+  location_type: 'link' | 'phone' | 'in_person'
+  notes: string | null
+  created_at: string
+}
+
+export function fetchUnclaimedBookings() {
+  return apiRequest<CrmUnclaimedBooking[]>('/scheduling/bookings/unclaimed', { headers: authHeaders() })
+}
+
+/** The first executive to take it gets the meeting and the lead; a later one gets a 409. */
+export function takeBooking(id: string) {
+  return apiRequest<{ id: string }>(`/scheduling/bookings/${encodeURIComponent(id)}/take`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({}),
   })
 }

@@ -31,6 +31,14 @@ function staffOptions(staff: StaffMember[]) {
   ))
 }
 
+type FollowupPreset = 1 | 2 | 4 | 'custom'
+const FOLLOWUP_PRESETS: FollowupPreset[] = [1, 2, 4, 'custom']
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const toDateStr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+const toTimeStr = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
+const inHours = (h: number) => new Date(Date.now() + h * 3_600_000)
+
 function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Omit<CompleteMeetingDialogProps, 'open'>) {
   const owner = meeting.assign_to_staff_id ?? meeting.created_by
   const [summary, setSummary] = useState(meeting.meeting_summary ?? '')
@@ -41,17 +49,37 @@ function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Om
   const [taskAssignee, setTaskAssignee] = useState(owner ?? '')
   const [addFollowup, setAddFollowup] = useState(false)
   const [followupType, setFollowupType] = useState<'call' | 'meeting'>('call')
-  const [followupDate, setFollowupDate] = useState('')
+  const [followupPreset, setFollowupPreset] = useState<FollowupPreset>('custom')
+  const [followupDate, setFollowupDate] = useState(() => toDateStr(new Date()))
   const [followupTime, setFollowupTime] = useState('')
   const [followupAssignee, setFollowupAssignee] = useState(owner ?? '')
   const [followupNote, setFollowupNote] = useState('')
 
+  const today = toDateStr(new Date())
+  // A preset is relative to "now", so re-resolve it at submit time rather than trusting the stored value.
+  const resolveFollowup = () => {
+    if (followupPreset === 'custom') return { date: followupDate, time: followupTime }
+    const at = inHours(followupPreset)
+    return { date: toDateStr(at), time: toTimeStr(at) }
+  }
+  const followupAt = followupDate && followupTime ? new Date(`${followupDate}T${followupTime}`) : null
+  const followupInPast = followupAt !== null && followupAt.getTime() < Date.now() - 60_000
+
   const valid =
     summary.trim() !== '' &&
     (!addTask || taskTitle.trim() !== '') &&
-    (!addFollowup || (followupDate !== '' && followupTime !== ''))
+    (!addFollowup || (followupDate !== '' && followupTime !== '' && !followupInPast))
+
+  function pickPreset(p: FollowupPreset) {
+    setFollowupPreset(p)
+    if (p === 'custom') return
+    const at = inHours(p)
+    setFollowupDate(toDateStr(at))
+    setFollowupTime(toTimeStr(at))
+  }
 
   function submit() {
+    const fu = resolveFollowup()
     onSubmit({
       meetingSummary: summary.trim(),
       attendeeStaffIds: attendees,
@@ -65,8 +93,8 @@ function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Om
       followup: addFollowup
         ? {
             type: followupType,
-            date: followupDate,
-            time: followupTime,
+            date: fu.date,
+            time: fu.time,
             assignToStaffId: followupAssignee || undefined,
             note: followupNote.trim() || undefined,
           }
@@ -124,14 +152,56 @@ function CompleteMeetingForm({ onClose, meeting, staff, isSaving, onSubmit }: Om
                 <option value="meeting">Meeting</option>
               </select>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date *">
-                <Input type="date" value={followupDate} onChange={(e) => setFollowupDate(e.target.value)} />
-              </Field>
-              <Field label="Time *">
-                <Input type="time" value={followupTime} onChange={(e) => setFollowupTime(e.target.value)} />
-              </Field>
-            </div>
+            <Field label="When">
+              <div className="flex flex-wrap gap-2">
+                {FOLLOWUP_PRESETS.map((p) => {
+                  const active = followupPreset === p
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => pickPreset(p)}
+                      className={`h-8 rounded-full border px-3 text-[13px] font-medium transition-colors ${
+                        active
+                          ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                          : 'border-[var(--border)] text-[var(--text-h)] hover:bg-[var(--surface-hover)]'
+                      }`}
+                    >
+                      {p === 'custom' ? 'Custom' : `${p} hr`}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+            {followupPreset === 'custom' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Date *">
+                  <Input
+                    type="date"
+                    min={today}
+                    value={followupDate}
+                    onChange={(e) => setFollowupDate(e.target.value)}
+                  />
+                </Field>
+                <Field label="Time *">
+                  <Input
+                    type="time"
+                    min={followupDate === today ? toTimeStr(new Date()) : undefined}
+                    value={followupTime}
+                    onChange={(e) => setFollowupTime(e.target.value)}
+                  />
+                </Field>
+              </div>
+            ) : (
+              followupAt && (
+                <p className="text-[13px] text-[var(--text-muted)]">
+                  Follow-up on {followupAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                </p>
+              )
+            )}
+            {followupInPast && (
+              <p className="text-[12px] text-red-600">Follow-up can’t be earlier than the current date and time.</p>
+            )}
             <Field label="Who follows up">
               <select value={followupAssignee} onChange={(e) => setFollowupAssignee(e.target.value)} className={SELECT_CLASS}>
                 {staffOptions(staff)}

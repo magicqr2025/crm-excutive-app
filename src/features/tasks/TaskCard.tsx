@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/useToast'
 import { useSetTaskStatus } from '@/api/queries'
 import type { CrmTask, StaffMember } from '@/api/crmApi'
+import { TaskWorkNotes } from './TaskWorkNotes'
 import {
   TASK_PRIORITY_OPTIONS,
   TASK_PRIORITY_TONE,
@@ -77,6 +78,7 @@ export function TaskCard({ task, staff, userId, isAdmin, onEdit }: TaskCardProps
       <p className="mt-1 text-[12px] text-[var(--text-muted)]">
         Assigned to {staffLabel(staff, task.assign_to_staff_id)} · Created by {staffLabel(staff, task.created_by)}
       </p>
+      <TaskWorkNotes task={task} userId={userId} isAdmin={isAdmin} />
       {(can.start || can.complete || can.cancel) && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {can.start && (

@@ -1,6 +1,9 @@
 import { usePagedList } from '@/lib/usePagedList'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  saveTaskWorkNotes,
+  fetchUnclaimedBookings,
+  takeBooking,
   fetchMyLeadCampaigns,
   fetchZeptomailStatus,
   fetchEmailTemplates,
@@ -313,6 +316,23 @@ export function useMeetingsPage(search: string) {
   return usePagedList({ queryKey: ['meetings', 'paged', { search }], fetchPage: (page) => fetchMeetingsPage({ page, search }) })
 }
 
+export function useUnclaimedBookings() {
+  return useQuery({ queryKey: ['unclaimed-bookings'], queryFn: () => fetchUnclaimedBookings(), refetchInterval: 60_000 })
+}
+
+export function useTakeBooking() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => takeBooking(id),
+    // Whether it worked or someone else got there first, the list is stale.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['unclaimed-bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+    },
+  })
+}
+
 export function useCreateMeeting() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -395,6 +415,14 @@ export function useUpdateTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: UpdateTaskInput }) => updateTask(id, patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useSaveTaskWorkNotes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, workNotes }: { id: string; workNotes: string | null }) => saveTaskWorkNotes(id, workNotes),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }
