@@ -930,6 +930,9 @@ export interface CrmTask {
   deadline: string | null
   assign_to_staff_id: string
   created_by: string | null
+  /** What the assignee did and how it works: rich text (sanitized HTML). */
+  work_notes?: string | null
+  work_notes_updated_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -1005,6 +1008,15 @@ export async function createTask(input: CreateTaskInput): Promise<CrmTask> {
       ...(input.assignToStaffId ? { assign_to_staff_id: input.assignToStaffId } : {}),
       ...(input.contactId ? { contact_id: input.contactId } : {}),
     }),
+  })
+}
+
+/** What the assignee did, as rich text (the server cleans the HTML). null clears it. */
+export async function saveTaskWorkNotes(id: string, workNotes: string | null): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/work-notes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ work_notes: workNotes }),
   })
 }
 

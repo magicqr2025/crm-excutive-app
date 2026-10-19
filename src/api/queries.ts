@@ -1,6 +1,7 @@
 import { usePagedList } from '@/lib/usePagedList'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  saveTaskWorkNotes,
   fetchUnclaimedBookings,
   takeBooking,
   fetchMyLeadCampaigns,
@@ -414,6 +415,14 @@ export function useUpdateTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: UpdateTaskInput }) => updateTask(id, patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useSaveTaskWorkNotes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, workNotes }: { id: string; workNotes: string | null }) => saveTaskWorkNotes(id, workNotes),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }
