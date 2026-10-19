@@ -1385,3 +1385,31 @@ export async function sellSubscription(input: SellSubscriptionInput): Promise<Cr
     }),
   })
 }
+
+// ---------- Team booking links ----------
+
+/** A meeting a lead booked through a team link that nobody has taken yet. Contact details stay hidden until it is taken. */
+export interface CrmUnclaimedBooking {
+  id: string
+  event_title: string
+  invitee_name: string
+  start_utc: string
+  end_utc: string
+  duration_minutes: number
+  location_type: 'link' | 'phone' | 'in_person'
+  notes: string | null
+  created_at: string
+}
+
+export function fetchUnclaimedBookings() {
+  return apiRequest<CrmUnclaimedBooking[]>('/scheduling/bookings/unclaimed', { headers: authHeaders() })
+}
+
+/** The first executive to take it gets the meeting and the lead; a later one gets a 409. */
+export function takeBooking(id: string) {
+  return apiRequest<{ id: string }>(`/scheduling/bookings/${encodeURIComponent(id)}/take`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({}),
+  })
+}

@@ -36,6 +36,8 @@ async function ensureReminderChannel() {
 function routeFor(data: Record<string, string> | undefined): string | null {
   if (data?.entityType === 'followup' && data.entityId) return `/followups/${data.entityId}`
   if (data?.entityType === 'meeting') return '/meetings'
+  // Team booking links: a meeting waiting to be taken, where the Take button is.
+  if (data?.entityType === 'booking_unclaimed') return '/meetings'
   if (data?.entityType === 'subscription') return '/subscriptions'
   return null
 }

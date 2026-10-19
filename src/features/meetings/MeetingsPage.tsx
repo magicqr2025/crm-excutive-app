@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import type { CrmContact, CrmMeeting } from '@/api/crmApi'
 import { MeetingCard } from './MeetingCard'
 import { MeetingReminderPicker } from './MeetingReminderPicker'
+import { UnclaimedBookingsPanel } from './UnclaimedBookingsPanel'
 import type { MeetingReminder } from '@/api/crmApi'
 import { isOverdue } from './meetingUi'
 
@@ -97,6 +98,7 @@ export function MeetingsPage() {
         }
       />
       <div className="p-4">
+        <UnclaimedBookingsPanel />
         {formOpen && (
           <div className="mb-4 space-y-3 rounded-2xl border border-[var(--border)] p-4">
             <Field label="Contact">
