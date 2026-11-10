@@ -14,6 +14,8 @@ import { ContactDetailPage } from '@/features/contacts/ContactDetailPage'
 import { CallLogsPage } from '@/features/callLogs/CallLogsPage'
 import { DealsPage } from '@/features/deals/DealsPage'
 import { MeetingsPage } from '@/features/meetings/MeetingsPage'
+import { MeetingDetailPage } from '@/features/meetings/MeetingDetailPage'
+import { BookingLinksPage } from '@/features/meetings/BookingLinksPage'
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
 import { TicketsPage } from '@/features/tasks/TicketsPage'
@@ -22,6 +24,10 @@ import { PaymentsPage } from '@/features/payments/PaymentsPage'
 import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
 import { InboxPage } from '@/features/inbox/InboxPage'
 import { ConversationPage } from '@/features/inbox/ConversationPage'
+import { TeamChatPage } from '@/features/teamChat/TeamChatPage'
+import { TeamChatThreadPage } from '@/features/teamChat/TeamChatThreadPage'
+import { MyPerformancePage } from '@/features/performance/MyPerformancePage'
+import { NotificationsPage } from '@/features/notifications/NotificationsPage'
 
 export default function App() {
   return (
@@ -43,11 +49,17 @@ export default function App() {
             <Route path="/call-logs" element={<CallLogsPage />} />
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
+            <Route path="/meetings/links" element={<BookingLinksPage />} />
+            <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/target" element={<TargetPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/team-chat" element={<TeamChatPage />} />
+            <Route path="/team-chat/:channelId" element={<TeamChatThreadPage />} />
+            <Route path="/performance" element={<MyPerformancePage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/settings/call-recording" element={<CallRecordingSettingsPage />} />
           </Route>
         </Route>

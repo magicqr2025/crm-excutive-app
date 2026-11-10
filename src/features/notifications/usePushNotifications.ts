@@ -3,8 +3,46 @@ import { useNavigate } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { LocalNotifications } from '@capacitor/local-notifications'
-import { registerFcmToken } from '@/api/crmApi'
+import { registerFcmToken, unregisterFcmToken } from '@/api/crmApi'
 import { useToast } from '@/components/ui/useToast'
+
+// The last FCM token this device registered, kept so logout can tell crmbackend
+// which token to drop.
+const FCM_TOKEN_STORAGE_KEY = 'exec_fcm_token'
+
+function storeFcmToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(FCM_TOKEN_STORAGE_KEY, token)
+    else localStorage.removeItem(FCM_TOKEN_STORAGE_KEY)
+  } catch {
+    // Storage unavailable — logout then falls back to unregister() alone.
+  }
+}
+
+function loadFcmToken(): string | null {
+  try {
+    return localStorage.getItem(FCM_TOKEN_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+// Called on logout, before the session token is cleared. Two layers:
+// 1. Ask crmbackend to drop this device's token (immediate; needs network).
+// 2. unregister() deletes the token in Firebase itself, so even if step 1
+//    failed the old token is dead — crmbackend prunes it on its next send.
+// Never throws and never takes longer than ~3s, so logout can't get stuck.
+export async function teardownPushNotifications(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return
+  const token = loadFcmToken()
+  if (token) {
+    await unregisterFcmToken(token, AbortSignal.timeout(3000)).catch((err) =>
+      console.error('Failed to unregister push token', err),
+    )
+  }
+  await PushNotifications.unregister().catch((err) => console.error('Push unregister failed', err))
+  storeFcmToken(null)
+}
 
 // Android 8+ ties a notification's sound/vibration/importance to its channel,
 // not to the individual notification — so a custom sound means a dedicated
@@ -39,6 +77,7 @@ function routeFor(data: Record<string, string> | undefined): string | null {
   // Team booking links: a meeting waiting to be taken, where the Take button is.
   if (data?.entityType === 'booking_unclaimed') return '/meetings'
   if (data?.entityType === 'subscription') return '/subscriptions'
+  if (data?.entityType === 'chat') return data.entityId ? `/team-chat/${data.entityId}` : '/team-chat'
   return null
 }
 
@@ -80,6 +119,7 @@ export function usePushNotifications() {
     // Listeners first, so the token event from register() below can't be missed.
     handles.push(
       PushNotifications.addListener('registration', ({ value }) => {
+        storeFcmToken(value)
         registerFcmToken(value).catch((err) => console.error('Failed to register push token', err))
       }),
       PushNotifications.addListener('registrationError', (err) => {

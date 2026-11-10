@@ -25,6 +25,14 @@ export interface Conversation {
   contactPhone: string
   status: 'open' | 'resolved'
   unreadCount: number
+  /** An admin or manager blocked this number. */
+  blocked?: boolean
+  /** The staff member the chat is assigned to. */
+  assignedAgentId?: string | null
+  /** Names of the pipelines (lead campaigns) this contact's leads are in. */
+  leadCampaignNames?: string[]
+  /** The contact's labels. */
+  tags?: string[]
   lastMessageAt: string
   sessionExpiresAt: string | null
   lastMessage: { body: string | null; direction: 'in' | 'out'; status: MessageStatus } | null

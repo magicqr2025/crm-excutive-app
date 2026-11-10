@@ -25,6 +25,19 @@ import {
   fetchLeadStatuses,
   createCallLog,
   fetchMyCallLogsPage,
+  fetchNotificationsPage,
+  fetchMyActivity,
+  fetchMyPerformance,
+  fetchMyOpenChats,
+  fetchMyInteractions,
+  fetchMySales,
+  fetchLeadNotes,
+  createLeadNote,
+  fetchLeadForContact,
+  type PerformancePeriod,
+  fetchUnreadNotificationCount,
+  markNotificationRead,
+  markAllNotificationsRead,
   fetchMyActiveFollowupsPage,
   fetchFollowupById,
   fetchMyFollowupsPage,
@@ -35,6 +48,8 @@ import {
   fetchActiveProducts,
   fetchMyTargets,
   fetchMeetingsPage,
+  fetchMeetingById,
+  type MeetingsPageOpts,
   fetchPaymentsPage,
   fetchMyTarget,
   fetchLeadsPage,
@@ -86,16 +101,17 @@ import {
   type TaskStatusFilter,
   type TaskType,
 } from '@/api/crmApi'
+import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
 
 export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
 }
 
-export function useCampaignLeadsPage({ campaignId, staffId, scope, search }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string }) {
+export function useCampaignLeadsPage({ campaignId, staffId, scope, search, anyStaff = false }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string; /** List the campaign's leads whoever owns them (no staff filter). */ anyStaff?: boolean }) {
   return usePagedList({
     queryKey: ['campaign-leads', campaignId, staffId, scope, { search }],
     fetchPage: (page) => fetchLeadsForCampaignPage({ campaignId, staffId, scope, page, search }),
-    enabled: Boolean(campaignId && staffId),
+    enabled: Boolean(campaignId && (staffId || anyStaff)),
   })
 }
 
@@ -312,8 +328,12 @@ export function useMeetings(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['meetings', 'contact', contactId] : ['meetings'], queryFn: () => fetchMeetings(contactId) })
 }
 
-export function useMeetingsPage(search: string) {
-  return usePagedList({ queryKey: ['meetings', 'paged', { search }], fetchPage: (page) => fetchMeetingsPage({ page, search }) })
+export function useMeetingsPage(filters: Omit<MeetingsPageOpts, 'page'>) {
+  return usePagedList({ queryKey: ['meetings', 'paged', filters], fetchPage: (page) => fetchMeetingsPage({ page, ...filters }) })
+}
+
+export function useMeeting(id: string | undefined) {
+  return useQuery({ queryKey: ['meetings', 'one', id], queryFn: () => fetchMeetingById(id as string), enabled: Boolean(id), retry: false })
 }
 
 export function useUnclaimedBookings() {
@@ -621,5 +641,157 @@ export function useSendLeadEmail() {
     mutationFn: sendLeadEmail,
     // Refresh on failure too: the backend records failed attempts, so history changes either way.
     onSettled: (_data, _err, vars) => queryClient.invalidateQueries({ queryKey: ['email-logs', vars.leadId] }),
+  })
+}
+
+// ---- In-app notifications ----
+
+const NOTIFICATIONS_KEY = ['notifications'] as const
+
+// Polled so the header badge stays fresh; it's a tiny request.
+export function useUnreadNotificationCount() {
+  return useQuery({
+    queryKey: [...NOTIFICATIONS_KEY, 'unread'],
+    queryFn: fetchUnreadNotificationCount,
+    refetchInterval: 30_000,
+  })
+}
+
+export function useNotificationsPage(unreadOnly: boolean) {
+  return usePagedList({
+    queryKey: [...NOTIFICATIONS_KEY, 'list', { unreadOnly }],
+    fetchPage: (page) => fetchNotificationsPage({ page, unreadOnly }),
+  })
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => markNotificationRead(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  })
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => markAllNotificationsRead(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  })
+}
+
+// ---- My performance ----
+
+export function useMyActivity(range: { from: string; to: string } | null) {
+  return useQuery({
+    queryKey: ['my-activity', range],
+    queryFn: () => fetchMyActivity(range as { from: string; to: string }),
+    enabled: Boolean(range),
+  })
+}
+
+export function useMyPerformance(period: PerformancePeriod, staffId: string) {
+  return useQuery({
+    queryKey: ['my-performance', staffId, period],
+    queryFn: () => fetchMyPerformance(period, staffId),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useMyInteractions(period: PerformancePeriod, staffId: string) {
+  return useQuery({
+    queryKey: ['my-interactions', staffId, period],
+    queryFn: () => fetchMyInteractions(staffId, period),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useMySales(staffId: string, month: number, year: number) {
+  return useQuery({
+    queryKey: ['my-sales', staffId, month, year],
+    queryFn: () => fetchMySales(staffId, month, year),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useMyOpenChats() {
+  return useQuery({ queryKey: ['my-open-chats'], queryFn: fetchMyOpenChats, refetchInterval: 60_000 })
+}
+
+// ---- Chat info panel (one conversation's contact) ----
+
+export function useLeadForContact(contactId: string | null, phone: string) {
+  return useQuery({
+    queryKey: ['lead-for-contact', contactId],
+    queryFn: () => fetchLeadForContact(contactId as string, phone),
+    enabled: Boolean(contactId),
+  })
+}
+
+export function useContactTasks(contactId: string | null) {
+  return useQuery({
+    queryKey: ['tasks', 'contact', contactId],
+    queryFn: async () => (await fetchTasksPage({ page: 1, perPage: 30, contactId: contactId as string })).items,
+    enabled: Boolean(contactId),
+  })
+}
+
+export function useLeadNotes(leadId: string | null) {
+  return useQuery({ queryKey: ['lead-notes', leadId], queryFn: () => fetchLeadNotes(leadId as string), enabled: Boolean(leadId) })
+}
+
+export function useAddLeadNote(leadId: string | null) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (content: string) => createLeadNote(leadId as string, content),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lead-notes', leadId] }),
+  })
+}
+
+// ---- Booking links and free-time booking (staff side) ----
+
+export function useEventTypes() {
+  return useQuery({ queryKey: ['scheduling-event-types'], queryFn: fetchEventTypes })
+}
+
+export function useSchedulingProfile() {
+  return useQuery({ queryKey: ['scheduling-profile'], queryFn: fetchSchedulingProfile })
+}
+
+export function useSetEventTypeActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => setEventTypeActive(id, isActive),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduling-event-types'] }),
+  })
+}
+
+export function useLinkDays(eventTypeId: string | null, tz: string, duration?: number) {
+  return useQuery({
+    queryKey: ['scheduling-link-days', eventTypeId, tz, duration],
+    queryFn: () => fetchLinkDays(eventTypeId as string, tz, duration),
+    enabled: Boolean(eventTypeId),
+  })
+}
+
+export function useLinkSlots(eventTypeId: string | null, date: string | null, tz: string, duration?: number) {
+  return useQuery({
+    queryKey: ['scheduling-link-slots', eventTypeId, date, tz, duration],
+    queryFn: () => fetchLinkSlots(eventTypeId as string, date as string, tz, duration),
+    enabled: Boolean(eventTypeId && date),
+  })
+}
+
+export function useBookForContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: bookForContact,
+    onSuccess: () => {
+      // A booking also creates a meeting.
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['scheduling-link-slots'] })
+      queryClient.invalidateQueries({ queryKey: ['scheduling-link-days'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }

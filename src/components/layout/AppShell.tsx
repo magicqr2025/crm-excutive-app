@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home } from 'lucide-react'
+import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home, Bell } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
@@ -10,12 +10,14 @@ import { RouteFetchBar } from '@/components/layout/RouteFetchBar'
 import { cn } from '@/lib/utils'
 import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
+import { useUnreadNotificationCount } from '@/api/queries'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Home', icon: Home },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
   { to: '/inbox', label: 'Inbox', icon: MessagesSquare },
+  { to: '/notifications', label: 'Alerts', icon: Bell },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/followups', label: 'Follow-ups', icon: CalendarClock },
   { to: '/deals', label: 'Deals', icon: Handshake },
@@ -52,18 +54,28 @@ export function AppShell() {
   const now = useClock()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   usePushNotifications()
+  const { data: unreadCount = 0 } = useUnreadNotificationCount()
 
   useEffect(() => {
     startDeviceCallSync()
   }, [])
 
   // The logout buttons only ask; this runs once the executive confirms.
-  function confirmLogout() {
-    setConfirmLogoutOpen(false)
-    logout()
-    navigate('/login', { replace: true })
+  // Logout waits (up to ~3s) for the push token to be unregistered, so the
+  // dialog stays open with the button disabled until it's done.
+  async function confirmLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      setLoggingOut(false)
+      setConfirmLogoutOpen(false)
+      navigate('/login', { replace: true })
+    }
   }
 
   return (
@@ -72,7 +84,7 @@ export function AppShell() {
         className="hidden shrink-0 flex-col items-center border-r border-[var(--border)] bg-[var(--surface)] py-4 md:flex"
         style={{ width: 'var(--rail-width)' }}
       >
-        <img src="/logo.png" alt="Magicbolt Crm" className="mb-6 h-9 w-9 rounded-full" />
+        <img src="/logo.png" alt="Staff Crm" className="mb-6 h-9 w-9 rounded-full" />
         <nav className="flex flex-1 flex-col items-center gap-1 px-2">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} title={label} className="relative flex w-full flex-col items-center gap-1 rounded-lg py-2.5">
@@ -131,6 +143,19 @@ export function AppShell() {
             </span>
             <button
               type="button"
+              onClick={() => navigate('/notifications')}
+              title="Notifications"
+              className="relative flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]"
+            >
+              <Bell size={15} />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-[15px] rounded-full bg-[var(--error)] px-1 text-center text-[9.5px] font-semibold leading-[15px] text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={toggleTheme}
               title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
               className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]"
@@ -155,8 +180,8 @@ export function AppShell() {
       >
         <div className="flex items-center justify-between px-1 py-2">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Magicbolt Crm" className="h-8 w-8 rounded-full" />
-            <span className="font-display text-[14px] font-semibold text-[var(--text-h)]">Magicbolt Crm</span>
+            <img src="/logo.png" alt="Staff Crm" className="h-8 w-8 rounded-full" />
+            <span className="font-display text-[14px] font-semibold text-[var(--text-h)]">Staff Crm</span>
           </div>
           <button
             type="button"
@@ -218,7 +243,9 @@ export function AppShell() {
           <Button variant="outline" onClick={() => setConfirmLogoutOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={confirmLogout}>Yes, log out</Button>
+          <Button onClick={confirmLogout} disabled={loggingOut}>
+            {loggingOut ? 'Logging out…' : 'Yes, log out'}
+          </Button>
         </Dialog.Footer>
       </Dialog>
     </div>

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { staffLogin, staffMe, staffLogout } from '@/lib/staffAuthClient'
 import { getCrmSessionToken } from '@/lib/crmSessionClient'
+import { teardownPushNotifications } from '@/features/notifications/usePushNotifications'
 
 export interface AuthUser {
   id: string
@@ -28,7 +29,7 @@ interface AuthState {
   hydrated: boolean
   login: (payload: LoginPayload) => Promise<void>
   hydrate: () => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const USER_STORAGE_KEY = 'exec_auth_user'
@@ -110,7 +111,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    // Before clearing the session — the unregister call needs it.
+    await teardownPushNotifications()
     staffLogout()
     clearSession()
     set({ user: null, businesses: [], activeBusinessId: null, isAuthenticated: false })

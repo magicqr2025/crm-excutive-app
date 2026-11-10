@@ -16,6 +16,8 @@ export interface PaginationMeta {
   per_page: number
   total: number
   total_pages: number
+  /** Per-tab totals, only on endpoints that ask for them (the meetings list with a view). */
+  counts?: Record<string, number>
 }
 
 interface Envelope<T> {
@@ -67,4 +69,15 @@ export async function apiRequestWithMeta<T, Extra extends Record<string, unknown
 ): Promise<{ data: T; meta?: PaginationMeta } & Extra> {
   const body = await requestEnvelope<T>(path, options)
   return { ...(body as unknown as Extra), data: body.data as T, meta: body.meta }
+}
+
+// For multipart/form-data uploads — skips the default JSON Content-Type so the
+// browser can set its own multipart boundary.
+export async function apiRequestForm<T>(path: string, form: FormData, headers: HeadersInit = {}): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'omit', headers, body: form })
+  const body = (await res.json().catch(() => null)) as Envelope<T> | null
+  if (!res.ok || !body?.success) {
+    throw new ApiError(body?.message ?? `Request failed (${res.status})`, res.status, body?.errors ?? [])
+  }
+  return body.data as T
 }

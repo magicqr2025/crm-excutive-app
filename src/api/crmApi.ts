@@ -88,7 +88,8 @@ export async function fetchLeadsForCampaignPage(opts: { campaignId: string; staf
   const params = new URLSearchParams({
     business_id: businessId,
     lead_campaign_id: opts.campaignId,
-    assign_to_staff_id: opts.staffId,
+    // An empty staff id means no staff filter: admins get everyone's leads, anyone else is still held to their own by the server.
+    ...(opts.staffId ? { assign_to_staff_id: opts.staffId } : {}),
     scope: opts.scope,
     page: String(opts.page),
     per_page: String(PAGE_SIZE),
@@ -587,14 +588,35 @@ export interface CrmMeetingTask {
   deadline: string | null
 }
 
+export interface CrmMeetingLog {
+  id: string
+  kind: 'rescheduled'
+  from_time: string | null
+  to_time: string | null
+  /** Null when the client moved it from their own booking link. */
+  actor_id: string | null
+  created_at: string
+}
+
 export interface CrmMeeting {
   id: string
   lead_id?: string | null
   contact_id: string
   contact_name: string | null
+  contact_phone?: string | null
+  contact_email?: string | null
   assign_to_staff_id: string | null
   meeting_time: string
   meeting_type: string | null
+  /** Length in minutes (older meetings read as 30). */
+  duration_minutes?: number
+  customer_overview?: string | null
+  /** 'booking' when a booking link made it (those can't be transferred or deleted). */
+  source?: 'manual' | 'booking'
+  booking_id?: string | null
+  reschedule_count?: number
+  logs?: CrmMeetingLog[]
+  updated_at?: string
   meeting_status: MeetingStatus
   meeting_link: string | null
   pricing: number
@@ -621,17 +643,50 @@ export async function fetchMeetings(contactId?: string): Promise<CrmMeeting[]> {
   return result.data
 }
 
-export async function fetchMeetingsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmMeeting>> {
+export type MeetingView = 'all' | 'upcoming' | 'completed' | 'overdue' | 'cancelled'
+
+export interface MeetingsPageOpts {
+  page: number
+  search?: string
+  /** Which stat card is selected; the response then carries a count for every card. */
+  view?: MeetingView
+  /** The caller's "now" (ISO): scheduled meetings at or after it are Upcoming, before it Overdue. */
+  upcomingFrom?: string
+  /** 'booking' = booked online, 'manual' = added by staff. */
+  source?: 'booking' | 'manual'
+  /** ISO instants bounding when the meeting was created. */
+  createdFrom?: string
+  createdTo?: string
+}
+
+export async function fetchMeetingsPage(opts: MeetingsPageOpts): Promise<PageResult<CrmMeeting>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
+  const params = new URLSearchParams({
+    business_id: businessId,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.view ? { view: opts.view } : {}),
+    ...(opts.upcomingFrom ? { upcoming_from: opts.upcomingFrom } : {}),
+    ...(opts.source ? { source: opts.source } : {}),
+    ...(opts.createdFrom ? { created_from: opts.createdFrom } : {}),
+    ...(opts.createdTo ? { created_to: opts.createdTo } : {}),
+  })
   const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?${params}`, { headers: authHeaders() })
-  return toPageResult(result.data, result.meta)
+  // The per-card counts ride along as the page "summary".
+  return toPageResult(result.data, result.meta, result.meta?.counts)
+}
+
+export async function fetchMeetingById(id: string): Promise<CrmMeeting> {
+  return apiRequest<CrmMeeting>(`/crm/meetings/get/${encodeURIComponent(id)}`, { headers: authHeaders() })
 }
 
 export interface CreateMeetingInput {
   contactId: string
   meetingTime: string
   meetingType?: string
+  /** Length in minutes (the server reads a missing one as 30). */
+  durationMinutes?: number
   meetingLink?: string
   meetingSummary?: string
   pricing?: number
@@ -650,6 +705,7 @@ export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeti
       meeting_time: new Date(input.meetingTime).toISOString(),
       ...(staffId ? { assign_to_staff_id: staffId } : {}),
       ...(input.meetingType ? { meeting_type: input.meetingType } : {}),
+      ...(input.durationMinutes ? { duration_minutes: input.durationMinutes } : {}),
       ...(input.meetingLink ? { meeting_link: input.meetingLink } : {}),
       ...(input.meetingSummary ? { meeting_summary: input.meetingSummary } : {}),
       ...(input.pricing !== undefined ? { pricing: input.pricing } : {}),
@@ -978,14 +1034,17 @@ export async function fetchTasksPage(opts: {
   taskType?: TaskType
   excludeTaskType?: TaskType
   assigneeId?: string
+  contactId?: string
+  perPage?: number
 }): Promise<PageResult<CrmTask>> {
   const businessId = getActiveBusinessId()
   const params = new URLSearchParams({
     business_id: businessId,
     page: String(opts.page),
-    per_page: String(PAGE_SIZE),
+    per_page: String(opts.perPage ?? PAGE_SIZE),
     ...(opts.search ? { search: opts.search } : {}),
     ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.contactId ? { contact_id: opts.contactId } : {}),
     ...(opts.taskType ? { task_type: opts.taskType } : {}),
     ...(opts.excludeTaskType ? { exclude_task_type: opts.excludeTaskType } : {}),
     ...(opts.assigneeId ? { assign_to_staff_id: opts.assigneeId } : {}),
@@ -1234,6 +1293,53 @@ export async function registerFcmToken(token: string): Promise<void> {
   })
 }
 
+// ---- In-app notifications (the /notifications page + header bell) ----
+
+export interface CrmNotification {
+  id: string
+  title: string
+  message: string
+  entity_type: string
+  entity_id: string
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}
+
+export async function fetchNotificationsPage(opts: { page: number; unreadOnly?: boolean }): Promise<PageResult<CrmNotification>> {
+  const params = new URLSearchParams({
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.unreadOnly ? { unread_only: 'true' } : {}),
+  })
+  const result = await apiRequestWithMeta<CrmNotification[]>(`/api/staff/notifications?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta)
+}
+
+export async function fetchUnreadNotificationCount(): Promise<number> {
+  const data = await apiRequest<{ unread: number }>('/api/staff/notifications/unread-count', { headers: authHeaders() })
+  return data.unread
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await apiRequest<unknown>(`/api/staff/notifications/${id}/read`, { method: 'POST', headers: authHeaders() })
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await apiRequest<unknown>('/api/staff/notifications/read-all', { method: 'POST', headers: authHeaders() })
+}
+
+// Removes this device from the signed-in staff member on logout, so it stops
+// receiving their pushes. Must run while the session token is still set.
+export async function unregisterFcmToken(token: string, signal?: AbortSignal): Promise<void> {
+  await apiRequest<unknown>('/api/staff/fcm-token', {
+    method: 'DELETE',
+    headers: authHeaders(),
+    body: JSON.stringify({ token }),
+    signal,
+  })
+}
+
 // ---- Subscriptions ----
 
 export type SubscriptionStatus = 'active' | 'expired' | 'renewed' | 'cancelled' | 'lost'
@@ -1424,4 +1530,166 @@ export function takeBooking(id: string) {
     headers: authHeaders(),
     body: JSON.stringify({}),
   })
+}
+
+// ---- My performance (GET /crm/performance/activity) ----
+// What the signed-in staff member did in a date range. For anyone who isn't an
+// admin or manager the backend returns only their own row.
+
+export interface CrmStaffActivity {
+  staff_id: string
+  name: string
+  tasks: { created: number; completed: number }
+  meetings: { scheduled: number; rescheduled: number; held: number; due: number }
+  followups: { created: number; done: number; due: number }
+  calls: { total: number; connected: number; talk_seconds: number }
+  leads: number
+  deals: number
+  payments: { count: number; amount: number }
+  notes: number
+  emails: number
+  total_actions: number
+}
+
+export interface CrmActivityReport {
+  from: string
+  to: string
+  staff: CrmStaffActivity[]
+  totals: Omit<CrmStaffActivity, 'staff_id' | 'name'>
+}
+
+export async function fetchMyActivity(range: { from: string; to: string }): Promise<CrmActivityReport> {
+  return apiRequest<CrmActivityReport>(`/crm/performance/activity?from=${range.from}&to=${range.to}`, { headers: authHeaders() })
+}
+
+// ---- My performance scorecard (GET /crm/performance, the caller's own row) ----
+
+export interface CrmMyPerformance {
+  staff_id: string
+  name: string
+  leads: { total: number; new_this_month: number; /** Current leads per pipeline stage, plus "No status". */ pipeline: Record<string, number> }
+  calls: { total: number; connected: number; talk_seconds: number }
+  meetings: { attended: number; upcoming: number; missed: number; cancelled: number }
+  /** `overdue` is how many are late right now, whatever the period. */
+  followups: { done: number; pending: number; overdue: number }
+  tasks: { completed: number; open: number }
+  deals: { count: number; booked_amount: number; pending_amount: number }
+  /** Money received in the period, net of refunds — what the target counts. */
+  collected: number
+  collected_from_earlier_months: number
+  target: { target_amount: number; base_salary: number; incentive_slab: { from: number; to: number; rate: number }[]; carried_forward: boolean } | null
+}
+
+export interface CrmMyPerformanceReport {
+  /** The fixed pipeline stages in order. */
+  stages: string[]
+  mine: CrmMyPerformance | null
+}
+
+/** A whole month, or an inclusive YYYY-MM-DD range. */
+export type PerformancePeriod = { month: number; year: number } | { from: string; to: string }
+
+const periodQuery = (p: PerformancePeriod) => ('from' in p ? `from=${p.from}&to=${p.to}` : `month=${p.month}&year=${p.year}`)
+
+export async function fetchMyPerformance(period: PerformancePeriod, staffId: string): Promise<CrmMyPerformanceReport> {
+  const data = await apiRequest<{ stages: string[]; staff: CrmMyPerformance[] }>(`/crm/performance?${periodQuery(period)}`, { headers: authHeaders() })
+  // Non-admins get only their own row; the id match is just a guard.
+  const mine = data.staff.find((s) => s.staff_id === staffId) ?? (data.staff.length === 1 ? data.staff[0] : null)
+  return { stages: data.stages, mine }
+}
+
+export type InteractionKind = 'call' | 'meeting' | 'followup'
+
+export interface CrmInteraction {
+  kind: InteractionKind
+  id: string
+  at: string
+  contact_name: string
+  /** The contact page is keyed by lead; null when the call didn't match a lead. */
+  lead_id: string | null
+  /** call: connected | not_connected | not_reviewed; meeting: completed | scheduled | missed | cancelled; follow-up: done | pending | overdue */
+  status: string
+  detail: string | null
+  note: string | null
+}
+
+/** My calls, meetings and follow-ups in a period, newest first. */
+export async function fetchMyInteractions(
+  staffId: string,
+  period: PerformancePeriod,
+): Promise<{ counts: { calls: number; meetings: number; followups: number }; items: CrmInteraction[] }> {
+  return apiRequest(`/crm/performance/${staffId}/interactions?${periodQuery(period)}`, { headers: authHeaders() })
+}
+
+// ---- My sales for a month: deals closed and money received ----
+
+export interface CrmMySales {
+  deals: { id: string; deal_name: string | null; contact_name: string; deal_amount: number; paid_amount: number; pending_amount: number; status: string; created_at: string }[]
+  payments: {
+    id: string
+    contact_name: string
+    deal_name: string | null
+    /** Negative for a refund. */
+    amount: number
+    kind: string
+    mop: string | null
+    payment_date: string | null
+    from_earlier_month: boolean
+  }[]
+}
+
+export async function fetchMySales(staffId: string, month: number, year: number): Promise<CrmMySales> {
+  const params = new URLSearchParams({ business_id: getActiveBusinessId(), staff_id: staffId, month: String(month), year: String(year) })
+  return apiRequest<CrmMySales>(`/crm/staff-targets/sales?${params}`, { headers: authHeaders() })
+}
+
+// ---- Open WhatsApp chats of my leads ----
+
+export interface CrmOpenChat {
+  conversation_id: string
+  lead_id: string
+  lead_ref: string
+  lead_name: string
+  phone: string
+  last_message: string
+  last_message_at: string
+  last_from: 'customer' | 'us'
+}
+
+export interface CrmOpenChats {
+  total: number
+  waiting_on_us: number
+  truncated: boolean
+  chats: CrmOpenChat[]
+}
+
+export async function fetchMyOpenChats(): Promise<CrmOpenChats> {
+  return apiRequest<CrmOpenChats>('/crm/performance/whatsapp-chats', { headers: authHeaders() })
+}
+
+// ---- Lead notes (the chat info panel) ----
+
+export interface CrmLeadNote {
+  id: string
+  content: string
+  created_at: string
+}
+
+export async function fetchLeadNotes(leadId: string): Promise<CrmLeadNote[]> {
+  return apiRequest<CrmLeadNote[]>(`/crm/notes/lead-list?lead_id=${encodeURIComponent(leadId)}`, { headers: authHeaders() })
+}
+
+export async function createLeadNote(leadId: string, content: string): Promise<CrmLeadNote> {
+  return apiRequest<CrmLeadNote>('/crm/notes/add', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: leadId, content }),
+  })
+}
+
+/** The lead behind a chat: the leads list matched on the contact (the chat only knows the contact). */
+export async function fetchLeadForContact(contactId: string, phone: string): Promise<CrmLead | null> {
+  const digits = phone.replace(/\D/g, '')
+  const result = await fetchLeadsPage({ staffId: '', page: 1, perPage: 20, search: digits.slice(-10) || undefined })
+  return result.items.find((l) => l.contact_id === contactId) ?? null
 }
