@@ -25,6 +25,10 @@ import {
   fetchLeadStatuses,
   createCallLog,
   fetchMyCallLogsPage,
+  fetchNotificationsPage,
+  fetchUnreadNotificationCount,
+  markNotificationRead,
+  markAllNotificationsRead,
   fetchMyActiveFollowupsPage,
   fetchFollowupById,
   fetchMyFollowupsPage,
@@ -621,5 +625,41 @@ export function useSendLeadEmail() {
     mutationFn: sendLeadEmail,
     // Refresh on failure too: the backend records failed attempts, so history changes either way.
     onSettled: (_data, _err, vars) => queryClient.invalidateQueries({ queryKey: ['email-logs', vars.leadId] }),
+  })
+}
+
+// ---- In-app notifications ----
+
+const NOTIFICATIONS_KEY = ['notifications'] as const
+
+// Polled so the header badge stays fresh; it's a tiny request.
+export function useUnreadNotificationCount() {
+  return useQuery({
+    queryKey: [...NOTIFICATIONS_KEY, 'unread'],
+    queryFn: fetchUnreadNotificationCount,
+    refetchInterval: 30_000,
+  })
+}
+
+export function useNotificationsPage(unreadOnly: boolean) {
+  return usePagedList({
+    queryKey: [...NOTIFICATIONS_KEY, 'list', { unreadOnly }],
+    fetchPage: (page) => fetchNotificationsPage({ page, unreadOnly }),
+  })
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => markNotificationRead(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  })
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => markAllNotificationsRead(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
   })
 }

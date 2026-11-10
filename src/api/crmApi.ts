@@ -1234,6 +1234,42 @@ export async function registerFcmToken(token: string): Promise<void> {
   })
 }
 
+// ---- In-app notifications (the /notifications page + header bell) ----
+
+export interface CrmNotification {
+  id: string
+  title: string
+  message: string
+  entity_type: string
+  entity_id: string
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}
+
+export async function fetchNotificationsPage(opts: { page: number; unreadOnly?: boolean }): Promise<PageResult<CrmNotification>> {
+  const params = new URLSearchParams({
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.unreadOnly ? { unread_only: 'true' } : {}),
+  })
+  const result = await apiRequestWithMeta<CrmNotification[]>(`/api/staff/notifications?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta)
+}
+
+export async function fetchUnreadNotificationCount(): Promise<number> {
+  const data = await apiRequest<{ unread: number }>('/api/staff/notifications/unread-count', { headers: authHeaders() })
+  return data.unread
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await apiRequest<unknown>(`/api/staff/notifications/${id}/read`, { method: 'POST', headers: authHeaders() })
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await apiRequest<unknown>('/api/staff/notifications/read-all', { method: 'POST', headers: authHeaders() })
+}
+
 // Removes this device from the signed-in staff member on logout, so it stops
 // receiving their pushes. Must run while the session token is still set.
 export async function unregisterFcmToken(token: string, signal?: AbortSignal): Promise<void> {

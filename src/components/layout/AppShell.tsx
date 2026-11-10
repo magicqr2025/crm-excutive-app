@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home } from 'lucide-react'
+import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home, Bell } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
@@ -10,12 +10,14 @@ import { RouteFetchBar } from '@/components/layout/RouteFetchBar'
 import { cn } from '@/lib/utils'
 import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
+import { useUnreadNotificationCount } from '@/api/queries'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Home', icon: Home },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
   { to: '/inbox', label: 'Inbox', icon: MessagesSquare },
+  { to: '/notifications', label: 'Alerts', icon: Bell },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/followups', label: 'Follow-ups', icon: CalendarClock },
   { to: '/deals', label: 'Deals', icon: Handshake },
@@ -55,6 +57,7 @@ export function AppShell() {
   const [loggingOut, setLoggingOut] = useState(false)
 
   usePushNotifications()
+  const { data: unreadCount = 0 } = useUnreadNotificationCount()
 
   useEffect(() => {
     startDeviceCallSync()
@@ -138,6 +141,19 @@ export function AppShell() {
               <LiveDot />
               LIVE
             </span>
+            <button
+              type="button"
+              onClick={() => navigate('/notifications')}
+              title="Notifications"
+              className="relative flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]"
+            >
+              <Bell size={15} />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-[15px] rounded-full bg-[var(--error)] px-1 text-center text-[9.5px] font-semibold leading-[15px] text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
             <button
               type="button"
               onClick={toggleTheme}

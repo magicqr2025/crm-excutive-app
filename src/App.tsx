@@ -22,6 +22,7 @@ import { PaymentsPage } from '@/features/payments/PaymentsPage'
 import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
 import { InboxPage } from '@/features/inbox/InboxPage'
 import { ConversationPage } from '@/features/inbox/ConversationPage'
+import { NotificationsPage } from '@/features/notifications/NotificationsPage'
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/target" element={<TargetPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/settings/call-recording" element={<CallRecordingSettingsPage />} />
           </Route>
         </Route>
