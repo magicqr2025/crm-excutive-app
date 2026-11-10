@@ -31,6 +31,9 @@ import {
   fetchMyOpenChats,
   fetchMyInteractions,
   fetchMySales,
+  fetchLeadNotes,
+  createLeadNote,
+  fetchLeadForContact,
   type PerformancePeriod,
   fetchUnreadNotificationCount,
   markNotificationRead,
@@ -706,4 +709,34 @@ export function useMySales(staffId: string, month: number, year: number) {
 
 export function useMyOpenChats() {
   return useQuery({ queryKey: ['my-open-chats'], queryFn: fetchMyOpenChats, refetchInterval: 60_000 })
+}
+
+// ---- Chat info panel (one conversation's contact) ----
+
+export function useLeadForContact(contactId: string | null, phone: string) {
+  return useQuery({
+    queryKey: ['lead-for-contact', contactId],
+    queryFn: () => fetchLeadForContact(contactId as string, phone),
+    enabled: Boolean(contactId),
+  })
+}
+
+export function useContactTasks(contactId: string | null) {
+  return useQuery({
+    queryKey: ['tasks', 'contact', contactId],
+    queryFn: async () => (await fetchTasksPage({ page: 1, perPage: 30, contactId: contactId as string })).items,
+    enabled: Boolean(contactId),
+  })
+}
+
+export function useLeadNotes(leadId: string | null) {
+  return useQuery({ queryKey: ['lead-notes', leadId], queryFn: () => fetchLeadNotes(leadId as string), enabled: Boolean(leadId) })
+}
+
+export function useAddLeadNote(leadId: string | null) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (content: string) => createLeadNote(leadId as string, content),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lead-notes', leadId] }),
+  })
 }

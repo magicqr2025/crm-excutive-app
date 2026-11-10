@@ -979,14 +979,17 @@ export async function fetchTasksPage(opts: {
   taskType?: TaskType
   excludeTaskType?: TaskType
   assigneeId?: string
+  contactId?: string
+  perPage?: number
 }): Promise<PageResult<CrmTask>> {
   const businessId = getActiveBusinessId()
   const params = new URLSearchParams({
     business_id: businessId,
     page: String(opts.page),
-    per_page: String(PAGE_SIZE),
+    per_page: String(opts.perPage ?? PAGE_SIZE),
     ...(opts.search ? { search: opts.search } : {}),
     ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.contactId ? { contact_id: opts.contactId } : {}),
     ...(opts.taskType ? { task_type: opts.taskType } : {}),
     ...(opts.excludeTaskType ? { exclude_task_type: opts.excludeTaskType } : {}),
     ...(opts.assigneeId ? { assign_to_staff_id: opts.assigneeId } : {}),
@@ -1607,4 +1610,31 @@ export interface CrmOpenChats {
 
 export async function fetchMyOpenChats(): Promise<CrmOpenChats> {
   return apiRequest<CrmOpenChats>('/crm/performance/whatsapp-chats', { headers: authHeaders() })
+}
+
+// ---- Lead notes (the chat info panel) ----
+
+export interface CrmLeadNote {
+  id: string
+  content: string
+  created_at: string
+}
+
+export async function fetchLeadNotes(leadId: string): Promise<CrmLeadNote[]> {
+  return apiRequest<CrmLeadNote[]>(`/crm/notes/lead-list?lead_id=${encodeURIComponent(leadId)}`, { headers: authHeaders() })
+}
+
+export async function createLeadNote(leadId: string, content: string): Promise<CrmLeadNote> {
+  return apiRequest<CrmLeadNote>('/crm/notes/add', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: leadId, content }),
+  })
+}
+
+/** The lead behind a chat: the leads list matched on the contact (the chat only knows the contact). */
+export async function fetchLeadForContact(contactId: string, phone: string): Promise<CrmLead | null> {
+  const digits = phone.replace(/\D/g, '')
+  const result = await fetchLeadsPage({ staffId: '', page: 1, perPage: 20, search: digits.slice(-10) || undefined })
+  return result.items.find((l) => l.contact_id === contactId) ?? null
 }

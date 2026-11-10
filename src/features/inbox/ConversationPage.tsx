@@ -1,11 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Info } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/useToast'
 import { Composer } from './Composer'
+import { ConversationInfoSheet } from './ConversationInfoSheet'
 import { isSessionOpen } from './inboxFormat'
 import { MessageBubble } from './MessageBubble'
 import { useConversations, useMarkConversationRead, useMessages, useSendMessage, useSendTemplateMessage } from './useInbox'
@@ -15,6 +16,7 @@ export function ConversationPage() {
   const navigate = useNavigate()
   const { show } = useToast()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [infoOpen, setInfoOpen] = useState(false)
 
   const { data: conversations, isLoading: isLoadingConversations } = useConversations()
   const { data: messages = [], isLoading: isLoadingMessages } = useMessages(conversationId)
@@ -77,7 +79,25 @@ export function ConversationPage() {
           <p className="truncate text-[14px] font-semibold text-[var(--text-h)]">{conversation.contactName}</p>
           <p className="truncate text-[12px] text-[var(--text-muted)]">{conversation.contactPhone}</p>
         </div>
-        <Badge tone={sessionOpen ? 'success' : 'warning'}>{sessionOpen ? 'Session open' : 'Session closed'}</Badge>
+        {/* A dot on a phone keeps the name readable; the full words show from sm up. */}
+        <Badge tone={sessionOpen ? 'success' : 'warning'} className="max-sm:hidden">
+          {sessionOpen ? 'Session open' : 'Session closed'}
+        </Badge>
+        <span
+          role="img"
+          aria-label={sessionOpen ? 'Session open' : 'Session closed'}
+          title={sessionOpen ? 'Session open' : 'Session closed'}
+          className={`h-2.5 w-2.5 shrink-0 rounded-full sm:hidden ${sessionOpen ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'}`}
+        />
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          aria-label="Chat info"
+          title="Chat info"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]"
+        >
+          <Info size={18} />
+        </button>
       </div>
 
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
@@ -89,6 +109,8 @@ export function ConversationPage() {
           messages.map((m) => <MessageBubble key={m.id} message={m} />)
         )}
       </div>
+
+      <ConversationInfoSheet conversation={conversation} open={infoOpen} onClose={() => setInfoOpen(false)} />
 
       <Composer
         sessionOpen={sessionOpen}
