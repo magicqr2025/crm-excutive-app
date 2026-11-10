@@ -26,6 +26,7 @@ import {
   createCallLog,
   fetchMyCallLogsPage,
   fetchNotificationsPage,
+  fetchMyActivity,
   fetchUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
@@ -661,5 +662,15 @@ export function useMarkAllNotificationsRead() {
   return useMutation({
     mutationFn: () => markAllNotificationsRead(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  })
+}
+
+// ---- My performance ----
+
+export function useMyActivity(range: { from: string; to: string } | null) {
+  return useQuery({
+    queryKey: ['my-activity', range],
+    queryFn: () => fetchMyActivity(range as { from: string; to: string }),
+    enabled: Boolean(range),
   })
 }

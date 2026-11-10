@@ -24,6 +24,7 @@ import { InboxPage } from '@/features/inbox/InboxPage'
 import { ConversationPage } from '@/features/inbox/ConversationPage'
 import { TeamChatPage } from '@/features/teamChat/TeamChatPage'
 import { TeamChatThreadPage } from '@/features/teamChat/TeamChatThreadPage'
+import { MyPerformancePage } from '@/features/performance/MyPerformancePage'
 import { NotificationsPage } from '@/features/notifications/NotificationsPage'
 
 export default function App() {
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/team-chat" element={<TeamChatPage />} />
             <Route path="/team-chat/:channelId" element={<TeamChatThreadPage />} />
+            <Route path="/performance" element={<MyPerformancePage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/settings/call-recording" element={<CallRecordingSettingsPage />} />
           </Route>

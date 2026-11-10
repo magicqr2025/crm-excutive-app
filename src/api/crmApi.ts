@@ -1472,3 +1472,33 @@ export function takeBooking(id: string) {
     body: JSON.stringify({}),
   })
 }
+
+// ---- My performance (GET /crm/performance/activity) ----
+// What the signed-in staff member did in a date range. For anyone who isn't an
+// admin or manager the backend returns only their own row.
+
+export interface CrmStaffActivity {
+  staff_id: string
+  name: string
+  tasks: { created: number; completed: number }
+  meetings: { scheduled: number; rescheduled: number; held: number; due: number }
+  followups: { created: number; done: number; due: number }
+  calls: { total: number; connected: number; talk_seconds: number }
+  leads: number
+  deals: number
+  payments: { count: number; amount: number }
+  notes: number
+  emails: number
+  total_actions: number
+}
+
+export interface CrmActivityReport {
+  from: string
+  to: string
+  staff: CrmStaffActivity[]
+  totals: Omit<CrmStaffActivity, 'staff_id' | 'name'>
+}
+
+export async function fetchMyActivity(range: { from: string; to: string }): Promise<CrmActivityReport> {
+  return apiRequest<CrmActivityReport>(`/crm/performance/activity?from=${range.from}&to=${range.to}`, { headers: authHeaders() })
+}
