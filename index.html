@@ -13,13 +13,12 @@
     <title>Magicbolt Crm</title>
     <script>
       // Applied before first paint to avoid a flash of the wrong theme.
+      // Light unless the user has explicitly switched to dark.
       try {
-        if (localStorage.getItem('ec_theme') !== 'light') {
+        if (localStorage.getItem('ec_theme') === 'dark') {
           document.documentElement.classList.add('dark')
         }
-      } catch (e) {
-        document.documentElement.classList.add('dark')
-      }
+      } catch (e) {}
     </script>
   </head>
   <body>
