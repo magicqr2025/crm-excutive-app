@@ -84,7 +84,7 @@ export function AppShell() {
         className="hidden shrink-0 flex-col items-center border-r border-[var(--border)] bg-[var(--surface)] py-4 md:flex"
         style={{ width: 'var(--rail-width)' }}
       >
-        <img src="/logo.png" alt="Magicbolt Crm" className="mb-6 h-9 w-9 rounded-full" />
+        <img src="/logo.png" alt="Staff Crm" className="mb-6 h-9 w-9 rounded-full" />
         <nav className="flex flex-1 flex-col items-center gap-1 px-2">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} title={label} className="relative flex w-full flex-col items-center gap-1 rounded-lg py-2.5">
@@ -180,8 +180,8 @@ export function AppShell() {
       >
         <div className="flex items-center justify-between px-1 py-2">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Magicbolt Crm" className="h-8 w-8 rounded-full" />
-            <span className="font-display text-[14px] font-semibold text-[var(--text-h)]">Magicbolt Crm</span>
+            <img src="/logo.png" alt="Staff Crm" className="h-8 w-8 rounded-full" />
+            <span className="font-display text-[14px] font-semibold text-[var(--text-h)]">Staff Crm</span>
           </div>
           <button
             type="button"
