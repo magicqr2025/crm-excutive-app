@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Copy, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Copy, ExternalLink, Share2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -18,13 +18,28 @@ export function BookingLinksPage() {
   const setActive = useSetEventTypeActive()
   const slug = profile?.slug ?? null
 
-  const addressFor = (link: EventType) => (slug && link.host_username ? publicBookingPath(slug, link.host_username, link.slug) : null)
+  const addressFor = (link: EventType) => (slug && link.host_username ? publicBookingPath(profile?.public_host, slug, link.host_username, link.slug) : null)
 
   function copy(text: string, done: string) {
     navigator.clipboard
       .writeText(text)
       .then(() => show({ title: done, tone: 'success' }))
       .catch(() => show({ title: 'Could not copy the link', tone: 'error' }))
+  }
+
+  // Opens the phone's share sheet (WhatsApp, SMS, email…). Where the device or browser has none, the link is copied instead.
+  async function share(link: EventType, address: string) {
+    const data = { title: link.title, text: `Book a meeting with me: ${link.title}`, url: address }
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share(data)
+      } catch (err) {
+        // Closing the share sheet is not an error.
+        if (!(err instanceof DOMException && err.name === 'AbortError')) copy(address, 'Sharing is not available here, so the link was copied')
+      }
+      return
+    }
+    copy(address, 'Sharing is not available here, so the link was copied')
   }
 
   return (
@@ -40,7 +55,7 @@ export function BookingLinksPage() {
       />
       <div className="mx-auto w-full max-w-2xl space-y-3 p-4">
         {slug && (
-          <Button size="sm" variant="outline" onClick={() => copy(`${publicBookingOrigin()}/book/${slug}`, 'Business page link copied')} className="gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => copy(`${publicBookingOrigin(profile?.public_host)}/book/${slug}`, 'Business page link copied')} className="gap-1.5">
             <Copy size={14} /> Copy business page link
           </Button>
         )}
@@ -81,6 +96,16 @@ export function BookingLinksPage() {
                       className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
                     >
                       <Copy size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!address}
+                      onClick={() => address && void share(link, address)}
+                      aria-label="Share booking link"
+                      title="Share booking link"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                    >
+                      <Share2 size={16} />
                     </button>
                     {address && (
                       <a

@@ -24,6 +24,8 @@ export interface EventType {
 export interface SchedulingProfile {
   slug: string | null
   host: { username: string; display_name: string | null; avatar_url: string | null } | null
+  /** The agency domain this business's public booking pages are served on. */
+  public_host?: string | null
 }
 
 export interface FreeSlots {

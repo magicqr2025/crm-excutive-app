@@ -24,10 +24,20 @@ export function todayKeyIn(timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
-/** The public booking pages are served by the admin web app. */
-export function publicBookingOrigin(): string {
-  const configured = (import.meta.env.VITE_PUBLIC_BOOKING_URL as string | undefined) || (import.meta.env.VITE_WEB_APP_URL as string | undefined)
-  return (configured || 'https://waycrm.magicbolt.in').replace(/\/$/, '')
+/**
+ * The public booking pages are served by the admin web app on the agency's own domain, which crmbackend reports as
+ * `public_host` (so every agency gets its own). This app can't work that out from where it runs — on Android it runs
+ * from the phone itself — so the host comes from the server. VITE_PUBLIC_BOOKING_URL overrides it (e.g. for testing),
+ * and a built-in address is only the last resort while the profile hasn't loaded.
+ */
+const FALLBACK_BOOKING_ORIGIN = 'https://waycrm.magicbolt.in'
+
+export function publicBookingOrigin(publicHost?: string | null): string {
+  const override = import.meta.env.VITE_PUBLIC_BOOKING_URL as string | undefined
+  const host = publicHost?.trim()
+  const origin = override || (host ? (/^https?:\/\//i.test(host) ? host : `https://${host}`) : FALLBACK_BOOKING_ORIGIN)
+  return origin.replace(/\/$/, '')
 }
 
-export const publicBookingPath = (slug: string, username: string, linkSlug: string): string => `${publicBookingOrigin()}/book/${slug}/${username}/${linkSlug}`
+export const publicBookingPath = (publicHost: string | null | undefined, slug: string, username: string, linkSlug: string): string =>
+  `${publicBookingOrigin(publicHost)}/book/${slug}/${username}/${linkSlug}`
