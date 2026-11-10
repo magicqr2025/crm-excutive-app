@@ -1,13 +1,15 @@
 /** A local calendar day as YYYY-MM-DD (what the activity endpoint takes). */
 export const toDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-export type Preset = 'today' | 'yesterday' | '7d' | '30d'
+export type Preset = 'today' | 'yesterday' | '7d' | '15d' | '30d' | '90d'
 
 export const PRESETS: { value: Preset; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: '7d', label: '7 days' },
+  { value: '15d', label: '15 days' },
   { value: '30d', label: '30 days' },
+  { value: '90d', label: '90 days' },
 ]
 
 /** The inclusive day range a preset stands for ("7 days" = today and the six days before it). */
@@ -20,8 +22,12 @@ export function rangeForPreset(preset: Preset, now = new Date()): { from: string
       return { from: toDay(day(-1)), to: toDay(day(-1)) }
     case '7d':
       return { from: toDay(day(-6)), to: toDay(day(0)) }
+    case '15d':
+      return { from: toDay(day(-14)), to: toDay(day(0)) }
     case '30d':
       return { from: toDay(day(-29)), to: toDay(day(0)) }
+    case '90d':
+      return { from: toDay(day(-89)), to: toDay(day(0)) }
   }
 }
 
@@ -65,4 +71,17 @@ export function talkTime(seconds: number): string {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
   return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+/** Whole-number percentage, 0 when there is nothing to divide by. */
+export const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0)
+
+/** "5 min", "3 hours", "2 days" — how long a customer has been waiting. */
+export function waitingFor(iso: string, now = Date.now()): string {
+  const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000))
+  if (mins < 60) return `${Math.max(mins, 1)} min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+  const days = Math.floor(hours / 24)
+  return `${days} ${days === 1 ? 'day' : 'days'}`
 }

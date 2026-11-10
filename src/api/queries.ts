@@ -27,6 +27,11 @@ import {
   fetchMyCallLogsPage,
   fetchNotificationsPage,
   fetchMyActivity,
+  fetchMyPerformance,
+  fetchMyOpenChats,
+  fetchMyInteractions,
+  fetchMySales,
+  type PerformancePeriod,
   fetchUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
@@ -96,11 +101,11 @@ export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
 }
 
-export function useCampaignLeadsPage({ campaignId, staffId, scope, search }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string }) {
+export function useCampaignLeadsPage({ campaignId, staffId, scope, search, anyStaff = false }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string; /** List the campaign's leads whoever owns them (no staff filter). */ anyStaff?: boolean }) {
   return usePagedList({
     queryKey: ['campaign-leads', campaignId, staffId, scope, { search }],
     fetchPage: (page) => fetchLeadsForCampaignPage({ campaignId, staffId, scope, page, search }),
-    enabled: Boolean(campaignId && staffId),
+    enabled: Boolean(campaignId && (staffId || anyStaff)),
   })
 }
 
@@ -673,4 +678,32 @@ export function useMyActivity(range: { from: string; to: string } | null) {
     queryFn: () => fetchMyActivity(range as { from: string; to: string }),
     enabled: Boolean(range),
   })
+}
+
+export function useMyPerformance(period: PerformancePeriod, staffId: string) {
+  return useQuery({
+    queryKey: ['my-performance', staffId, period],
+    queryFn: () => fetchMyPerformance(period, staffId),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useMyInteractions(period: PerformancePeriod, staffId: string) {
+  return useQuery({
+    queryKey: ['my-interactions', staffId, period],
+    queryFn: () => fetchMyInteractions(staffId, period),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useMySales(staffId: string, month: number, year: number) {
+  return useQuery({
+    queryKey: ['my-sales', staffId, month, year],
+    queryFn: () => fetchMySales(staffId, month, year),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useMyOpenChats() {
+  return useQuery({ queryKey: ['my-open-chats'], queryFn: fetchMyOpenChats, refetchInterval: 60_000 })
 }
