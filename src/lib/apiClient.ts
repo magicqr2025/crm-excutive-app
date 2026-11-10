@@ -16,6 +16,8 @@ export interface PaginationMeta {
   per_page: number
   total: number
   total_pages: number
+  /** Per-tab totals, only on endpoints that ask for them (the meetings list with a view). */
+  counts?: Record<string, number>
 }
 
 interface Envelope<T> {

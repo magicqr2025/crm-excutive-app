@@ -23,6 +23,7 @@ export function notificationRoute(entityType: string, entityId?: string | null):
     case 'followup':
       return entityId ? `/followups/${entityId}` : '/followups'
     case 'meeting':
+      return entityId ? `/meetings/${entityId}` : '/meetings'
     case 'booking':
     case 'booking_unclaimed':
     case 'availability':

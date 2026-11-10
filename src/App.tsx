@@ -14,6 +14,8 @@ import { ContactDetailPage } from '@/features/contacts/ContactDetailPage'
 import { CallLogsPage } from '@/features/callLogs/CallLogsPage'
 import { DealsPage } from '@/features/deals/DealsPage'
 import { MeetingsPage } from '@/features/meetings/MeetingsPage'
+import { MeetingDetailPage } from '@/features/meetings/MeetingDetailPage'
+import { BookingLinksPage } from '@/features/meetings/BookingLinksPage'
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
 import { TicketsPage } from '@/features/tasks/TicketsPage'
@@ -47,6 +49,8 @@ export default function App() {
             <Route path="/call-logs" element={<CallLogsPage />} />
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
+            <Route path="/meetings/links" element={<BookingLinksPage />} />
+            <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tickets" element={<TicketsPage />} />

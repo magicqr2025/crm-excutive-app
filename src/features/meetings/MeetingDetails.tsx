@@ -5,9 +5,11 @@ import { cancelReasonLabel, formatMeetingWhen, staffName } from './meetingUi'
 interface MeetingDetailsProps {
   meeting: CrmMeeting
   staff: StaffMember[]
+  /** The page already shows the notes / discussion itself. */
+  hideSummary?: boolean
 }
 
-export function MeetingDetails({ meeting, staff }: MeetingDetailsProps) {
+export function MeetingDetails({ meeting, staff, hideSummary = false }: MeetingDetailsProps) {
   const { data: templates = [] } = useEmailTemplates()
   const reminderLabel = meeting.reminder ? (templates.find((t) => t.id === meeting.reminder?.mapping_id)?.label ?? 'selected template') : null
   const cancelledBy = meeting.cancelled_by ? staffName(staff, meeting.cancelled_by) : null
@@ -19,7 +21,7 @@ export function MeetingDetails({ meeting, staff }: MeetingDetailsProps) {
           {meeting.attendees.map((a) => a.name).join(', ')}
         </p>
       )}
-      {meeting.meeting_summary && (
+      {!hideSummary && meeting.meeting_summary && (
         <p className="text-[12.5px] text-[var(--text)]">
           <span className="text-[12px] text-[var(--text-muted)]">
             {meeting.meeting_status === 'completed' ? 'Discussion: ' : 'Notes: '}

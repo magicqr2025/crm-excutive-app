@@ -79,3 +79,12 @@ export function getMeetingPermissions(meeting: CrmMeeting, userId: string, isAdm
 export function canEditDetails(meeting: Pick<CrmMeeting, 'meeting_status'>): boolean {
   return meeting.meeting_status === 'scheduled'
 }
+
+/** Meeting lengths offered when typing a meeting in; older meetings read as 30. */
+export const LENGTH_OPTIONS = [15, 30, 45, 60, 90, 120]
+export const DEFAULT_LENGTH = 30
+
+/** A scheduled meeting that has been moved at least once. */
+export function isRescheduled(meeting: Pick<CrmMeeting, 'meeting_status' | 'reschedule_count'>): boolean {
+  return meeting.meeting_status === 'scheduled' && (meeting.reschedule_count ?? 0) > 0
+}

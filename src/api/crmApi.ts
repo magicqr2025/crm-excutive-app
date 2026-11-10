@@ -588,14 +588,35 @@ export interface CrmMeetingTask {
   deadline: string | null
 }
 
+export interface CrmMeetingLog {
+  id: string
+  kind: 'rescheduled'
+  from_time: string | null
+  to_time: string | null
+  /** Null when the client moved it from their own booking link. */
+  actor_id: string | null
+  created_at: string
+}
+
 export interface CrmMeeting {
   id: string
   lead_id?: string | null
   contact_id: string
   contact_name: string | null
+  contact_phone?: string | null
+  contact_email?: string | null
   assign_to_staff_id: string | null
   meeting_time: string
   meeting_type: string | null
+  /** Length in minutes (older meetings read as 30). */
+  duration_minutes?: number
+  customer_overview?: string | null
+  /** 'booking' when a booking link made it (those can't be transferred or deleted). */
+  source?: 'manual' | 'booking'
+  booking_id?: string | null
+  reschedule_count?: number
+  logs?: CrmMeetingLog[]
+  updated_at?: string
   meeting_status: MeetingStatus
   meeting_link: string | null
   pricing: number
@@ -622,17 +643,50 @@ export async function fetchMeetings(contactId?: string): Promise<CrmMeeting[]> {
   return result.data
 }
 
-export async function fetchMeetingsPage(opts: { page: number; search?: string }): Promise<PageResult<CrmMeeting>> {
+export type MeetingView = 'all' | 'upcoming' | 'completed' | 'overdue' | 'cancelled'
+
+export interface MeetingsPageOpts {
+  page: number
+  search?: string
+  /** Which stat card is selected; the response then carries a count for every card. */
+  view?: MeetingView
+  /** The caller's "now" (ISO): scheduled meetings at or after it are Upcoming, before it Overdue. */
+  upcomingFrom?: string
+  /** 'booking' = booked online, 'manual' = added by staff. */
+  source?: 'booking' | 'manual'
+  /** ISO instants bounding when the meeting was created. */
+  createdFrom?: string
+  createdTo?: string
+}
+
+export async function fetchMeetingsPage(opts: MeetingsPageOpts): Promise<PageResult<CrmMeeting>> {
   const businessId = getActiveBusinessId()
-  const params = new URLSearchParams({ business_id: businessId, page: String(opts.page), per_page: String(PAGE_SIZE), ...(opts.search ? { search: opts.search } : {}) })
+  const params = new URLSearchParams({
+    business_id: businessId,
+    page: String(opts.page),
+    per_page: String(PAGE_SIZE),
+    ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.view ? { view: opts.view } : {}),
+    ...(opts.upcomingFrom ? { upcoming_from: opts.upcomingFrom } : {}),
+    ...(opts.source ? { source: opts.source } : {}),
+    ...(opts.createdFrom ? { created_from: opts.createdFrom } : {}),
+    ...(opts.createdTo ? { created_to: opts.createdTo } : {}),
+  })
   const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?${params}`, { headers: authHeaders() })
-  return toPageResult(result.data, result.meta)
+  // The per-card counts ride along as the page "summary".
+  return toPageResult(result.data, result.meta, result.meta?.counts)
+}
+
+export async function fetchMeetingById(id: string): Promise<CrmMeeting> {
+  return apiRequest<CrmMeeting>(`/crm/meetings/get/${encodeURIComponent(id)}`, { headers: authHeaders() })
 }
 
 export interface CreateMeetingInput {
   contactId: string
   meetingTime: string
   meetingType?: string
+  /** Length in minutes (the server reads a missing one as 30). */
+  durationMinutes?: number
   meetingLink?: string
   meetingSummary?: string
   pricing?: number
@@ -651,6 +705,7 @@ export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeti
       meeting_time: new Date(input.meetingTime).toISOString(),
       ...(staffId ? { assign_to_staff_id: staffId } : {}),
       ...(input.meetingType ? { meeting_type: input.meetingType } : {}),
+      ...(input.durationMinutes ? { duration_minutes: input.durationMinutes } : {}),
       ...(input.meetingLink ? { meeting_link: input.meetingLink } : {}),
       ...(input.meetingSummary ? { meeting_summary: input.meetingSummary } : {}),
       ...(input.pricing !== undefined ? { pricing: input.pricing } : {}),

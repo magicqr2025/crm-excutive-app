@@ -48,6 +48,8 @@ import {
   fetchActiveProducts,
   fetchMyTargets,
   fetchMeetingsPage,
+  fetchMeetingById,
+  type MeetingsPageOpts,
   fetchPaymentsPage,
   fetchMyTarget,
   fetchLeadsPage,
@@ -99,6 +101,7 @@ import {
   type TaskStatusFilter,
   type TaskType,
 } from '@/api/crmApi'
+import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
 
 export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
@@ -325,8 +328,12 @@ export function useMeetings(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['meetings', 'contact', contactId] : ['meetings'], queryFn: () => fetchMeetings(contactId) })
 }
 
-export function useMeetingsPage(search: string) {
-  return usePagedList({ queryKey: ['meetings', 'paged', { search }], fetchPage: (page) => fetchMeetingsPage({ page, search }) })
+export function useMeetingsPage(filters: Omit<MeetingsPageOpts, 'page'>) {
+  return usePagedList({ queryKey: ['meetings', 'paged', filters], fetchPage: (page) => fetchMeetingsPage({ page, ...filters }) })
+}
+
+export function useMeeting(id: string | undefined) {
+  return useQuery({ queryKey: ['meetings', 'one', id], queryFn: () => fetchMeetingById(id as string), enabled: Boolean(id), retry: false })
 }
 
 export function useUnclaimedBookings() {
@@ -738,5 +745,53 @@ export function useAddLeadNote(leadId: string | null) {
   return useMutation({
     mutationFn: (content: string) => createLeadNote(leadId as string, content),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lead-notes', leadId] }),
+  })
+}
+
+// ---- Booking links and free-time booking (staff side) ----
+
+export function useEventTypes() {
+  return useQuery({ queryKey: ['scheduling-event-types'], queryFn: fetchEventTypes })
+}
+
+export function useSchedulingProfile() {
+  return useQuery({ queryKey: ['scheduling-profile'], queryFn: fetchSchedulingProfile })
+}
+
+export function useSetEventTypeActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => setEventTypeActive(id, isActive),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduling-event-types'] }),
+  })
+}
+
+export function useLinkDays(eventTypeId: string | null, tz: string, duration?: number) {
+  return useQuery({
+    queryKey: ['scheduling-link-days', eventTypeId, tz, duration],
+    queryFn: () => fetchLinkDays(eventTypeId as string, tz, duration),
+    enabled: Boolean(eventTypeId),
+  })
+}
+
+export function useLinkSlots(eventTypeId: string | null, date: string | null, tz: string, duration?: number) {
+  return useQuery({
+    queryKey: ['scheduling-link-slots', eventTypeId, date, tz, duration],
+    queryFn: () => fetchLinkSlots(eventTypeId as string, date as string, tz, duration),
+    enabled: Boolean(eventTypeId && date),
+  })
+}
+
+export function useBookForContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: bookForContact,
+    onSuccess: () => {
+      // A booking also creates a meeting.
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['scheduling-link-slots'] })
+      queryClient.invalidateQueries({ queryKey: ['scheduling-link-days'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
