@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { CalendarCheck, CalendarClock, ListChecks, PhoneCall, TrendingUp, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useMyActivity } from '@/api/queries'
+import { useMyActivity, useOverdueFollowupCount } from '@/api/queries'
 import type { CrmStaffActivity } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
-import { PRESETS, monthOptions, rangeForAllMonths, rangeForMonth, rangeForPreset, rupees, talkTime, type Preset } from './performanceUtils'
+import { PRESETS, monthOptions, rangeForAllMonths, rangeForMonth, rangeForPreset, rupees, talkTime, toDay, type Preset } from './performanceUtils'
 
 // A quick preset, one calendar month ('YYYY-MM'), or every month on the list added together.
 type Selection = { type: 'preset'; value: Preset } | { type: 'month'; value: string } | { type: 'all' }
@@ -133,6 +134,9 @@ export function MyPerformancePage() {
     [selection],
   )
   const { data, isLoading, isError, error } = useMyActivity(range)
+  // Overdue is how many are late right now, so it only makes sense while the chosen period reaches today.
+  const { data: overdue = 0 } = useOverdueFollowupCount(userId ?? '')
+  const showOverdue = range.to >= toDay(new Date())
 
   // The backend returns only the caller's own row; fall back to the totals if ids don't line up.
   const mine: Stats | undefined = data ? (data.staff.find((s) => s.staff_id === userId) ?? (data.staff.length <= 1 ? data.totals : undefined)) : undefined
@@ -200,7 +204,7 @@ export function MyPerformancePage() {
                 <p className="text-[12px] font-medium text-[var(--text-muted)]">Total actions</p>
                 <p className="font-display text-[34px] font-semibold leading-tight tabular-nums text-[var(--accent-strong)]">{num(mine.total_actions)}</p>
               </div>
-              <dl className="flex gap-6">
+              <dl className="flex flex-wrap gap-x-6 gap-y-3">
                 {[
                   { label: 'Calls', value: mine.calls.total },
                   { label: 'Follow-ups done', value: mine.followups.done },
@@ -211,6 +215,12 @@ export function MyPerformancePage() {
                     <dt className="text-[11.5px] text-[var(--text-muted)]">{h.label}</dt>
                   </div>
                 ))}
+                {showOverdue && (
+                <Link to="/followups" className="group" title="Open your overdue follow-ups">
+                  <dd className={cn('font-display text-[20px] font-semibold tabular-nums', overdue > 0 ? 'text-[var(--error)]' : 'text-[var(--text-h)]')}>{num(overdue)}</dd>
+                  <dt className="text-[11.5px] text-[var(--text-muted)] group-hover:underline">Follow-ups overdue</dt>
+                </Link>
+                )}
               </dl>
             </div>
 
