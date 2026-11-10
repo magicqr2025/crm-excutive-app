@@ -1234,6 +1234,17 @@ export async function registerFcmToken(token: string): Promise<void> {
   })
 }
 
+// Removes this device from the signed-in staff member on logout, so it stops
+// receiving their pushes. Must run while the session token is still set.
+export async function unregisterFcmToken(token: string, signal?: AbortSignal): Promise<void> {
+  await apiRequest<unknown>('/api/staff/fcm-token', {
+    method: 'DELETE',
+    headers: authHeaders(),
+    body: JSON.stringify({ token }),
+    signal,
+  })
+}
+
 // ---- Subscriptions ----
 
 export type SubscriptionStatus = 'active' | 'expired' | 'renewed' | 'cancelled' | 'lost'

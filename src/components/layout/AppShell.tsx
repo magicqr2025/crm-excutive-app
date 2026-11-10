@@ -52,6 +52,7 @@ export function AppShell() {
   const now = useClock()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   usePushNotifications()
 
@@ -60,10 +61,18 @@ export function AppShell() {
   }, [])
 
   // The logout buttons only ask; this runs once the executive confirms.
-  function confirmLogout() {
-    setConfirmLogoutOpen(false)
-    logout()
-    navigate('/login', { replace: true })
+  // Logout waits (up to ~3s) for the push token to be unregistered, so the
+  // dialog stays open with the button disabled until it's done.
+  async function confirmLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      setLoggingOut(false)
+      setConfirmLogoutOpen(false)
+      navigate('/login', { replace: true })
+    }
   }
 
   return (
@@ -218,7 +227,9 @@ export function AppShell() {
           <Button variant="outline" onClick={() => setConfirmLogoutOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={confirmLogout}>Yes, log out</Button>
+          <Button onClick={confirmLogout} disabled={loggingOut}>
+            {loggingOut ? 'Logging out…' : 'Yes, log out'}
+          </Button>
         </Dialog.Footer>
       </Dialog>
     </div>
