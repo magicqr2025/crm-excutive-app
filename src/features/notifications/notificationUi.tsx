@@ -35,6 +35,8 @@ export function notificationRoute(entityType: string, entityId?: string | null):
       return '/subscriptions'
     case 'lead':
       return entityId ? `/contacts/${entityId}` : '/contacts'
+    case 'chat':
+      return entityId ? `/team-chat/${entityId}` : '/team-chat'
     default:
       return null
   }

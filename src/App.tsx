@@ -22,6 +22,8 @@ import { PaymentsPage } from '@/features/payments/PaymentsPage'
 import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
 import { InboxPage } from '@/features/inbox/InboxPage'
 import { ConversationPage } from '@/features/inbox/ConversationPage'
+import { TeamChatPage } from '@/features/teamChat/TeamChatPage'
+import { TeamChatThreadPage } from '@/features/teamChat/TeamChatThreadPage'
 import { NotificationsPage } from '@/features/notifications/NotificationsPage'
 
 export default function App() {
@@ -49,6 +51,8 @@ export default function App() {
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/target" element={<TargetPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/team-chat" element={<TeamChatPage />} />
+            <Route path="/team-chat/:channelId" element={<TeamChatThreadPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/settings/call-recording" element={<CallRecordingSettingsPage />} />
           </Route>
