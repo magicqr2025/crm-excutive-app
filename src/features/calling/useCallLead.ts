@@ -1,9 +1,11 @@
 import { useClaimLead } from '@/api/queries'
 import { useToast } from '@/components/ui/useToast'
+import { telHref } from '@/lib/whatsapp'
 
 interface CallTarget {
   leadId: string | null
   phone: string | null
+  countryCode?: string | null
   assignToStaffId?: string | null
 }
 
@@ -14,10 +16,10 @@ export function useCallLead() {
   const claimLead = useClaimLead()
   const { show } = useToast()
 
-  function startCall({ leadId, phone, assignToStaffId }: CallTarget) {
+  function startCall({ leadId, phone, countryCode, assignToStaffId }: CallTarget) {
     if (!phone) return
     const dial = () => {
-      window.location.href = `tel:${phone}`
+      window.location.href = telHref(phone, countryCode)
     }
     // Only an explicit null means unassigned; undefined = owner not known here (e.g. your own followup).
     if (!leadId || assignToStaffId !== null) {

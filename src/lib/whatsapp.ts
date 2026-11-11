@@ -39,3 +39,14 @@ export function buildWhatsAppNumber({ phone, countryCode }: WhatsAppNumberInput)
 export function personalWhatsAppUrl(number: string): string {
   return `https://wa.me/${number}`
 }
+
+/**
+ * A `tel:` link the phone dialer can always connect: "+<country code><number>".
+ * The stored number alone isn't enough — WhatsApp-created contacts are saved as
+ * "919876543210" with no "+", which the dialer treats as a local number.
+ * Falls back to the raw number if it can't be normalised.
+ */
+export function telHref(phone: string | null | undefined, countryCode?: string | null): string {
+  const number = buildWhatsAppNumber({ phone, countryCode })
+  return `tel:${number ? `+${number}` : (phone ?? '').replace(/[^\d+]/g, '')}`
+}
