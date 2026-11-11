@@ -57,8 +57,8 @@ export function useChatMessages(channelId: string | undefined) {
 export function useSendChatMessage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ channelId, body, files }: { channelId: string; body: string; files: File[] }) =>
-      chatApi.sendMessage(channelId, { body, files, clientMessageId: crypto.randomUUID() }),
+    mutationFn: ({ channelId, body, files, refs }: { channelId: string; body: string; files: File[]; refs?: chatApi.ChatTagInput[] }) =>
+      chatApi.sendMessage(channelId, { body, files, refs, clientMessageId: crypto.randomUUID() }),
     onSuccess: (_m, { channelId }) => {
       qc.invalidateQueries({ queryKey: KEYS.messages(channelId) })
       qc.invalidateQueries({ queryKey: KEYS.channels })

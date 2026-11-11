@@ -94,11 +94,26 @@ export const fetchMessages = (id: string, before?: string) =>
     { headers: auth() },
   )
 
-export const sendMessage = (id: string, input: { body: string; clientMessageId: string; files: File[] }) => {
+export interface ChatTagInput {
+  kind: 'staff'
+  id: string
+}
+
+export interface ChatLookupItem {
+  kind: 'staff'
+  id: string
+  label: string
+}
+
+/** Teammates in this channel whose name matches, for @mentions. */
+export const lookupTeammates = (id: string, q: string) =>
+  apiRequest<ChatLookupItem[]>(`${ch(id)}/lookup?${new URLSearchParams({ kind: 'staff', q })}`, { headers: auth() })
+
+export const sendMessage = (id: string, input: { body: string; clientMessageId: string; files: File[]; refs?: ChatTagInput[] }) => {
   const form = new FormData()
   form.set('body', input.body)
   form.set('client_message_id', input.clientMessageId)
-  form.set('refs', '[]')
+  form.set('refs', JSON.stringify(input.refs ?? []))
   for (const file of input.files) form.append('files', file)
   return apiRequestForm<ChatMessage>(`${ch(id)}/messages`, form, auth())
 }

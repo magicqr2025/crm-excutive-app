@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, FileText, Hash, ListChecks, Paperclip, Send, X } from 'lucide-react'
+import { ArrowLeft, AtSign, FileText, Hash, ListChecks, Paperclip, Send, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { PageLoader } from '@/components/ui/Spinner'
 import { Textarea } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { avatarColor, cn } from '@/lib/utils'
 import { formatClock } from '@/features/inbox/inboxFormat'
-import { fetchChatAttachment, type ChatAttachment, type ChatMessage } from '@/api/chatApi'
+import { fetchChatAttachment, lookupTeammates, type ChatAttachment, type ChatLookupItem, type ChatMessage, type ChatTagInput } from '@/api/chatApi'
 import { taskTypeLabel } from '@/features/tasks/taskUi'
 import type { TaskType } from '@/api/crmApi'
 import { useChatChannels, useChatMe, useChatMessages, useMarkChatRead, useSendChatMessage } from './useTeamChat'
@@ -68,9 +68,33 @@ function FileChip({ attachment }: { attachment: ChatAttachment }) {
   )
 }
 
-function MessageItem({ message, mine, showName }: { message: ChatMessage; mine: boolean; showName: boolean }) {
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// Highlights the @names a message mentions; yours stands out more.
+function MessageBody({ body, mentions, meId }: { body: string; mentions: ChatMessage['refs']; meId: string | undefined }) {
+  const staff = mentions.filter((r) => r.kind === 'staff')
+  if (staff.length === 0) return <>{body}</>
+  const tokens = staff.map((r) => `@${r.label.replace(/\s+/g, '')}`)
+  const parts = body.split(new RegExp(`(${tokens.map(escapeRegExp).join('|')})`, 'g'))
+  return (
+    <>
+      {parts.map((part, i) => {
+        const idx = tokens.indexOf(part)
+        if (idx === -1) return part
+        const isMe = staff[idx].id === meId
+        return (
+          <span key={i} className={cn('rounded px-0.5 font-semibold', isMe ? 'bg-[var(--accent)] text-[var(--ink)]' : 'bg-[var(--accent-bg)] text-[var(--accent-strong)]')}>
+            {part}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
+function MessageItem({ message, mine, showName, meId }: { message: ChatMessage; mine: boolean; showName: boolean; meId: string | undefined }) {
   const tasks = message.refs.filter((r) => r.kind === 'task')
-  const tags = message.refs.filter((r) => r.kind !== 'task')
+  const tags = message.refs.filter((r) => r.kind !== 'task' && r.kind !== 'staff')
   return (
     <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
       <div
@@ -91,7 +115,11 @@ function MessageItem({ message, mine, showName }: { message: ChatMessage; mine: 
             )}
           </div>
         )}
-        {message.body && <p className="whitespace-pre-wrap break-words leading-snug">{message.body}</p>}
+        {message.body && (
+          <p className="whitespace-pre-wrap break-words leading-snug">
+            <MessageBody body={message.body} mentions={message.refs} meId={meId} />
+          </p>
+        )}
         {tasks.map((t) => (
           <div key={t.id} className="mt-1 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] p-2.5">
             <div className="flex items-start gap-2">
@@ -134,6 +162,58 @@ export function TeamChatThreadPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const areaRef = useRef<HTMLTextAreaElement>(null)
+  const [tags, setTags] = useState<{ token: string; ref: ChatTagInput }[]>([])
+  const [trigger, setTrigger] = useState<{ query: string; start: number } | null>(null)
+  const [results, setResults] = useState<ChatLookupItem[]>([])
+
+  // Typeahead: the "@word" being typed before the caret, matched against teammates in this channel.
+  useEffect(() => {
+    if (!trigger || !channelId) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      lookupTeammates(channelId, trigger.query)
+        .then((list) => !cancelled && setResults(list))
+        .catch(() => !cancelled && setResults([]))
+    }, 150)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [trigger, channelId])
+
+  function onTextChange(value: string, caret: number) {
+    setText(value)
+    const m = /(^|\s)@([^\s@]{0,30})$/.exec(value.slice(0, caret))
+    setTrigger(m ? { query: m[2], start: caret - m[2].length - 1 } : null)
+    if (!m) setResults([])
+  }
+
+  function chooseMention(item: ChatLookupItem) {
+    if (!trigger) return
+    const token = `@${item.label.split(' · ')[0].replace(/\s+/g, '')}`
+    const caret = trigger.start + 1 + trigger.query.length
+    setText(`${text.slice(0, trigger.start)}${token} ${text.slice(caret)}`)
+    setTags((cur) => [...cur.filter((t) => t.token !== token), { token, ref: { kind: 'staff', id: item.id } }])
+    setTrigger(null)
+    setResults([])
+    requestAnimationFrame(() => areaRef.current?.focus())
+  }
+
+  // The "@" button does what typing "@" does.
+  function insertAt() {
+    const el = areaRef.current
+    const caret = el?.selectionStart ?? text.length
+    const before = text.slice(0, caret)
+    const lead = before.length > 0 && !/\s$/.test(before) ? ' ' : ''
+    const next = `${before}${lead}@${text.slice(caret)}`
+    const pos = before.length + lead.length + 1
+    onTextChange(next, pos)
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(pos, pos)
+    })
+  }
 
   const { data: me } = useChatMe()
   const { data: channels, isLoading: loadingChannels } = useChatChannels()
@@ -162,11 +242,14 @@ export function TeamChatThreadPage() {
     const body = text.trim()
     if (!channelId || (!body && files.length === 0) || send.isPending) return
     send.mutate(
-      { channelId, body, files },
+      { channelId, body, files, refs: tags.filter((t) => body.includes(t.token)).map((t) => t.ref) },
       {
         onSuccess: () => {
           setText('')
           setFiles([])
+          setTags([])
+          setTrigger(null)
+          setResults([])
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to send message', tone: 'error' }),
       },
@@ -227,12 +310,31 @@ export function TeamChatThreadPage() {
         ) : messages.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No messages yet. Say hello.</p>
         ) : (
-          messages.map((m) => <MessageItem key={m.id} message={m} mine={m.author_id === me?.id} showName={!channel.is_direct} />)
+          messages.map((m) => <MessageItem key={m.id} message={m} mine={m.author_id === me?.id} showName={!channel.is_direct} meId={me?.id} />)
         )}
       </div>
 
       {canPost ? (
-        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)]">
+        <div className="relative shrink-0 border-t border-[var(--border)] bg-[var(--surface)]">
+          {trigger && results.length > 0 && (
+            <ul className="absolute bottom-full left-3 right-3 z-10 mb-1 max-h-52 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-lg">
+              {results.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      chooseMention(item)
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] text-[var(--text-h)] hover:bg-[var(--surface-hover)]"
+                  >
+                    <Avatar name={item.label} size={24} />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {files.length > 0 && (
             <div className="flex flex-wrap gap-1.5 px-3 pt-2">
               {files.map((f, i) => (
@@ -265,9 +367,21 @@ export function TeamChatThreadPage() {
             >
               <Paperclip size={18} />
             </button>
+            {channel.is_direct ? null : (
+              <button
+                type="button"
+                onClick={insertAt}
+                disabled={send.isPending}
+                aria-label="Mention a teammate"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+              >
+                <AtSign size={18} />
+              </button>
+            )}
             <Textarea
+              ref={areaRef}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
               placeholder="Type a message…"
               rows={1}
               className="max-h-32 min-h-10 flex-1 rounded-2xl py-2"
