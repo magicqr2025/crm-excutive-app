@@ -77,6 +77,7 @@ function routeFor(data: Record<string, string> | undefined): string | null {
   // Team booking links: a meeting waiting to be taken, where the Take button is.
   if (data?.entityType === 'booking_unclaimed') return '/meetings'
   if (data?.entityType === 'subscription') return '/subscriptions'
+  if (data?.entityType === 'ticket') return data.entityId ? `/tickets/${data.entityId}` : '/tickets'
   if (data?.entityType === 'chat') return data.entityId ? `/team-chat/${data.entityId}` : '/team-chat'
   return null
 }

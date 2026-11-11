@@ -102,6 +102,7 @@ import {
   type TaskType,
 } from '@/api/crmApi'
 import { useAuthStore } from '@/store/useAuthStore'
+import { addTicketComment, createTicket, fetchTicket, fetchTicketMasters, fetchTicketSummary, fetchTicketsPage, setTicketStatus, triageTicket, type CreateTicketInput, type TicketListFilters, type TicketPriority, type TicketStatus } from '@/api/ticketsApi'
 import { createQuickReply, deleteQuickReply, fetchQuickReplies, updateQuickReply, type QuickReplyInput } from '@/api/quickRepliesApi'
 import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
 
@@ -815,3 +816,34 @@ export function useQuickReplyMutations() {
     remove: useMutation({ mutationFn: deleteQuickReply, onSuccess: refresh }),
   }
 }
+
+// ---- Tickets (the support desk) ----
+
+export function useTicketSummary() {
+  return useQuery({ queryKey: ['crm-tickets', 'summary'], queryFn: fetchTicketSummary })
+}
+
+export function useTicketsPage(filters: TicketListFilters) {
+  return usePagedList({ queryKey: ['crm-tickets', 'paged', filters], fetchPage: (page) => fetchTicketsPage({ page, ...filters }) })
+}
+
+export function useTicket(id: string | undefined) {
+  return useQuery({ queryKey: ['crm-tickets', 'detail', id], queryFn: () => fetchTicket(id as string), enabled: Boolean(id), retry: false })
+}
+
+export function useTicketMasters(kind: 'categories' | 'products') {
+  return useQuery({ queryKey: ['crm-ticket-masters', kind], queryFn: () => fetchTicketMasters(kind), staleTime: 5 * 60 * 1000 })
+}
+
+// Any ticket change can move the counts and the list, so refresh the whole family.
+function useTicketMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: fn, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm-tickets'] }) })
+}
+
+export const useCreateTicket = () => useTicketMutation((input: CreateTicketInput) => createTicket(input))
+export const useSetTicketStatus = () => useTicketMutation(({ id, status }: { id: string; status: TicketStatus }) => setTicketStatus(id, status))
+export const useTriageTicket = () =>
+  useTicketMutation(({ id, patch }: { id: string; patch: { priority?: TicketPriority; assignToStaffId?: string | null } }) => triageTicket(id, patch))
+export const useAddTicketComment = () =>
+  useTicketMutation(({ id, ...input }: { id: string; body: string; isInternal: boolean; files: File[] }) => addTicketComment(id, input))

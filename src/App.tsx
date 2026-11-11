@@ -18,7 +18,9 @@ import { MeetingDetailPage } from '@/features/meetings/MeetingDetailPage'
 import { BookingLinksPage } from '@/features/meetings/BookingLinksPage'
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
-import { TicketsPage } from '@/features/tasks/TicketsPage'
+import { TicketsPage } from '@/features/tickets/TicketsPage'
+import { TicketCreatePage } from '@/features/tickets/TicketCreatePage'
+import { TicketDetailPage } from '@/features/tickets/TicketDetailPage'
 import { TargetPage } from '@/features/target/TargetPage'
 import { PaymentsPage } from '@/features/payments/PaymentsPage'
 import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
@@ -54,6 +56,8 @@ export default function App() {
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
+            <Route path="/tickets/new" element={<TicketCreatePage />} />
+            <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
             <Route path="/target" element={<TargetPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/team-chat" element={<TeamChatPage />} />
