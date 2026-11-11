@@ -1,8 +1,24 @@
-import { type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes, forwardRef } from 'react'
+import { type ChangeEvent, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/lib/utils'
+import { DateField } from './DateField'
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...props }, ref) {
+    // Dates always read dd/mm/yyyy, whatever the device's locale is (see DateField).
+    if (props.type === 'date' || props.type === 'datetime-local') {
+      const { type, value, onChange, min, max, ...rest } = props
+      return (
+        <DateField
+          {...rest}
+          className={className}
+          withTime={type === 'datetime-local'}
+          value={String(value ?? '')}
+          min={min === undefined ? undefined : String(min)}
+          max={max === undefined ? undefined : String(max)}
+          onValueChange={(v) => onChange?.({ target: { value: v }, currentTarget: { value: v } } as ChangeEvent<HTMLInputElement>)}
+        />
+      )
+    }
     return (
       <input
         ref={ref}
