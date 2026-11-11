@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Capacitor } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { LocalNotifications } from '@capacitor/local-notifications'
@@ -103,12 +104,14 @@ function localNotificationId(pushId: string | undefined): number {
 export function usePushNotifications() {
   const navigate = useNavigate()
   const toast = useToast()
+  const queryClient = useQueryClient()
+  const { pathname } = useLocation()
   // Latest navigate/toast for the listeners below. The toast context value is a
   // new object whenever a toast appears, so depending on it directly would tear
   // down and re-register push on every toast.
-  const latest = useRef({ navigate, toast })
+  const latest = useRef({ navigate, toast, queryClient, pathname })
   useEffect(() => {
-    latest.current = { navigate, toast }
+    latest.current = { navigate, toast, queryClient, pathname }
   })
 
   useEffect(() => {
@@ -130,6 +133,14 @@ export function usePushNotifications() {
       // above) so it's visible the same way as the backgrounded/closed case, plus an
       // in-app toast for whoever is looking at the screen right now.
       PushNotifications.addListener('pushNotificationReceived', (n) => {
+        const pushData = (n.data ?? {}) as Record<string, string>
+        // A chat message: show it in the thread / list / badge now instead of at the next poll.
+        if (pushData.entityType === 'chat') {
+          void latest.current.queryClient.invalidateQueries({ queryKey: ['team-chat'] })
+          void latest.current.queryClient.invalidateQueries({ queryKey: ['notifications'] })
+          // Already reading that conversation: the message appears on screen, no pop-up needed.
+          if (pushData.entityId && latest.current.pathname === `/team-chat/${pushData.entityId}`) return
+        }
         latest.current.toast.show({ title: n.title ?? 'Reminder', description: n.body })
         const data = (n.data ?? {}) as Record<string, string>
         LocalNotifications.schedule({
