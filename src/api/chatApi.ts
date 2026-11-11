@@ -129,3 +129,52 @@ export const markChannelRead = (id: string, messageId: string) =>
 export const fetchChatAttachment = (id: string) => apiRequestBlob(`/crm/chat/attachments/${encodeURIComponent(id)}`, { headers: auth() })
 
 export { ApiError }
+
+// ---- Assigning tasks from chat ----
+
+export interface ChatMember {
+  staff_id: string
+  name: string
+  is_active: boolean
+}
+
+export interface ChatAssignableTask {
+  id: string
+  title: string
+  status: 'created' | 'ongoing' | 'in_review' | 'completed' | 'cancelled'
+  task_type: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  deadline: string | null
+  contact_name: string | null
+  assign_to_staff_id: string
+  assignee_name: string
+}
+
+export const fetchMembers = (id: string) => apiRequest<ChatMember[]>(`${ch(id)}/members`, { headers: auth() })
+
+export const fetchAssignableTasks = (id: string, q: string) =>
+  apiRequest<ChatAssignableTask[]>(`${ch(id)}/tasks/available?${new URLSearchParams({ q })}`, { headers: auth() })
+
+export const assignTask = (
+  id: string,
+  input: { title: string; assignToStaffId: string; taskType: string; deadline?: string; priority?: string; clientMessageId: string },
+) =>
+  apiRequest<ChatMessage>(`${ch(id)}/tasks`, {
+    method: 'POST',
+    headers: auth(),
+    body: JSON.stringify({
+      title: input.title,
+      assign_to_staff_id: input.assignToStaffId,
+      task_type: input.taskType,
+      client_message_id: input.clientMessageId,
+      ...(input.deadline ? { deadline: input.deadline } : {}),
+      ...(input.priority ? { priority: input.priority } : {}),
+    }),
+  })
+
+export const assignExistingTask = (id: string, input: { taskId: string; assignToStaffId: string; clientMessageId: string }) =>
+  apiRequest<ChatMessage>(`${ch(id)}/tasks/assign-existing`, {
+    method: 'POST',
+    headers: auth(),
+    body: JSON.stringify({ task_id: input.taskId, assign_to_staff_id: input.assignToStaffId, client_message_id: input.clientMessageId }),
+  })

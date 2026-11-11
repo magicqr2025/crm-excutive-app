@@ -73,3 +73,37 @@ export function useMarkChatRead() {
     onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.channels }),
   })
 }
+
+export function useChatMembers(channelId: string | null) {
+  return useQuery({ queryKey: ['team-chat', 'members', channelId ?? ''], queryFn: () => chatApi.fetchMembers(channelId as string), enabled: channelId !== null })
+}
+
+export function useAssignableTasks(channelId: string, q: string, enabled: boolean) {
+  return useQuery({ queryKey: ['team-chat', 'assignable-tasks', channelId, q], queryFn: () => chatApi.fetchAssignableTasks(channelId, q), enabled })
+}
+
+function useAfterTaskAssigned() {
+  const qc = useQueryClient()
+  return (channelId: string) => {
+    qc.invalidateQueries({ queryKey: KEYS.messages(channelId) })
+    qc.invalidateQueries({ queryKey: KEYS.channels })
+    qc.invalidateQueries({ queryKey: ['tasks'] })
+    qc.invalidateQueries({ queryKey: ['team-chat', 'assignable-tasks'] })
+  }
+}
+
+export function useAssignChatTask() {
+  const after = useAfterTaskAssigned()
+  return useMutation({
+    mutationFn: ({ channelId, ...input }: { channelId: string } & Parameters<typeof chatApi.assignTask>[1]) => chatApi.assignTask(channelId, input),
+    onSuccess: (m) => after(m.channel_id),
+  })
+}
+
+export function useAssignExistingChatTask() {
+  const after = useAfterTaskAssigned()
+  return useMutation({
+    mutationFn: ({ channelId, ...input }: { channelId: string } & Parameters<typeof chatApi.assignExistingTask>[1]) => chatApi.assignExistingTask(channelId, input),
+    onSuccess: (m) => after(m.channel_id),
+  })
+}

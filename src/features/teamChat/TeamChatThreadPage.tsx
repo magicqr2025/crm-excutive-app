@@ -10,6 +10,8 @@ import { formatClock } from '@/features/inbox/inboxFormat'
 import { fetchChatAttachment, lookupTeammates, type ChatAttachment, type ChatLookupItem, type ChatMessage, type ChatTagInput } from '@/api/chatApi'
 import { taskTypeLabel } from '@/features/tasks/taskUi'
 import type { TaskType } from '@/api/crmApi'
+import { useCan } from '@/store/useAuthStore'
+import { AssignTaskDialog } from './AssignTaskDialog'
 import { useChatChannels, useChatMe, useChatMessages, useMarkChatRead, useSendChatMessage } from './useTeamChat'
 
 function formatSize(bytes: number): string {
@@ -92,7 +94,19 @@ function MessageBody({ body, mentions, meId }: { body: string; mentions: ChatMes
   )
 }
 
-function MessageItem({ message, mine, showName, meId }: { message: ChatMessage; mine: boolean; showName: boolean; meId: string | undefined }) {
+function MessageItem({
+  message,
+  mine,
+  showName,
+  meId,
+  onMakeTask,
+}: {
+  message: ChatMessage
+  mine: boolean
+  showName: boolean
+  meId: string | undefined
+  onMakeTask?: () => void
+}) {
   const tasks = message.refs.filter((r) => r.kind === 'task')
   const tags = message.refs.filter((r) => r.kind !== 'task' && r.kind !== 'staff')
   return (
@@ -148,7 +162,14 @@ function MessageItem({ message, mine, showName, meId }: { message: ChatMessage; 
             ))}
           </div>
         )}
-        <p className="mt-0.5 text-right text-[10.5px] leading-none text-[var(--text-muted)]">{formatClock(message.created_at)}</p>
+        <div className="mt-0.5 flex items-center justify-end gap-2.5">
+          {onMakeTask && message.body && (
+            <button type="button" onClick={onMakeTask} className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent-strong)] hover:underline">
+              <ListChecks size={11} /> Make task
+            </button>
+          )}
+          <span className="text-[10.5px] leading-none text-[var(--text-muted)]">{formatClock(message.created_at)}</span>
+        </div>
       </div>
     </div>
   )
@@ -163,6 +184,8 @@ export function TeamChatThreadPage() {
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const areaRef = useRef<HTMLTextAreaElement>(null)
+  const canAddTask = useCan('tasks', 'add')
+  const [assigning, setAssigning] = useState<{ title: string } | null>(null)
   const [tags, setTags] = useState<{ token: string; ref: ChatTagInput }[]>([])
   const [trigger, setTrigger] = useState<{ query: string; start: number } | null>(null)
   const [results, setResults] = useState<ChatLookupItem[]>([])
@@ -227,6 +250,7 @@ export function TeamChatThreadPage() {
   const newest = messages[messages.length - 1]
   const unread = channel?.unread_count ?? 0
   const canPost = channel?.is_member !== false && !channel?.is_archived
+  const canAssign = canPost && canAddTask
 
   // Clear the unread badge when opened, and again whenever more arrive while it's open.
   useEffect(() => {
@@ -310,7 +334,7 @@ export function TeamChatThreadPage() {
         ) : messages.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No messages yet. Say hello.</p>
         ) : (
-          messages.map((m) => <MessageItem key={m.id} message={m} mine={m.author_id === me?.id} showName={!channel.is_direct} meId={me?.id} />)
+          messages.map((m) => <MessageItem key={m.id} message={m} mine={m.author_id === me?.id} showName={!channel.is_direct} meId={me?.id} onMakeTask={canAssign ? () => setAssigning({ title: m.body }) : undefined} />)
         )}
       </div>
 
@@ -367,6 +391,17 @@ export function TeamChatThreadPage() {
             >
               <Paperclip size={18} />
             </button>
+            {canAddTask && (
+              <button
+                type="button"
+                onClick={() => setAssigning({ title: '' })}
+                disabled={send.isPending}
+                aria-label="Assign a task"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+              >
+                <ListChecks size={18} />
+              </button>
+            )}
             {channel.is_direct ? null : (
               <button
                 type="button"
@@ -402,6 +437,7 @@ export function TeamChatThreadPage() {
           {channel.is_archived ? 'This channel is archived.' : "You're not a member of this channel."}
         </p>
       )}
+      {me && channelId && <AssignTaskDialog open={assigning !== null} onClose={() => setAssigning(null)} channelId={channelId} meId={me.id} initialTitle={assigning?.title} />}
     </div>
   )
 }
