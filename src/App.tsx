@@ -17,6 +17,7 @@ import { MeetingsPage } from '@/features/meetings/MeetingsPage'
 import { MeetingDetailPage } from '@/features/meetings/MeetingDetailPage'
 import { BookingLinksPage } from '@/features/meetings/BookingLinksPage'
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
+import { LeadBoardPage } from '@/features/leads/LeadBoardPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
 import { TaskDetailPage } from '@/features/tasks/TaskDetailPage'
 import { TaskFormPage } from '@/features/tasks/TaskFormPage'
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/meetings/links" element={<BookingLinksPage />} />
             <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/lead-board" element={<LeadBoardPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/new" element={<TaskFormPage />} />
             <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />

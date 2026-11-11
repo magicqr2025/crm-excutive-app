@@ -54,6 +54,7 @@ import {
   fetchMyTarget,
   fetchLeadsPage,
   fetchLeadById,
+  fetchAllLeads,
   createFollowup,
   type CreateFollowupInput,
   fetchCallLogsForLead,
@@ -907,4 +908,9 @@ export function useTaskSubtaskMutations(taskId: string) {
     }),
     remove: useMutation({ mutationFn: (subtaskId: string) => deleteTaskSubtask(taskId, subtaskId), onSuccess }),
   }
+}
+
+// Under 'my-leads' so every lead change that refreshes the Contacts list refreshes the board too.
+export function useAllLeads() {
+  return useQuery({ queryKey: ['my-leads', 'all'], queryFn: fetchAllLeads })
 }

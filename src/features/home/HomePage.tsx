@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Activity, ArrowUpRight, CalendarCheck, CalendarClock, Handshake, ListChecks, MessageCircle, Phone, Repeat, Target, Ticket, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Activity, KanbanSquare, ArrowUpRight, CalendarCheck, CalendarClock, Handshake, ListChecks, MessageCircle, Phone, Repeat, Target, Ticket, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -21,6 +21,7 @@ const TILES: Tile[] = [
   { to: '/subscriptions', label: 'Subscriptions', hint: 'Renewals coming up for your customers', icon: Repeat },
   { to: '/tasks', label: 'Tasks', hint: 'What you need to do next', icon: ListChecks },
   { to: '/tickets', label: 'Tickets', hint: 'Issues reported and their priority', icon: Ticket },
+  { to: '/lead-board', label: 'Lead Board', hint: 'Your leads by status — move them along', icon: KanbanSquare },
   { to: '/performance', label: 'My Performance', hint: 'Your calls, follow-ups and work done', icon: Activity },
   { to: '/team-chat', label: 'Team Chat', hint: 'Message your colleagues and channels', icon: MessageCircle },
 ]

@@ -192,6 +192,8 @@ export function duplicateLeadInfo(error: unknown): DuplicateLeadInfo | null {
 
 export interface UpdateLeadInput {
   discussion?: string
+  /** Moves the lead to this status (a Lead Board column). */
+  lead_status_id?: string
 }
 
 export async function updateLead(id: string, patch: UpdateLeadInput): Promise<CrmLead> {
@@ -1818,4 +1820,10 @@ export async function updateTaskSubtask(id: string, subtaskId: string, patch: { 
 
 export async function deleteTaskSubtask(id: string, subtaskId: string): Promise<CrmTask> {
   return apiRequest<CrmTask>(`/crm/tasks/${encodeURIComponent(id)}/subtasks/${encodeURIComponent(subtaskId)}`, { method: 'DELETE', headers: authHeaders() })
+}
+
+// ---- Lead Board: every lead the caller can see, at once (the board needs the whole set to fill its columns) ----
+
+export async function fetchAllLeads(): Promise<CrmLead[]> {
+  return apiRequest<CrmLead[]>(`/crm/cust-res/get-list?business_id=${encodeURIComponent(getActiveBusinessId())}`, { headers: authHeaders() })
 }
