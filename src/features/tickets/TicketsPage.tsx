@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2, Clock, Inbox, LifeBuoy, Plus, Sparkles, UserX, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Copy, Inbox, LifeBuoy, Plus, Share2, Sparkles, UserX, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { PageLoader } from '@/components/ui/Spinner'
 import { SearchBox } from '@/components/ui/SearchBox'
-import { useStaffList, useTicketMasters, useTicketSummary, useTicketsPage } from '@/api/queries'
+import { useSchedulingProfile, useStaffList, useTicketMasters, useTicketPublicLink, useTicketSummary, useTicketsPage } from '@/api/queries'
+import { useToast } from '@/components/ui/useToast'
+import { copyText, shareLink } from '@/lib/share'
+import { publicBookingOrigin } from '@/features/meetings/schedulingUi'
 import type { Ticket, TicketPriority, TicketStatusFilter, TicketType } from '@/api/ticketsApi'
 import { useCan } from '@/store/useAuthStore'
 import { cn } from '@/lib/utils'
@@ -81,6 +84,11 @@ function TicketRow({ ticket: t, onOpen }: { ticket: Ticket; onOpen: () => void }
 export function TicketsPage() {
   const navigate = useNavigate()
   const canAdd = useCan('tickets', 'add')
+  const { show } = useToast()
+  const { data: ticketLink } = useTicketPublicLink()
+  const { data: profile } = useSchedulingProfile()
+  // The page customers use to raise a ticket without logging in, on this business's own domain.
+  const publicUrl = ticketLink ? `${publicBookingOrigin(profile?.public_host)}/public/${ticketLink.slug}/ticket` : null
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [search, setSearch] = useState('')
 
@@ -96,6 +104,18 @@ export function TicketsPage() {
     assigneeId: filters.assigneeId || undefined,
     age: filters.age || undefined,
   })
+
+  async function copyLink() {
+    if (!publicUrl) return
+    show(await copyText(publicUrl) ? { title: 'Ticket link copied', tone: 'success' } : { title: 'Could not copy the link', tone: 'error' })
+  }
+
+  async function shareTicketLink() {
+    if (!publicUrl) return
+    const result = await shareLink({ title: 'Raise a ticket', text: 'Raise a support ticket here:', url: publicUrl })
+    if (result === 'copied') show({ title: 'Sharing is not available here, so the link was copied', tone: 'success' })
+    else if (result === 'failed') show({ title: 'Could not share the link', tone: 'error' })
+  }
 
   const patch = (next: Partial<Filters>) => setFilters((f) => ({ ...f, ...next }))
   // A card narrows the list to its slice; tapping the same card again goes back to the default view.
@@ -115,11 +135,19 @@ export function TicketsPage() {
         title="Tickets"
         subtitle={`${total} ticket${total === 1 ? '' : 's'}`}
         action={
-          canAdd && (
-            <Button size="sm" onClick={() => navigate('/tickets/new')} className="gap-1.5">
-              <Plus size={14} /> New
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="secondary" disabled={!publicUrl} onClick={() => void copyLink()} title="Copy the link customers use to raise a ticket" aria-label="Copy ticket link">
+              <Copy size={14} />
             </Button>
-          )
+            <Button size="sm" variant="secondary" disabled={!publicUrl} onClick={() => void shareTicketLink()} title="Share the link customers use to raise a ticket" aria-label="Share ticket link">
+              <Share2 size={14} />
+            </Button>
+            {canAdd && (
+              <Button size="sm" onClick={() => navigate('/tickets/new')} className="gap-1.5">
+                <Plus size={14} /> New
+              </Button>
+            )}
+          </div>
         }
       />
       <div className="mx-auto w-full max-w-3xl space-y-3 p-4">

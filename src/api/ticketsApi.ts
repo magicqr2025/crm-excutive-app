@@ -200,3 +200,6 @@ export const fetchTicketAttachment = (id: string) => apiRequestBlob(`/crm/ticket
 // Masters (categories / products) are admin-managed; anyone signed in can read them for the create form.
 export const fetchTicketMasters = (kind: 'categories' | 'products') =>
   apiRequest<TicketMaster[]>(`/crm/tickets/${kind}?business_id=${encodeURIComponent(businessId())}`, { headers: authHeaders() })
+
+/** The slug of the business's public ticket page (/public/<slug>/ticket). Any role that can view tickets may read it. */
+export const fetchTicketPublicLink = () => apiRequest<{ slug: string; agency_domain: string | null }>('/crm/tickets/public-link', { headers: authHeaders() })

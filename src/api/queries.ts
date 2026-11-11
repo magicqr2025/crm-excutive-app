@@ -102,7 +102,7 @@ import {
   type TaskType,
 } from '@/api/crmApi'
 import { useAuthStore } from '@/store/useAuthStore'
-import { addTicketComment, createTicket, fetchTicket, fetchTicketMasters, fetchTicketSummary, fetchTicketsPage, setTicketStatus, triageTicket, type CreateTicketInput, type TicketListFilters, type TicketPriority, type TicketStatus } from '@/api/ticketsApi'
+import { addTicketComment, createTicket, fetchTicket, fetchTicketPublicLink, fetchTicketMasters, fetchTicketSummary, fetchTicketsPage, setTicketStatus, triageTicket, type CreateTicketInput, type TicketListFilters, type TicketPriority, type TicketStatus } from '@/api/ticketsApi'
 import { createQuickReply, deleteQuickReply, fetchQuickReplies, updateQuickReply, type QuickReplyInput } from '@/api/quickRepliesApi'
 import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
 
@@ -847,3 +847,7 @@ export const useTriageTicket = () =>
   useTicketMutation(({ id, patch }: { id: string; patch: { priority?: TicketPriority; assignToStaffId?: string | null } }) => triageTicket(id, patch))
 export const useAddTicketComment = () =>
   useTicketMutation(({ id, ...input }: { id: string; body: string; isInternal: boolean; files: File[] }) => addTicketComment(id, input))
+
+export function useTicketPublicLink(enabled = true) {
+  return useQuery({ queryKey: ['crm-tickets', 'public-link'], queryFn: fetchTicketPublicLink, enabled, staleTime: 5 * 60 * 1000 })
+}
