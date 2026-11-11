@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { AlertTriangle, LayoutTemplate, Send } from 'lucide-react'
+import { AlertTriangle, LayoutTemplate, MessageSquareText, Send } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { PageLoader } from '@/components/ui/Spinner'
 import { Textarea } from '@/components/ui/Input'
+import { QuickRepliesDialog } from './QuickRepliesDialog'
 import { useSendableTemplates } from './useInbox'
 
 interface ComposerProps {
@@ -12,11 +13,13 @@ interface ComposerProps {
   isSending: boolean
   onSend: (text: string) => void
   onSendTemplate: (templateId: string) => void
+  onSendQuickReply: (quickReplyId: string) => void
 }
 
-export function Composer({ sessionOpen, isSending, onSend, onSendTemplate }: ComposerProps) {
+export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSendQuickReply }: ComposerProps) {
   const [value, setValue] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [quickOpen, setQuickOpen] = useState(false)
   const { data: templates = [], isLoading, isError } = useSendableTemplates(pickerOpen)
 
   function send() {
@@ -51,6 +54,16 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate }: Com
         >
           <LayoutTemplate size={19} />
         </button>
+        <button
+          type="button"
+          onClick={() => setQuickOpen(true)}
+          disabled={isSending}
+          aria-label="Quick replies"
+          title="Quick replies"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--accent-strong)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+        >
+          <MessageSquareText size={19} />
+        </button>
 
         {sessionOpen ? (
           <>
@@ -77,6 +90,8 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate }: Com
           </Button>
         )}
       </div>
+
+      <QuickRepliesDialog open={quickOpen} onClose={() => setQuickOpen(false)} canSend={sessionOpen} isSending={isSending} onSend={onSendQuickReply} />
 
       <Dialog open={pickerOpen} onClose={() => setPickerOpen(false)} className="max-w-md self-center !h-auto rounded-[var(--radius-card)] border border-[var(--border)]">
         <Dialog.Header>

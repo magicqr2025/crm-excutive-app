@@ -305,7 +305,7 @@ export function ContactDetailView({
             {contactPhone && (
               <button
                 type="button"
-                onClick={() => startCall({ leadId, phone: contactPhone, assignToStaffId })}
+                onClick={() => startCall({ leadId, phone: contactPhone, countryCode: lead?.contact_country_code, assignToStaffId })}
                 disabled={isClaiming}
                 aria-label={`Call ${contactPhone}`}
                 title={`Call ${contactPhone}`}

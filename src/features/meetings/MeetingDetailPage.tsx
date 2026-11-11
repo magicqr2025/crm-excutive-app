@@ -9,6 +9,7 @@ import { PageLoader } from '@/components/ui/Spinner'
 import { useMeeting, useStaffList } from '@/api/queries'
 import type { CrmMeeting } from '@/api/crmApi'
 import { useAuthStore } from '@/store/useAuthStore'
+import { telHref } from '@/lib/whatsapp'
 import { MeetingActions } from './MeetingActions'
 import { MeetingDetails } from './MeetingDetails'
 import { MeetingEditForm } from './MeetingEditForm'
@@ -143,7 +144,7 @@ function Loaded({ meeting }: { meeting: CrmMeeting }) {
                 </Meta>
                 <Meta label="Phone">
                   {meeting.contact_phone ? (
-                    <a href={`tel:${meeting.contact_phone}`} className="tabular-nums text-[var(--accent-strong)] underline">
+                    <a href={telHref(meeting.contact_phone)} className="tabular-nums text-[var(--accent-strong)] underline">
                       {meeting.contact_phone}
                     </a>
                   ) : (

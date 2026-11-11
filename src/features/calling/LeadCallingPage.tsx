@@ -78,7 +78,7 @@ export function LeadCallingPage() {
             {lead.contact_phone && (
               <button
                 type="button"
-                onClick={() => startCall({ leadId: lead.id, phone: lead.contact_phone, assignToStaffId: lead.assign_to_staff_id ?? null })}
+                onClick={() => startCall({ leadId: lead.id, phone: lead.contact_phone, countryCode: lead.contact_country_code, assignToStaffId: lead.assign_to_staff_id ?? null })}
                 disabled={isClaiming}
                 aria-label={isClaiming ? 'Assigning lead' : `Call ${lead.contact_phone}`}
                 title={`Call ${lead.contact_phone}`}

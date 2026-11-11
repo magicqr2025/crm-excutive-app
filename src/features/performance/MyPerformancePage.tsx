@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Input } from '@/components/ui/Input'
 import { PageHeader } from '@/components/layout/PageHeader'
 import type { PerformancePeriod } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
@@ -133,7 +134,7 @@ export function MyPerformancePage() {
                 {(['from', 'to'] as const).map((k, i) => (
                   <span key={k} className="flex items-center gap-2">
                     {i === 1 && <span className="text-[12px] text-[var(--text-muted)]">to</span>}
-                    <input
+                    <Input
                       type="date"
                       aria-label={k === 'from' ? 'From' : 'To'}
                       value={custom[k]}
@@ -141,7 +142,7 @@ export function MyPerformancePage() {
                       max={k === 'from' && custom.to && custom.to < today ? custom.to : today}
                       min={k === 'to' ? custom.from || undefined : undefined}
                       onChange={(e) => setCustom((c) => ({ ...c, [k]: e.target.value > today ? today : e.target.value }))}
-                      className="h-8 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-[12.5px] text-[var(--text-h)] outline-none focus:border-[var(--accent)]"
+                      className="h-8 w-36 px-2 pr-8 text-[12.5px]"
                     />
                   </span>
                 ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as inboxApi from '@/api/inboxApi'
+import { sendQuickReply } from '@/api/quickRepliesApi'
 import { staffMe } from '@/lib/staffAuthClient'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -119,4 +120,15 @@ export function useWhatsappCompanyAccess() {
     isLoading,
     logoUrl: logoUrl ?? null,
   }
+}
+
+export function useSendQuickReply() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ conversationId, quickReplyId }: { conversationId: string; quickReplyId: string }) => sendQuickReply(conversationId, quickReplyId),
+    onSuccess: (_data, { conversationId }) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
 }

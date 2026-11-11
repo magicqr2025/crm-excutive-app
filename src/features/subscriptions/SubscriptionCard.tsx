@@ -2,6 +2,7 @@ import { CalendarClock, IndianRupee, Phone, RefreshCw, ThumbsDown } from 'lucide
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import type { CrmSubscription } from '@/api/crmApi'
+import { telHref } from '@/lib/whatsapp'
 import { canReceivePayment, daysLeftLabel, daysLeftTone, formatAmount, formatDate, lostReasonLabel } from './subscriptionUi'
 
 interface SubscriptionCardProps {
@@ -38,7 +39,7 @@ export function SubscriptionCard({ subscription: sub, onRenew, onLost, onPayment
       {(sub.contact_phone || canRenew || canReceivePayment(sub)) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {sub.contact_phone && (
-            <a href={`tel:${sub.contact_phone}`}>
+            <a href={telHref(sub.contact_phone)}>
               <Button variant="secondary" size="sm" className="gap-1.5">
                 <Phone size={13} /> Call
               </Button>

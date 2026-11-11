@@ -17,8 +17,13 @@ import { MeetingsPage } from '@/features/meetings/MeetingsPage'
 import { MeetingDetailPage } from '@/features/meetings/MeetingDetailPage'
 import { BookingLinksPage } from '@/features/meetings/BookingLinksPage'
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
+import { LeadBoardPage } from '@/features/leads/LeadBoardPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
-import { TicketsPage } from '@/features/tasks/TicketsPage'
+import { TaskDetailPage } from '@/features/tasks/TaskDetailPage'
+import { TaskFormPage } from '@/features/tasks/TaskFormPage'
+import { TicketsPage } from '@/features/tickets/TicketsPage'
+import { TicketCreatePage } from '@/features/tickets/TicketCreatePage'
+import { TicketDetailPage } from '@/features/tickets/TicketDetailPage'
 import { TargetPage } from '@/features/target/TargetPage'
 import { PaymentsPage } from '@/features/payments/PaymentsPage'
 import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
@@ -52,8 +57,14 @@ export default function App() {
             <Route path="/meetings/links" element={<BookingLinksPage />} />
             <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/lead-board" element={<LeadBoardPage />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks/new" element={<TaskFormPage />} />
+            <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
+            <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
+            <Route path="/tickets/new" element={<TicketCreatePage />} />
+            <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
             <Route path="/target" element={<TargetPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/team-chat" element={<TeamChatPage />} />

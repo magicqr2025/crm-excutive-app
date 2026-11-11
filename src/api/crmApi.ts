@@ -192,6 +192,8 @@ export function duplicateLeadInfo(error: unknown): DuplicateLeadInfo | null {
 
 export interface UpdateLeadInput {
   discussion?: string
+  /** Moves the lead to this status (a Lead Board column). */
+  lead_status_id?: string
 }
 
 export async function updateLead(id: string, patch: UpdateLeadInput): Promise<CrmLead> {
@@ -968,11 +970,20 @@ export async function createFollowup(input: CreateFollowupInput): Promise<CrmFol
 
 // ---- Tasks ----
 
-export type TaskStatus = 'created' | 'ongoing' | 'completed' | 'cancelled'
-export type TaskType = 'quotation' | 'call' | 'demo' | 'documents' | 'payment_collection' | 'ticket' | 'other'
+export type TaskStatus = 'created' | 'ongoing' | 'in_review' | 'completed' | 'cancelled'
+/** A built-in key ('general' — the default, or an older fixed type) or the name of an admin-managed task type (a "project"). */
+export type TaskType = string
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
-/** List filter: a status, or 'open' = created + ongoing. */
+/** List filter: a status, or 'open' = created + ongoing + in review. */
 export type TaskStatusFilter = TaskStatus | 'open'
+
+/** One checklist item on a task. */
+export interface TaskSubtask {
+  id: string
+  title: string
+  done: boolean
+  done_at: string | null
+}
 
 export interface CrmTask {
   id: string
@@ -986,9 +997,21 @@ export interface CrmTask {
   deadline: string | null
   assign_to_staff_id: string
   created_by: string | null
+  /** Set when the task is moved to completed. */
+  completed_at?: string | null
+  /** Set when a completed task is marked closed. */
+  closed_at?: string | null
   /** What the assignee did and how it works: rich text (sanitized HTML). */
   work_notes?: string | null
   work_notes_updated_at?: string | null
+  /** Plain-text note added when the task was created or edited. */
+  remark?: string | null
+  /** Public https links of images attached to the task. */
+  image_urls?: string[]
+  /** Images the assignee attached while working. */
+  work_image_urls?: string[]
+  /** The checklist (empty for most tasks). */
+  subtasks?: TaskSubtask[]
   created_at: string
   updated_at: string
 }
@@ -999,6 +1022,7 @@ export interface StaffMember {
   user_id: string
   first_name: string | null
   last_name: string | null
+  is_admin?: boolean
 }
 
 export interface CreateTaskInput {
@@ -1008,6 +1032,11 @@ export interface CreateTaskInput {
   deadline?: string // datetime-local value or ISO
   assignToStaffId?: string
   contactId?: string
+  remark?: string
+  /** Public links of images already uploaded */
+  imageUrls?: string[]
+  /** Checklist items, in order */
+  subtasks?: string[]
 }
 
 export interface UpdateTaskInput {
@@ -1016,6 +1045,14 @@ export interface UpdateTaskInput {
   priority?: TaskPriority
   deadline?: string | null // null clears it
   assignToStaffId?: string
+  /** The customer the task is about; null clears it */
+  contactId?: string | null
+  /** Empty string clears it */
+  remark?: string
+  /** Replaces the whole list */
+  imageUrls?: string[]
+  /** Only for a completed task; false reopens it */
+  closed?: boolean
 }
 
 export async function fetchStaff(): Promise<StaffMember[]> {
@@ -1066,6 +1103,9 @@ export async function createTask(input: CreateTaskInput): Promise<CrmTask> {
       ...(input.deadline ? { deadline: new Date(input.deadline).toISOString() } : {}),
       ...(input.assignToStaffId ? { assign_to_staff_id: input.assignToStaffId } : {}),
       ...(input.contactId ? { contact_id: input.contactId } : {}),
+      ...(input.remark ? { remark: input.remark } : {}),
+      ...(input.imageUrls?.length ? { image_urls: input.imageUrls } : {}),
+      ...(input.subtasks?.length ? { subtasks: input.subtasks } : {}),
     }),
   })
 }
@@ -1091,11 +1131,16 @@ export async function updateTask(id: string, patch: UpdateTaskInput): Promise<Cr
         ? { deadline: patch.deadline === null ? null : new Date(patch.deadline).toISOString() }
         : {}),
       ...(patch.assignToStaffId !== undefined ? { assign_to_staff_id: patch.assignToStaffId } : {}),
+      ...(patch.contactId !== undefined ? { contact_id: patch.contactId } : {}),
+      ...(patch.remark !== undefined ? { remark: patch.remark } : {}),
+      ...(patch.imageUrls !== undefined ? { image_urls: patch.imageUrls } : {}),
+      ...(patch.closed !== undefined ? { closed: patch.closed } : {}),
     }),
   })
 }
 
-export async function setTaskStatus(id: string, status: Exclude<TaskStatus, 'created'>): Promise<CrmTask> {
+/** A plain status move ("created" only reopens a completed task). */
+export async function setTaskStatus(id: string, status: TaskStatus): Promise<CrmTask> {
   return apiRequest<CrmTask>(`/crm/tasks/status/${encodeURIComponent(id)}`, {
     method: 'POST',
     headers: authHeaders(),
@@ -1692,4 +1737,93 @@ export async function fetchLeadForContact(contactId: string, phone: string): Pro
   const digits = phone.replace(/\D/g, '')
   const result = await fetchLeadsPage({ staffId: '', page: 1, perPage: 20, search: digits.slice(-10) || undefined })
   return result.items.find((l) => l.contact_id === contactId) ?? null
+}
+
+// ---- Task page: one task, its types, subtasks, discussion, history and photos ----
+
+export async function fetchTask(id: string): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/${encodeURIComponent(id)}`, { headers: authHeaders() })
+}
+
+/** An admin-managed task type (a "project"). A private one is limited to its members. */
+export interface TaskTypeOption {
+  id: string
+  name: string
+  is_active: boolean
+  /** Staff assigned to this project. Non-empty = private to them (and admins); empty = everyone. */
+  member_ids: string[]
+}
+
+export async function fetchTaskTypes(): Promise<TaskTypeOption[]> {
+  return apiRequest<TaskTypeOption[]>(`/crm/tasks/types?business_id=${encodeURIComponent(getActiveBusinessId())}`, { headers: authHeaders() })
+}
+
+export interface TaskComment {
+  id: string
+  task_id: string
+  author_id: string
+  body: string
+  image_urls: string[]
+  created_at: string
+}
+
+/** The conversation on a task, oldest first. */
+export async function fetchTaskComments(id: string): Promise<TaskComment[]> {
+  return apiRequest<TaskComment[]>(`/crm/tasks/${encodeURIComponent(id)}/comments`, { headers: authHeaders() })
+}
+
+/** A message on a task: text, images (already uploaded links), or both. */
+export async function addTaskComment(id: string, input: { body: string; imageUrls: string[] }): Promise<TaskComment> {
+  return apiRequest<TaskComment>(`/crm/tasks/${encodeURIComponent(id)}/comments`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ body: input.body, image_urls: input.imageUrls }),
+  })
+}
+
+/** One line of a task's history: who did what and when. */
+export interface TaskLogEntry {
+  id: string
+  kind: 'created' | 'status' | 'assignee' | 'edited' | 'comment' | 'work_notes' | 'work_images' | 'subtask' | 'closed' | string
+  summary: string
+  actor_id: string | null
+  actor_name: string
+  created_at: string
+}
+
+/** The task's history, newest first. */
+export async function fetchTaskLogs(id: string): Promise<TaskLogEntry[]> {
+  return apiRequest<TaskLogEntry[]>(`/crm/tasks/${encodeURIComponent(id)}/logs`, { headers: authHeaders() })
+}
+
+/** The images the assignee attached while working; replaces the whole list. */
+export async function saveTaskWorkImages(id: string, imageUrls: string[]): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/work-images/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ image_urls: imageUrls }),
+  })
+}
+
+// Checklist changes: each one returns the whole task.
+export async function addTaskSubtask(id: string, title: string): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/${encodeURIComponent(id)}/subtasks`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ title }) })
+}
+
+export async function updateTaskSubtask(id: string, subtaskId: string, patch: { title?: string; done?: boolean }): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/${encodeURIComponent(id)}/subtasks/${encodeURIComponent(subtaskId)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(patch),
+  })
+}
+
+export async function deleteTaskSubtask(id: string, subtaskId: string): Promise<CrmTask> {
+  return apiRequest<CrmTask>(`/crm/tasks/${encodeURIComponent(id)}/subtasks/${encodeURIComponent(subtaskId)}`, { method: 'DELETE', headers: authHeaders() })
+}
+
+// ---- Lead Board: every lead the caller can see, at once (the board needs the whole set to fill its columns) ----
+
+export async function fetchAllLeads(): Promise<CrmLead[]> {
+  return apiRequest<CrmLead[]>(`/crm/cust-res/get-list?business_id=${encodeURIComponent(getActiveBusinessId())}`, { headers: authHeaders() })
 }

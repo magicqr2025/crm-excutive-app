@@ -9,7 +9,7 @@ import { Composer } from './Composer'
 import { ConversationInfoSheet } from './ConversationInfoSheet'
 import { isSessionOpen } from './inboxFormat'
 import { MessageBubble } from './MessageBubble'
-import { useConversations, useMarkConversationRead, useMessages, useSendMessage, useSendTemplateMessage } from './useInbox'
+import { useConversations, useMarkConversationRead, useMessages, useSendMessage, useSendQuickReply, useSendTemplateMessage } from './useInbox'
 
 export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
@@ -22,6 +22,7 @@ export function ConversationPage() {
   const { data: messages = [], isLoading: isLoadingMessages } = useMessages(conversationId)
   const sendMessage = useSendMessage()
   const sendTemplate = useSendTemplateMessage()
+  const sendQuickReply = useSendQuickReply()
   const markRead = useMarkConversationRead()
 
   const conversation = conversations?.find((c) => c.id === conversationId)
@@ -114,9 +115,12 @@ export function ConversationPage() {
 
       <Composer
         sessionOpen={sessionOpen}
-        isSending={sendMessage.isPending || sendTemplate.isPending}
+        isSending={sendMessage.isPending || sendTemplate.isPending || sendQuickReply.isPending}
         onSend={(text) =>
           sendMessage.mutate({ conversationId: conversation.id, text }, { onError: (err) => reportFailure('Failed to send message', err) })
+        }
+        onSendQuickReply={(quickReplyId) =>
+          sendQuickReply.mutate({ conversationId: conversation.id, quickReplyId }, { onError: (err) => reportFailure('Failed to send quick reply', err) })
         }
         onSendTemplate={(templateId) =>
           sendTemplate.mutate({ conversationId: conversation.id, templateId }, { onError: (err) => reportFailure('Failed to send template', err) })

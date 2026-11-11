@@ -54,6 +54,7 @@ import {
   fetchMyTarget,
   fetchLeadsPage,
   fetchLeadById,
+  fetchAllLeads,
   createFollowup,
   type CreateFollowupInput,
   fetchCallLogsForLead,
@@ -95,12 +96,24 @@ import {
   createTask,
   updateTask,
   setTaskStatus,
+  fetchTask,
+  fetchTaskTypes,
+  fetchTaskComments,
+  addTaskComment,
+  fetchTaskLogs,
+  saveTaskWorkImages,
+  addTaskSubtask,
+  updateTaskSubtask,
+  deleteTaskSubtask,
   type CreateTaskInput,
   type UpdateTaskInput,
   type TaskStatus,
   type TaskStatusFilter,
   type TaskType,
 } from '@/api/crmApi'
+import { useAuthStore } from '@/store/useAuthStore'
+import { addTicketComment, createTicket, fetchTicket, fetchTicketPublicLink, fetchTicketMasters, fetchTicketSummary, fetchTicketsPage, setTicketStatus, triageTicket, type CreateTicketInput, type TicketListFilters, type TicketPriority, type TicketStatus } from '@/api/ticketsApi'
+import { createQuickReply, deleteQuickReply, fetchQuickReplies, updateQuickReply, type QuickReplyInput } from '@/api/quickRepliesApi'
 import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
 
 export function useMyLeadCampaigns() {
@@ -450,7 +463,7 @@ export function useSaveTaskWorkNotes() {
 export function useSetTaskStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Exclude<TaskStatus, 'created'> }) => setTaskStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) => setTaskStatus(id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }
@@ -794,4 +807,110 @@ export function useBookForContact() {
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })
+}
+
+// ---- Quick replies ----
+
+export function useQuickReplies(enabled = true) {
+  const activeBusinessId = useAuthStore((s) => s.activeBusinessId)
+  return useQuery({ queryKey: ['quick-replies', activeBusinessId], queryFn: fetchQuickReplies, enabled: enabled && Boolean(activeBusinessId), staleTime: 60 * 1000 })
+}
+
+export function useQuickReplyMutations() {
+  const queryClient = useQueryClient()
+  const activeBusinessId = useAuthStore((s) => s.activeBusinessId)
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['quick-replies', activeBusinessId] })
+  return {
+    create: useMutation({ mutationFn: createQuickReply, onSuccess: refresh }),
+    update: useMutation({ mutationFn: ({ id, input }: { id: string; input: QuickReplyInput }) => updateQuickReply(id, input), onSuccess: refresh }),
+    remove: useMutation({ mutationFn: deleteQuickReply, onSuccess: refresh }),
+  }
+}
+
+// ---- Tickets (the support desk) ----
+
+export function useTicketSummary() {
+  return useQuery({ queryKey: ['crm-tickets', 'summary'], queryFn: fetchTicketSummary })
+}
+
+export function useTicketsPage(filters: TicketListFilters) {
+  return usePagedList({ queryKey: ['crm-tickets', 'paged', filters], fetchPage: (page) => fetchTicketsPage({ page, ...filters }) })
+}
+
+export function useTicket(id: string | undefined) {
+  return useQuery({ queryKey: ['crm-tickets', 'detail', id], queryFn: () => fetchTicket(id as string), enabled: Boolean(id), retry: false })
+}
+
+export function useTicketMasters(kind: 'categories' | 'products') {
+  return useQuery({ queryKey: ['crm-ticket-masters', kind], queryFn: () => fetchTicketMasters(kind), staleTime: 5 * 60 * 1000 })
+}
+
+// Any ticket change can move the counts and the list, so refresh the whole family.
+function useTicketMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: fn, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm-tickets'] }) })
+}
+
+export const useCreateTicket = () => useTicketMutation((input: CreateTicketInput) => createTicket(input))
+export const useSetTicketStatus = () => useTicketMutation(({ id, status }: { id: string; status: TicketStatus }) => setTicketStatus(id, status))
+export const useTriageTicket = () =>
+  useTicketMutation(({ id, patch }: { id: string; patch: { priority?: TicketPriority; assignToStaffId?: string | null } }) => triageTicket(id, patch))
+export const useAddTicketComment = () =>
+  useTicketMutation(({ id, ...input }: { id: string; body: string; isInternal: boolean; files: File[] }) => addTicketComment(id, input))
+
+export function useTicketPublicLink(enabled = true) {
+  return useQuery({ queryKey: ['crm-tickets', 'public-link'], queryFn: fetchTicketPublicLink, enabled, staleTime: 5 * 60 * 1000 })
+}
+
+// ---- Task page ----
+
+export function useTask(id: string | undefined) {
+  return useQuery({ queryKey: ['tasks', 'one', id], queryFn: () => fetchTask(id as string), enabled: Boolean(id), retry: false })
+}
+
+export function useTaskTypes() {
+  return useQuery({ queryKey: ['task-types'], queryFn: fetchTaskTypes, staleTime: 5 * 60 * 1000 })
+}
+
+export function useTaskComments(id: string) {
+  // Polled so a reply shows up while the task page is open.
+  return useQuery({ queryKey: ['tasks', 'comments', id], queryFn: () => fetchTaskComments(id), refetchInterval: 20_000 })
+}
+
+export function useAddTaskComment(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { body: string; imageUrls: string[] }) => addTaskComment(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useTaskLogs(id: string) {
+  return useQuery({ queryKey: ['tasks', 'logs', id], queryFn: () => fetchTaskLogs(id), refetchInterval: 30_000 })
+}
+
+export function useSaveTaskWorkImages() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, imageUrls }: { id: string; imageUrls: string[] }) => saveTaskWorkImages(id, imageUrls),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useTaskSubtaskMutations(taskId: string) {
+  const queryClient = useQueryClient()
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: ['tasks'] })
+  return {
+    add: useMutation({ mutationFn: (title: string) => addTaskSubtask(taskId, title), onSuccess }),
+    update: useMutation({
+      mutationFn: ({ subtaskId, ...patch }: { subtaskId: string; title?: string; done?: boolean }) => updateTaskSubtask(taskId, subtaskId, patch),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: (subtaskId: string) => deleteTaskSubtask(taskId, subtaskId), onSuccess }),
+  }
+}
+
+// Under 'my-leads' so every lead change that refreshes the Contacts list refreshes the board too.
+export function useAllLeads() {
+  return useQuery({ queryKey: ['my-leads', 'all'], queryFn: fetchAllLeads })
 }
