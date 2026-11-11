@@ -95,6 +95,15 @@ import {
   createTask,
   updateTask,
   setTaskStatus,
+  fetchTask,
+  fetchTaskTypes,
+  fetchTaskComments,
+  addTaskComment,
+  fetchTaskLogs,
+  saveTaskWorkImages,
+  addTaskSubtask,
+  updateTaskSubtask,
+  deleteTaskSubtask,
   type CreateTaskInput,
   type UpdateTaskInput,
   type TaskStatus,
@@ -453,7 +462,7 @@ export function useSaveTaskWorkNotes() {
 export function useSetTaskStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Exclude<TaskStatus, 'created'> }) => setTaskStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) => setTaskStatus(id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }
@@ -850,4 +859,52 @@ export const useAddTicketComment = () =>
 
 export function useTicketPublicLink(enabled = true) {
   return useQuery({ queryKey: ['crm-tickets', 'public-link'], queryFn: fetchTicketPublicLink, enabled, staleTime: 5 * 60 * 1000 })
+}
+
+// ---- Task page ----
+
+export function useTask(id: string | undefined) {
+  return useQuery({ queryKey: ['tasks', 'one', id], queryFn: () => fetchTask(id as string), enabled: Boolean(id), retry: false })
+}
+
+export function useTaskTypes() {
+  return useQuery({ queryKey: ['task-types'], queryFn: fetchTaskTypes, staleTime: 5 * 60 * 1000 })
+}
+
+export function useTaskComments(id: string) {
+  // Polled so a reply shows up while the task page is open.
+  return useQuery({ queryKey: ['tasks', 'comments', id], queryFn: () => fetchTaskComments(id), refetchInterval: 20_000 })
+}
+
+export function useAddTaskComment(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { body: string; imageUrls: string[] }) => addTaskComment(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useTaskLogs(id: string) {
+  return useQuery({ queryKey: ['tasks', 'logs', id], queryFn: () => fetchTaskLogs(id), refetchInterval: 30_000 })
+}
+
+export function useSaveTaskWorkImages() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, imageUrls }: { id: string; imageUrls: string[] }) => saveTaskWorkImages(id, imageUrls),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useTaskSubtaskMutations(taskId: string) {
+  const queryClient = useQueryClient()
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: ['tasks'] })
+  return {
+    add: useMutation({ mutationFn: (title: string) => addTaskSubtask(taskId, title), onSuccess }),
+    update: useMutation({
+      mutationFn: ({ subtaskId, ...patch }: { subtaskId: string; title?: string; done?: boolean }) => updateTaskSubtask(taskId, subtaskId, patch),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: (subtaskId: string) => deleteTaskSubtask(taskId, subtaskId), onSuccess }),
+  }
 }

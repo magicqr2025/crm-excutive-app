@@ -28,6 +28,8 @@ interface AuthState {
   isAuthenticated: boolean
   /** Staff an admin has promoted: allowed everything. */
   isAdmin: boolean
+  /** The role reads everyone's records, not just its own (a manager role). */
+  seesAll: boolean
   /** The role's feature grid (view / add / edit / delete per feature); an admin bypasses it. */
   permissions: Record<string, FeaturePermission>
   hydrated: boolean
@@ -81,6 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   activeBusinessId: loadStoredBusinesses()[0]?.id ?? null,
   isAuthenticated: false,
   isAdmin: false,
+  seesAll: false,
   permissions: {},
   hydrated: false,
 
@@ -90,7 +93,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const user = toAuthUser(me)
     const businesses = toAuthBusinesses(me)
     persistSession(user, businesses)
-    set({ user, businesses, activeBusinessId: businesses[0]?.id ?? null, isAuthenticated: true, isAdmin: me.is_admin === true, permissions: me.permissions ?? {}, hydrated: true })
+    set({ user, businesses, activeBusinessId: businesses[0]?.id ?? null, isAuthenticated: true, isAdmin: me.is_admin === true, seesAll: me.sees_all === true, permissions: me.permissions ?? {}, hydrated: true })
   },
 
   hydrate: async () => {
@@ -109,13 +112,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         activeBusinessId: get().activeBusinessId ?? businesses[0]?.id ?? null,
         isAuthenticated: true,
         isAdmin: me.is_admin === true,
+        seesAll: me.sees_all === true,
         permissions: me.permissions ?? {},
         hydrated: true,
       })
     } catch {
       staffLogout()
       clearSession()
-      set({ user: null, businesses: [], activeBusinessId: null, isAuthenticated: false, isAdmin: false, permissions: {}, hydrated: true })
+      set({ user: null, businesses: [], activeBusinessId: null, isAuthenticated: false, isAdmin: false, seesAll: false, permissions: {}, hydrated: true })
     }
   },
 
@@ -124,11 +128,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await teardownPushNotifications()
     staffLogout()
     clearSession()
-    set({ user: null, businesses: [], activeBusinessId: null, isAuthenticated: false, isAdmin: false, permissions: {} })
+    set({ user: null, businesses: [], activeBusinessId: null, isAuthenticated: false, isAdmin: false, seesAll: false, permissions: {} })
   },
 }))
 
 /** Whether the signed-in person may do this to this feature: an admin always, otherwise what the role grants. The server is the real gate. */
 export function useCan(feature: string, action: keyof FeaturePermission = 'view'): boolean {
   return useAuthStore((s) => s.isAdmin || s.permissions[feature]?.[action] === true)
+}
+
+/** Admins and managers read everyone's records; everyone else only their own. */
+export function useIsAdminOrManager(): boolean {
+  return useAuthStore((s) => s.isAdmin || s.seesAll)
 }

@@ -39,6 +39,8 @@ export interface StaffMeResponse {
   permissions?: Record<string, FeaturePermission> | null
   /** True for staff an admin has promoted to admin. */
   is_admin?: boolean
+  /** Whether the role reads everyone's records (a manager role, or "see all data" switched on for it). */
+  sees_all?: boolean
 }
 
 export async function staffLogin(payload: { email: string; password: string }): Promise<StaffAuthUser> {

@@ -18,6 +18,8 @@ import { MeetingDetailPage } from '@/features/meetings/MeetingDetailPage'
 import { BookingLinksPage } from '@/features/meetings/BookingLinksPage'
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
+import { TaskDetailPage } from '@/features/tasks/TaskDetailPage'
+import { TaskFormPage } from '@/features/tasks/TaskFormPage'
 import { TicketsPage } from '@/features/tickets/TicketsPage'
 import { TicketCreatePage } from '@/features/tickets/TicketCreatePage'
 import { TicketDetailPage } from '@/features/tickets/TicketDetailPage'
@@ -55,6 +57,9 @@ export default function App() {
             <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks/new" element={<TaskFormPage />} />
+            <Route path="/tasks/:taskId/edit" element={<TaskFormPage />} />
+            <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/tickets/new" element={<TicketCreatePage />} />
             <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />

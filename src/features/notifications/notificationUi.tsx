@@ -29,7 +29,7 @@ export function notificationRoute(entityType: string, entityId?: string | null):
     case 'availability':
       return '/meetings'
     case 'task':
-      return '/tasks'
+      return entityId ? `/tasks/${entityId}` : '/tasks'
     case 'ticket':
       return entityId ? `/tickets/${entityId}` : '/tickets'
     case 'subscription':
