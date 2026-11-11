@@ -102,7 +102,7 @@ import {
   type TaskType,
 } from '@/api/crmApi'
 import { useAuthStore } from '@/store/useAuthStore'
-import { fetchQuickReplies } from '@/api/quickRepliesApi'
+import { createQuickReply, deleteQuickReply, fetchQuickReplies, updateQuickReply, type QuickReplyInput } from '@/api/quickRepliesApi'
 import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
 
 export function useMyLeadCampaigns() {
@@ -803,4 +803,15 @@ export function useBookForContact() {
 export function useQuickReplies(enabled = true) {
   const activeBusinessId = useAuthStore((s) => s.activeBusinessId)
   return useQuery({ queryKey: ['quick-replies', activeBusinessId], queryFn: fetchQuickReplies, enabled: enabled && Boolean(activeBusinessId), staleTime: 60 * 1000 })
+}
+
+export function useQuickReplyMutations() {
+  const queryClient = useQueryClient()
+  const activeBusinessId = useAuthStore((s) => s.activeBusinessId)
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['quick-replies', activeBusinessId] })
+  return {
+    create: useMutation({ mutationFn: createQuickReply, onSuccess: refresh }),
+    update: useMutation({ mutationFn: ({ id, input }: { id: string; input: QuickReplyInput }) => updateQuickReply(id, input), onSuccess: refresh }),
+    remove: useMutation({ mutationFn: deleteQuickReply, onSuccess: refresh }),
+  }
 }

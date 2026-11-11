@@ -33,3 +33,34 @@ export const sendQuickReply = (conversationId: string, quickReplyId: string) =>
     headers: crmSessionAuthHeaders(),
     body: JSON.stringify({ businessId: businessId(), quickReplyId }),
   })
+
+export interface QuickReplyInput {
+  title: string
+  body: string
+  mediaType: QuickReplyMediaType | null
+  mediaUrl: string | null
+  mediaFilename: string | null
+  buttons: QuickReplyButton[]
+}
+
+// Managing the library needs the "inbox → edit" permission; the server refuses anyone else.
+
+export const createQuickReply = (input: QuickReplyInput) =>
+  apiRequest<QuickReply>('/inbox/quick-replies', {
+    method: 'POST',
+    headers: crmSessionAuthHeaders(),
+    body: JSON.stringify({ businessId: businessId(), ...input }),
+  })
+
+export const updateQuickReply = (id: string, input: QuickReplyInput) =>
+  apiRequest<QuickReply>(`/inbox/quick-replies/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: crmSessionAuthHeaders(),
+    body: JSON.stringify({ businessId: businessId(), ...input }),
+  })
+
+export const deleteQuickReply = (id: string) =>
+  apiRequest<null>(`/inbox/quick-replies/${encodeURIComponent(id)}?business_id=${encodeURIComponent(businessId())}`, {
+    method: 'DELETE',
+    headers: crmSessionAuthHeaders(),
+  })

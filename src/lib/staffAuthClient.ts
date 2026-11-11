@@ -20,6 +20,13 @@ export interface StaffMeBusiness {
   role: string
 }
 
+export interface FeaturePermission {
+  view: boolean
+  add: boolean
+  edit: boolean
+  delete: boolean
+}
+
 export interface StaffMeResponse {
   id: string
   email: string
@@ -28,6 +35,10 @@ export interface StaffMeResponse {
   businesses: StaffMeBusiness[]
   /** The company's favicon (https URL), or null until an admin has signed in. */
   brandFaviconUrl?: string | null
+  /** The role's feature grid; null for an admin (bypasses it). */
+  permissions?: Record<string, FeaturePermission> | null
+  /** True for staff an admin has promoted to admin. */
+  is_admin?: boolean
 }
 
 export async function staffLogin(payload: { email: string; password: string }): Promise<StaffAuthUser> {
