@@ -101,6 +101,8 @@ import {
   type TaskStatusFilter,
   type TaskType,
 } from '@/api/crmApi'
+import { useAuthStore } from '@/store/useAuthStore'
+import { fetchQuickReplies } from '@/api/quickRepliesApi'
 import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
 
 export function useMyLeadCampaigns() {
@@ -794,4 +796,11 @@ export function useBookForContact() {
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })
+}
+
+// ---- Quick replies ----
+
+export function useQuickReplies(enabled = true) {
+  const activeBusinessId = useAuthStore((s) => s.activeBusinessId)
+  return useQuery({ queryKey: ['quick-replies', activeBusinessId], queryFn: fetchQuickReplies, enabled: enabled && Boolean(activeBusinessId), staleTime: 60 * 1000 })
 }
