@@ -260,41 +260,56 @@ function TaskForm({ source, editing, staff, userId }: { source: CrmTask | null; 
             </div>
 
             <div>
-              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+              <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Images</p>
                 <p className="text-[11.5px] text-[var(--text-muted)]">
                   {images.length} of {MAX_TASK_IMAGES} · png, jpg, 5 MB each
                 </p>
               </div>
               {uploader.input((urls) => setImages((prev) => [...prev, ...urls]))}
-              <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                {images.map((url, i) => (
-                  <li key={url} className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border)]">
-                    <img src={url} alt={`Image ${i + 1}`} className="h-full w-full object-cover" />
-                    <button
-                      type="button"
-                      aria-label={`Remove image ${i + 1}`}
-                      onClick={() => setImages((prev) => prev.filter((u) => u !== url))}
-                      className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-[var(--error)]"
-                    >
-                      <X size={14} />
-                    </button>
-                  </li>
-                ))}
-                {images.length < MAX_TASK_IMAGES && (
-                  <li>
-                    <button
-                      type="button"
-                      disabled={uploader.uploading}
-                      onClick={uploader.open}
-                      className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-hover)] text-[12px] font-medium text-[var(--accent-strong)] transition-colors hover:border-[var(--accent-border)] disabled:opacity-60"
-                    >
-                      {uploader.uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
-                      {uploader.uploading ? 'Uploading…' : 'Add image'}
-                    </button>
-                  </li>
-                )}
-              </ul>
+              {images.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={uploader.open}
+                  disabled={uploader.uploading}
+                  className="flex w-full flex-col items-center gap-1.5 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-hover)] px-4 py-6 text-center transition-colors hover:border-[var(--accent-border)] disabled:opacity-60"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface)] text-[var(--accent-strong)] shadow-[var(--shadow-sm)]">
+                    {uploader.uploading ? <Loader2 size={17} className="animate-spin" /> : <ImagePlus size={17} />}
+                  </span>
+                  <span className="text-[13.5px] font-semibold text-[var(--text-h)]">{uploader.uploading ? 'Uploading…' : 'Upload image'}</span>
+                  <span className="text-[12px] text-[var(--text-muted)]">No photos yet. Add pictures that help.</span>
+                </button>
+              ) : (
+                <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {images.map((url, i) => (
+                    <li key={url} className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border)]">
+                      <img src={url} alt={`Image ${i + 1}`} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        aria-label={`Remove image ${i + 1}`}
+                        onClick={() => setImages((prev) => prev.filter((u) => u !== url))}
+                        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-[var(--error)]"
+                      >
+                        <X size={14} />
+                      </button>
+                    </li>
+                  ))}
+                  {images.length < MAX_TASK_IMAGES && (
+                    <li>
+                      <button
+                        type="button"
+                        disabled={uploader.uploading}
+                        onClick={uploader.open}
+                        className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-hover)] text-[12px] font-medium text-[var(--accent-strong)] transition-colors hover:border-[var(--accent-border)] disabled:opacity-60"
+                      >
+                        {uploader.uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+                        {uploader.uploading ? 'Uploading…' : 'Add image'}
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              )}
             </div>
 
             {!editing && (
