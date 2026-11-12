@@ -1,4 +1,5 @@
-import { Archive, ArrowRightLeft, CheckSquare, Flag, History, ImagePlus, MessageSquare, NotebookPen, Pencil, Plus, UserRound, type LucideIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Archive, ArrowRightLeft, CheckSquare, ChevronDown, ChevronUp, Flag, History, ImagePlus, MessageSquare, NotebookPen, Pencil, Plus, UserRound, type LucideIcon } from 'lucide-react'
 import { useTaskLogs } from '@/api/queries'
 import type { CrmTask, TaskLogEntry } from '@/api/crmApi'
 import { formatDate } from '@/lib/dateFormat'
@@ -14,6 +15,8 @@ const KIND_ICON: Record<string, LucideIcon> = {
   subtask: CheckSquare,
   closed: Archive,
 }
+
+const PREVIEW_COUNT = 3
 
 function timeOf(iso: string): string {
   const d = new Date(iso)
@@ -35,7 +38,10 @@ function groupByDay(entries: TaskLogEntry[]): { day: string; items: TaskLogEntry
 // The task's history as a timeline, newest first: a date chip per day, then a dot on the line for every change.
 export function TaskLog({ task }: { task: CrmTask }) {
   const { data: entries = [], isLoading, isError } = useTaskLogs(task.id)
-  const groups = groupByDay(entries)
+  const [expanded, setExpanded] = useState(false)
+  // The newest few are enough at a glance; the rest are one tap away.
+  const hidden = Math.max(0, entries.length - PREVIEW_COUNT)
+  const groups = groupByDay(expanded ? entries : entries.slice(0, PREVIEW_COUNT))
 
   return (
     <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
@@ -80,6 +86,24 @@ export function TaskLog({ task }: { task: CrmTask }) {
               </section>
             ))}
           </div>
+        )}
+        {hidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] py-2 text-[13px] font-medium text-[var(--accent-strong)] hover:bg-[var(--surface-hover)]"
+          >
+            {expanded ? (
+              <>
+                See less <ChevronUp size={14} />
+              </>
+            ) : (
+              <>
+                See more ({hidden} more) <ChevronDown size={14} />
+              </>
+            )}
+          </button>
         )}
       </div>
     </section>
