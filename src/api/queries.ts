@@ -29,6 +29,9 @@ import {
   fetchMyActivity,
   fetchMyPerformance,
   fetchMyOpenChats,
+  fetchRaisedForMe,
+  raisePriority,
+  type RaiseEntityType,
   fetchMyInteractions,
   fetchMySales,
   fetchLeadNotes,
@@ -913,4 +916,26 @@ export function useTaskSubtaskMutations(taskId: string) {
 // Under 'my-leads' so every lead change that refreshes the Contacts list refreshes the board too.
 export function useAllLeads() {
   return useQuery({ queryKey: ['my-leads', 'all'], queryFn: fetchAllLeads })
+}
+
+// ---- Raise priority ----
+
+/** Everything a raise changes: the flag on tasks / follow-ups / meetings, the Home strip and the bell. */
+function invalidateRaised(queryClient: ReturnType<typeof useQueryClient>) {
+  for (const key of ['tasks', 'my-followups', 'meetings', 'priority-raises', 'notifications']) {
+    queryClient.invalidateQueries({ queryKey: [key] })
+  }
+}
+
+export function useRaisePriority() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { entityType: RaiseEntityType; entityId: string; note?: string }) => raisePriority(input),
+    onSuccess: () => invalidateRaised(queryClient),
+  })
+}
+
+/** Open items others have raised to me. */
+export function useRaisedForMe() {
+  return useQuery({ queryKey: ['priority-raises', 'mine'], queryFn: fetchRaisedForMe, refetchInterval: 60_000 })
 }

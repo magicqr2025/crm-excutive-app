@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link as LinkIcon, Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { RaisedBadge, RaisePriorityButton } from '@/components/shared/RaisePriority'
 import { useStaffList } from '@/api/queries'
 import type { CrmMeeting } from '@/api/crmApi'
 import { MeetingActions } from './MeetingActions'
@@ -63,6 +64,7 @@ export function MeetingCard({ meeting, userId, isAdmin, showContact = false, onO
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {meeting.source === 'booking' && <Badge tone="info">Booked online</Badge>}
+          <RaisedBadge raised={meeting.raised} />
           {overdue && <Badge tone="error">Overdue</Badge>}
           {isRescheduled(meeting) ? (
             <Badge tone="warning">Rescheduled</Badge>
@@ -103,6 +105,21 @@ export function MeetingCard({ meeting, userId, isAdmin, showContact = false, onO
         </a>
       )}
       <MeetingDetails meeting={meeting} staff={staff} />
+      {meeting.meeting_status === 'scheduled' && (
+        <div className="mt-2 empty:hidden" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <RaisePriorityButton
+            labelled
+            entityType="meeting"
+            entityId={meeting.id}
+            itemTitle={`Meeting with ${meeting.contact_name ?? 'a contact'}`}
+            assigneeId={meeting.assign_to_staff_id}
+            assigneeName={staffName(staff, meeting.assign_to_staff_id)}
+            createdBy={meeting.created_by}
+            raised={meeting.raised}
+            overdue={overdue}
+          />
+        </div>
+      )}
       <MeetingActions meeting={meeting} can={can} />
     </div>
   )

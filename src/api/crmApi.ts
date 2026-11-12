@@ -384,6 +384,8 @@ export interface CrmFollowup {
   followup_date: string
   followup_time: string
   followup_status: '0' | '1' | '2'
+  /** Set while a manager's "raise priority" on this follow-up is still open. */
+  raised?: CrmRaised | null
 }
 
 export async function fetchMyActiveFollowupsPage(opts: { staffId: string; page: number; search?: string }): Promise<PageResult<CrmFollowup>> {
@@ -634,6 +636,7 @@ export interface CrmMeeting {
   tasks: CrmMeetingTask[]
   reminder: MeetingReminder | null
   created_at: string
+  raised?: CrmRaised | null
 }
 
 export async function fetchMeetings(contactId?: string): Promise<CrmMeeting[]> {
@@ -997,6 +1000,7 @@ export interface CrmTask {
   deadline: string | null
   assign_to_staff_id: string
   created_by: string | null
+  raised?: CrmRaised | null
   /** Set when the task is moved to completed. */
   completed_at?: string | null
   /** Set when a completed task is marked closed. */
@@ -1826,4 +1830,44 @@ export async function deleteTaskSubtask(id: string, subtaskId: string): Promise<
 
 export async function fetchAllLeads(): Promise<CrmLead[]> {
   return apiRequest<CrmLead[]>(`/crm/cust-res/get-list?business_id=${encodeURIComponent(getActiveBusinessId())}`, { headers: authHeaders() })
+}
+
+// ---- Raise priority ----
+
+/** "Raise priority": a manager (or the creator) flagged an open item to its owner, until it is done. */
+export interface CrmRaised {
+  /** Who raised it. */
+  by: string
+  note: string | null
+  at: string
+  /** How many times it has been raised. */
+  count: number
+}
+
+export type RaiseEntityType = 'task' | 'followup' | 'meeting'
+
+/** An open item someone raised to the signed-in user (Home's "Raised for you" strip). */
+export interface CrmRaisedItem {
+  id: string
+  entity_type: RaiseEntityType
+  entity_id: string
+  title: string
+  due_at: string | null
+  contact_name: string | null
+  lead_id: string | null
+  raised_by_name: string
+  note: string | null
+  raised_at: string
+}
+
+export async function raisePriority(input: { entityType: RaiseEntityType; entityId: string; note?: string }): Promise<{ raised_by_name: string }> {
+  return apiRequest<{ raised_by_name: string }>('/crm/priority-raises', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ entity_type: input.entityType, entity_id: input.entityId, ...(input.note?.trim() ? { note: input.note.trim() } : {}) }),
+  })
+}
+
+export async function fetchRaisedForMe(): Promise<CrmRaisedItem[]> {
+  return apiRequest<CrmRaisedItem[]>('/crm/priority-raises/mine', { headers: authHeaders() })
 }

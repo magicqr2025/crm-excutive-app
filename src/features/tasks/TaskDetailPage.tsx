@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarClock, Check, Copy, Eye, Pencil, Play, UserPlus, X, 
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { RaisedBadge, RaisePriorityButton } from '@/components/shared/RaisePriority'
 import { Button } from '@/components/ui/Button'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/useToast'
@@ -26,6 +27,7 @@ import {
   formatDeadline,
   getTaskPermissions,
   isTaskCompletedLate,
+  isOpenTask,
   isTaskOverdue,
   staffLabel,
   taskTypeLabel,
@@ -173,11 +175,26 @@ function TaskView({ task, staff, userId, isAdmin }: { task: CrmTask; staff: Staf
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone={TASK_STATUS_TONE[task.status]}>{TASK_STATUS_LABEL[task.status]}</Badge>
             <Badge tone={TASK_PRIORITY_TONE[task.priority]}>{TASK_PRIORITY_OPTIONS.find((o) => o.value === task.priority)?.label ?? task.priority} priority</Badge>
+            <RaisedBadge raised={task.raised} />
             {overdue && <Badge tone="error">Overdue</Badge>}
             {completedLate && <Badge tone="error">Completed late</Badge>}
             {task.closed_at && <Badge tone="neutral">Closed</Badge>}
           </div>
           <h2 className="whitespace-pre-wrap break-words text-[18px] font-semibold leading-snug text-[var(--text-h)]">{task.title}</h2>
+          {isOpenTask(task) && (
+            <RaisePriorityButton
+              labelled
+              entityType="task"
+              entityId={task.id}
+              itemTitle={task.title}
+              assigneeId={task.assign_to_staff_id}
+              assigneeName={assigneeName}
+              createdBy={task.created_by}
+              raised={task.raised}
+              overdue={overdue}
+              className="w-fit"
+            />
+          )}
           {task.status === 'cancelled' ? (
             <p className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-2 text-[13px] text-[var(--text-muted)]">This task was cancelled.</p>
           ) : (

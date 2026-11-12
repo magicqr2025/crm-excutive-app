@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Activity, KanbanSquare, ArrowUpRight, CalendarCheck, CalendarClock, Handshake, ListChecks, MessageCircle, Phone, Repeat, Target, Ticket, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuthStore } from '@/store/useAuthStore'
+import { RaisedForYou } from './RaisedForYou'
 import { useChatUnreadTotal } from '@/features/teamChat/useTeamChat'
 
 interface Tile {
@@ -40,6 +41,9 @@ export function HomePage() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <PageHeader title={first ? `${greeting()}, ${first}` : greeting()} subtitle="Pick up where you left off." />
+      <div className="mx-auto w-full max-w-4xl px-4 pt-5 empty:hidden md:px-6">
+        <RaisedForYou />
+      </div>
       <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 px-4 pb-8 pt-5 sm:grid-cols-3 md:gap-4 md:px-6">
         {TILES.map(({ to, label, hint, icon: Icon }) => (
           <Link
