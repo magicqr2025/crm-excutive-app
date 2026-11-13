@@ -1,4 +1,5 @@
 import { App } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
 import { CallLogSync, type NativeCallLogEntry } from '@/lib/nativeCallLog'
 import { syncDeviceCallLog } from '@/api/crmApi'
 import { ApiError } from '@/lib/apiClient'
@@ -35,6 +36,8 @@ let syncing = false
 let rerunRequested = false
 
 export async function syncDeviceCalls(): Promise<void> {
+  // The CallLogSync plugin only exists in the Android app; in a browser there is no call log to read.
+  if (!Capacitor.isNativePlatform()) return
   if (syncing) {
     rerunRequested = true
     return
@@ -94,7 +97,7 @@ export async function syncDeviceCalls(): Promise<void> {
 let started = false
 
 export function startDeviceCallSync(): void {
-  if (started) return
+  if (started || !Capacitor.isNativePlatform()) return
   started = true
   void syncDeviceCalls()
   setInterval(() => void syncDeviceCalls(), SYNC_INTERVAL_MS)
