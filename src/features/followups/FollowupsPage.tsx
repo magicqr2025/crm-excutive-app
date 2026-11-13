@@ -5,6 +5,7 @@ import { Check, Plus, X } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { RaisedBadge } from '@/components/shared/RaisePriority'
 import { Button } from '@/components/ui/Button'
 import { Input, Field } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
@@ -163,7 +164,7 @@ export function FollowupsPage() {
                   Due {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
                 </p>
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  {tab === 'overdue' ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
+                  {f.raised ? <RaisedBadge raised={f.raised} /> : tab === 'overdue' ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
                   {tab !== 'done' && (
                     <Button
                       size="sm"

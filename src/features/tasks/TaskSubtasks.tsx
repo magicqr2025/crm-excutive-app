@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { Check, ListChecks, Plus, X } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { useTaskSubtaskMutations } from '@/api/queries'
 import type { CrmTask } from '@/api/crmApi'
@@ -48,26 +46,34 @@ export function TaskSubtasks({ task, userId, isAdmin }: { task: CrmTask; userId:
 
   return (
     <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
-      <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
-        <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--text-h)]">
-          <ListChecks size={15} className="text-[var(--text-muted)]" /> Subtasks
+      <header className="flex items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5">
+        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[var(--text-h)]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent-bg)] text-[var(--accent-strong)]">
+            <ListChecks size={15} />
+          </span>
+          Subtasks
         </h3>
         {total > 0 && (
-          <span className="text-[12px] tabular-nums text-[var(--text-muted)]">
+          <span
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[11.5px] font-semibold tabular-nums',
+              done === total ? 'bg-[var(--success-bg)] text-[var(--success)]' : 'bg-[var(--surface-hover)] text-[var(--text-muted)]',
+            )}
+          >
             {done} of {total} done
           </span>
         )}
       </header>
-      <div className="space-y-3 p-4">
+      <div className="space-y-3 px-4 pb-4 pt-3 sm:px-5">
         {total > 0 && (
-          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-[var(--success)] transition-[width]" style={{ width: `${percent}%` }} />
+          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]" role="progressbar" aria-label="Subtasks done" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+            <div className="h-full rounded-full bg-[var(--success)] transition-[width] duration-300" style={{ width: `${percent}%` }} />
           </div>
         )}
         {items.length > 0 && (
-          <ul className="space-y-1.5">
+          <ul className="divide-y divide-[var(--border)]">
             {items.map((sub) => (
-              <li key={sub.id} className="flex items-center gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2">
+              <li key={sub.id} className="group flex items-center gap-3 py-2.5">
                 <button
                   type="button"
                   role="checkbox"
@@ -76,22 +82,22 @@ export function TaskSubtasks({ task, userId, isAdmin }: { task: CrmTask; userId:
                   disabled={!canWrite || busy}
                   onClick={() => update.mutate({ subtaskId: sub.id, done: !sub.done }, { onError })}
                   className={cn(
-                    'flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors disabled:cursor-default',
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors disabled:cursor-default',
                     sub.done ? 'border-[var(--success)] bg-[var(--success)] text-white' : 'border-[var(--border)] hover:border-[var(--accent)]',
                   )}
                 >
                   {sub.done && <Check size={13} strokeWidth={3} />}
                 </button>
-                <span className={cn('min-w-0 flex-1 break-words text-[13.5px]', sub.done ? 'text-[var(--text-muted)] line-through' : 'text-[var(--text-h)]')}>{sub.title}</span>
+                <span className={cn('min-w-0 flex-1 break-words text-[14px] leading-snug', sub.done ? 'text-[var(--text-muted)] line-through' : 'font-medium text-[var(--text-h)]')}>{sub.title}</span>
                 {canWrite && (
                   <button
                     type="button"
                     aria-label={`Remove “${sub.title}”`}
                     disabled={busy}
                     onClick={() => remove.mutate(sub.id, { onError })}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--error)] disabled:opacity-50"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--error-bg)] hover:text-[var(--error)] disabled:opacity-50"
                   >
-                    <X size={14} />
+                    <X size={15} />
                   </button>
                 )}
               </li>
@@ -99,8 +105,9 @@ export function TaskSubtasks({ task, userId, isAdmin }: { task: CrmTask; userId:
           </ul>
         )}
         {canWrite && (
-          <div className="flex gap-2">
-            <Input
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]">
+            <Plus size={16} className="shrink-0 text-[var(--text-muted)]" />
+            <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -111,11 +118,18 @@ export function TaskSubtasks({ task, userId, isAdmin }: { task: CrmTask; userId:
               }}
               maxLength={300}
               placeholder="Add a subtask"
+              aria-label="Add a subtask"
               disabled={add.isPending}
+              className="h-8 min-w-0 flex-1 bg-transparent text-[14px] text-[var(--text-h)] outline-none placeholder:text-[var(--text-muted)]"
             />
-            <Button type="button" variant="outline" onClick={submit} disabled={!draft.trim() || add.isPending} className="shrink-0">
-              <Plus size={14} /> Add
-            </Button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!draft.trim() || add.isPending}
+              className="h-8 shrink-0 rounded-lg bg-[var(--accent)] px-3.5 text-[13px] font-semibold text-[var(--ink)] transition hover:brightness-95 disabled:bg-transparent disabled:text-[var(--text-muted)] disabled:opacity-60"
+            >
+              {add.isPending ? 'Adding…' : 'Add'}
+            </button>
           </div>
         )}
       </div>

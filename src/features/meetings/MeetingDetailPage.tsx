@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarClock, ExternalLink, Pencil, XCircle } from 'lucide-
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { RaisedBadge, RaisePriorityButton } from '@/components/shared/RaisePriority'
 import { Button } from '@/components/ui/Button'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useMeeting, useStaffList } from '@/api/queries'
@@ -111,6 +112,7 @@ function Loaded({ meeting }: { meeting: CrmMeeting }) {
           <Panel title="Meeting details">
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {meeting.source === 'booking' && <Badge tone="info">Booked online</Badge>}
+              <RaisedBadge raised={meeting.raised} />
               {overdue && <Badge tone="error">Overdue</Badge>}
               {isRescheduled(meeting) ? (
                 <Badge tone="warning">Rescheduled</Badge>
@@ -119,6 +121,21 @@ function Loaded({ meeting }: { meeting: CrmMeeting }) {
               )}
             </div>
 
+            {meeting.meeting_status === 'scheduled' && (
+              <div className="mt-3 empty:hidden">
+                <RaisePriorityButton
+                  labelled
+                  entityType="meeting"
+                  entityId={meeting.id}
+                  itemTitle={`Meeting with ${meeting.contact_name ?? 'a contact'}`}
+                  assigneeId={meeting.assign_to_staff_id}
+                  assigneeName={assignee}
+                  createdBy={meeting.created_by}
+                  raised={meeting.raised}
+                  overdue={overdue}
+                />
+              </div>
+            )}
             <div className={`mt-3 flex items-center gap-3 rounded-lg px-3 py-3 ${overdue ? 'bg-[var(--error-bg)] text-[var(--error)]' : 'bg-[var(--accent-bg)] text-[var(--accent-strong)]'}`}>
               <CalendarClock size={18} />
               <div>

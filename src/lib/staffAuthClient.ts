@@ -41,6 +41,8 @@ export interface StaffMeResponse {
   is_admin?: boolean
   /** Whether the role reads everyone's records (a manager role, or "see all data" switched on for it). */
   sees_all?: boolean
+  /** The person's own "On leave" switch: true = skipped for new leads. */
+  on_leave?: boolean
 }
 
 export async function staffLogin(payload: { email: string; password: string }): Promise<StaffAuthUser> {

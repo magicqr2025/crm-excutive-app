@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/useToast'
 import { useSetTaskStatus } from '@/api/queries'
 import type { CrmTask, StaffMember, TaskStatus } from '@/api/crmApi'
+import { RaisedBadge, RaisePriorityButton } from '@/components/shared/RaisePriority'
 import { SubtaskProgressLine } from './TaskSubtasks'
-import { TASK_PRIORITY_OPTIONS, TASK_STATUS_LABEL, TASK_STATUS_TONE, formatDeadline, getTaskPermissions, isTaskOverdue, staffLabel, taskTypeLabel } from './taskUi'
+import { TASK_PRIORITY_OPTIONS, TASK_STATUS_LABEL, TASK_STATUS_TONE, formatDeadline, getTaskPermissions, isOpenTask, isTaskOverdue, staffLabel, taskTypeLabel } from './taskUi'
 
 interface TaskCardProps {
   task: CrmTask
@@ -40,11 +41,12 @@ export function TaskCard({ task, staff, userId, isAdmin, onOpen }: TaskCardProps
       onKeyDown={(e) => {
         if (e.key === 'Enter') onOpen(task)
       }}
-      className={`cursor-pointer rounded-lg border p-3 hover:bg-[var(--surface-hover)] ${overdue ? 'border-[var(--error)]' : 'border-[var(--border)]'}`}
+      className={`cursor-pointer rounded-lg border p-3 hover:bg-[var(--surface-hover)] ${overdue || task.raised ? 'border-[var(--error)]' : 'border-[var(--border)]'}`}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 whitespace-pre-wrap break-words text-[13.5px] font-medium text-[var(--text-h)]">{task.title}</p>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          <RaisedBadge raised={task.raised} />
           {overdue && <Badge tone="error">Overdue</Badge>}
           <Badge tone={TASK_STATUS_TONE[task.status]}>{TASK_STATUS_LABEL[task.status]}</Badge>
         </div>
@@ -64,6 +66,21 @@ export function TaskCard({ task, staff, userId, isAdmin, onOpen }: TaskCardProps
         Assigned to {staffLabel(staff, task.assign_to_staff_id)} · Created by {staffLabel(staff, task.created_by)}
       </p>
       <SubtaskProgressLine task={task} className="mt-1.5" />
+      {isOpenTask(task) && (
+        <div className="mt-2 empty:hidden" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <RaisePriorityButton
+            labelled
+            entityType="task"
+            entityId={task.id}
+            itemTitle={task.title}
+            assigneeId={task.assign_to_staff_id}
+            assigneeName={staffLabel(staff, task.assign_to_staff_id)}
+            createdBy={task.created_by}
+            raised={task.raised}
+            overdue={overdue}
+          />
+        </div>
+      )}
       {(can.start || can.review || can.complete) && (
         // Dialogs and buttons here must not also open the card.
         <div className="mt-2 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
