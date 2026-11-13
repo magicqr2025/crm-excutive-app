@@ -12,6 +12,7 @@ import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
 import { useUnreadNotificationCount } from '@/api/queries'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
+import { LeaveToggle } from '@/features/leave/LeaveToggle'
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Home', icon: Home },
@@ -133,6 +134,7 @@ export function AppShell() {
             <p className="truncate text-[13px] font-medium text-[var(--text-h)]">{user?.name ?? 'Executive'}</p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <LeaveToggle />
             <span className="hidden font-mono-num text-[12px] text-[var(--text-muted)] sm:inline">
               {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>

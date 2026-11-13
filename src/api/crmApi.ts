@@ -1871,3 +1871,13 @@ export async function raisePriority(input: { entityType: RaiseEntityType; entity
 export async function fetchRaisedForMe(): Promise<CrmRaisedItem[]> {
   return apiRequest<CrmRaisedItem[]>('/crm/priority-raises/mine', { headers: authHeaders() })
 }
+
+/** The signed-in executive's own "On leave" switch. While on, no new leads are given to them;
+ *  leads they already have stay with them. */
+export async function setMyLeaveStatus(onLeave: boolean): Promise<{ on_leave: boolean }> {
+  return apiRequest<{ on_leave: boolean }>('/crm/users/me/availability', {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ on_leave: onLeave }),
+  })
+}
