@@ -25,6 +25,7 @@ import {
   fetchLeadStageTypes,
   fetchLeadStatuses,
   createCallLog,
+  fetchLeadFlags as crmLeadFlags,
   fetchMyCallLogsPage,
   fetchNotificationsPage,
   fetchMyActivity,
@@ -215,6 +216,11 @@ export function useLeadStageTypes() {
 
 export function useLeadStatuses() {
   return useQuery({ queryKey: ['lead-statuses'], queryFn: fetchLeadStatuses })
+}
+
+/** The business's call-status flags (admin-managed in the main CRM). */
+export function useLeadFlags() {
+  return useQuery({ queryKey: ['lead-flags'], queryFn: crmLeadFlags, staleTime: 60_000 })
 }
 
 export function useCreateCallLog() {

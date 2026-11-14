@@ -287,11 +287,23 @@ export interface CreateCallLogInput {
   durationSeconds?: number
   followupDate?: string
   followupTime?: string
-  needAttention?: boolean
-  featureRequirement?: boolean
-  specialMeeting?: boolean
-  premiumClient?: boolean
+  /** The flag this call raises (a LeadFlag id); null = none, which also clears the lead's flag. */
+  flagId?: string | null
   flagNote?: string
+}
+
+/** A call-status flag; the list is admin-managed per business (crmbackend /crm/lead-flags). */
+export interface LeadFlag {
+  id: string
+  key: CallStatusFlagKey | null
+  name: string
+  color: string
+  sort_order: number
+  active: boolean
+}
+
+export async function fetchLeadFlags(): Promise<LeadFlag[]> {
+  return apiRequest<LeadFlag[]>('/crm/lead-flags/list', { headers: authHeaders() })
 }
 
 export interface CrmCallLog {
@@ -339,10 +351,7 @@ export async function createCallLog(input: CreateCallLogInput): Promise<CrmCallL
       ...(input.durationSeconds !== undefined ? { duration_seconds: input.durationSeconds } : {}),
       ...(input.followupDate ? { followup_date: input.followupDate } : {}),
       ...(input.followupTime ? { followup_time: input.followupTime } : {}),
-      ...(input.needAttention !== undefined ? { need_attention: input.needAttention } : {}),
-      ...(input.featureRequirement !== undefined ? { feature_requirement: input.featureRequirement } : {}),
-      ...(input.specialMeeting !== undefined ? { special_meeting: input.specialMeeting } : {}),
-      ...(input.premiumClient !== undefined ? { premium_client: input.premiumClient } : {}),
+      ...(input.flagId !== undefined ? { flag_id: input.flagId } : {}),
       ...(input.flagNote !== undefined ? { flag_note: input.flagNote } : {}),
     }),
   })
