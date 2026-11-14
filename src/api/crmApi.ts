@@ -99,6 +99,24 @@ export async function fetchLeadsForCampaignPage(opts: { campaignId: string; staf
   return toPageResult(result.data, result.meta)
 }
 
+
+// "Also found in": other pipelines holding leads that match a search (names +
+// counts only). Staff get only pipelines they're an agent on.
+export interface PipelineSearchHit {
+  id: string
+  name: string
+  count: number
+}
+
+export async function fetchSearchPipelines(search: string, excludeCampaignId: string): Promise<PipelineSearchHit[]> {
+  const businessId = getActiveBusinessId()
+  const params = new URLSearchParams({
+    business_id: businessId,
+    search,
+    ...(excludeCampaignId ? { exclude_lead_campaign_id: excludeCampaignId } : {}),
+  })
+  return apiRequest<PipelineSearchHit[]>(`/crm/cust-res/search-pipelines?${params}`, { headers: authHeaders() })
+}
 export async function fetchNextQueueLead(campaignId: string, staffId: string, excludeLeadId?: string): Promise<CrmLead | null> {
   const businessId = getActiveBusinessId()
   const params = new URLSearchParams({

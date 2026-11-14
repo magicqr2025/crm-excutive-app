@@ -1,6 +1,7 @@
 import { usePagedList } from '@/lib/usePagedList'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  fetchSearchPipelines,
   saveTaskWorkNotes,
   fetchUnclaimedBookings,
   takeBooking,
@@ -938,4 +939,12 @@ export function useRaisePriority() {
 /** Open items others have raised to me. */
 export function useRaisedForMe() {
   return useQuery({ queryKey: ['priority-raises', 'mine'], queryFn: fetchRaisedForMe, refetchInterval: 60_000 })
+}
+
+export function useSearchPipelines(search: string, excludeCampaignId: string) {
+  return useQuery({
+    queryKey: ['search-pipelines', search, excludeCampaignId],
+    queryFn: () => fetchSearchPipelines(search, excludeCampaignId),
+    enabled: Boolean(search),
+  })
 }
