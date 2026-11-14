@@ -3,11 +3,9 @@ import { Calendar, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
-import { useCreateCallLog, useLeadStageTypes, useLeadStatuses } from '@/api/queries'
-import { CALL_STATUS_FLAG_LABELS, type CallOutcome, type CallStatusFlagKey, type CrmLead } from '@/api/crmApi'
+import { useCreateCallLog, useLeadFlags, useLeadStageTypes, useLeadStatuses } from '@/api/queries'
+import type { CallOutcome, CrmLead } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
-
-const CALL_STATUS_FLAG_KEYS: CallStatusFlagKey[] = ['need_attention', 'feature_requirement', 'special_meeting', 'premium_client']
 
 const NOT_CONNECTED_REASONS = [
   'Did not pick',
@@ -49,12 +47,10 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
   const [remark, setRemark] = useState('')
   const [quickHours, setQuickHours] = useState<number | null>(null)
   const [customDateTime, setCustomDateTime] = useState('')
-  const [flags, setFlags] = useState<Record<CallStatusFlagKey, boolean>>({
-    need_attention: false,
-    feature_requirement: false,
-    special_meeting: false,
-    premium_client: false,
-  })
+  // One flag per call (or none), from the business's active flags.
+  const { data: allFlags = [] } = useLeadFlags()
+  const pickableFlags = allFlags.filter((f) => f.active)
+  const [flagId, setFlagId] = useState<string | null>(null)
   const [flagNote, setFlagNote] = useState('')
 
   // Reset the form whenever a new lead is loaded (sequential auto-advance
@@ -72,12 +68,7 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
     setRemark('')
     setQuickHours(null)
     setCustomDateTime('')
-    setFlags({
-      need_attention: false,
-      feature_requirement: false,
-      special_meeting: false,
-      premium_client: false,
-    })
+    setFlagId(null)
     setFlagNote('')
   }, [lead.id])
 
@@ -90,20 +81,14 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
     return () => clearInterval(id)
   }, [lead.id, timerStopped])
 
-  const anyFlagOn = CALL_STATUS_FLAG_KEYS.some((key) => flags[key])
+  const anyFlagOn = flagId !== null
   const outcomeValid = outcome === 'connected' ? leadStatusId.length > 0 : outcome === 'not_connected' ? reason.length > 0 : false
   const valid = outcomeValid && (!anyFlagOn || flagNote.trim().length > 0)
 
-  // Flags are mutually exclusive — checking one clears the other three;
+  // Flags are mutually exclusive — checking one clears the others;
   // unchecking the active one leaves none selected.
-  function selectFlag(key: CallStatusFlagKey, checked: boolean) {
-    setFlags({
-      need_attention: false,
-      feature_requirement: false,
-      special_meeting: false,
-      premium_client: false,
-      [key]: checked,
-    })
+  function selectFlag(id: string, checked: boolean) {
+    setFlagId(checked ? id : null)
   }
 
   function submit() {
@@ -130,10 +115,7 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
         ...(remark.trim() ? { remark: remark.trim() } : {}),
         ...(followupDate ? { followupDate } : {}),
         ...(followupTime ? { followupTime } : {}),
-        needAttention: flags.need_attention,
-        featureRequirement: flags.feature_requirement,
-        specialMeeting: flags.special_meeting,
-        premiumClient: flags.premium_client,
+        flagId,
         flagNote: flagNote.trim(),
       },
       {
@@ -296,15 +278,16 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
         <div className="rounded-xl border border-[var(--border)] p-3.5 space-y-3">
           <p className="text-[13px] font-semibold text-[var(--text-h)]">Flags</p>
           <div className="space-y-2">
-            {CALL_STATUS_FLAG_KEYS.map((key) => (
-              <label key={key} className="flex items-center gap-2 text-[13px] text-[var(--text)]">
+            {pickableFlags.map((f) => (
+              <label key={f.id} className="flex items-center gap-2 text-[13px] text-[var(--text)]">
                 <input
                   type="checkbox"
-                  checked={flags[key]}
-                  onChange={(e) => selectFlag(key, e.target.checked)}
+                  checked={flagId === f.id}
+                  onChange={(e) => selectFlag(f.id, e.target.checked)}
                   className="accent-[var(--accent)]"
                 />
-                {CALL_STATUS_FLAG_LABELS[key]}
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
+                {f.name}
               </label>
             ))}
           </div>
