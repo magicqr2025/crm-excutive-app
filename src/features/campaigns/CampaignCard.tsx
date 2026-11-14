@@ -71,7 +71,7 @@ export function CampaignCard({ campaign }: { campaign: CrmMyLeadCampaign }) {
     try {
       const lead = await fetchNextQueueLead(campaign.id, userId)
       if (!lead) {
-        show({ title: 'No leads to call in this campaign', tone: 'error' })
+        show({ title: 'No leads to call in this pipeline', tone: 'error' })
         return
       }
       navigate(`/campaigns/${campaign.id}/call/${lead.id}`)

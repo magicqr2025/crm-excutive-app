@@ -222,7 +222,7 @@ export function ContactsPage() {
                     {lead.lead_status && <Badge tone="accent">{lead.lead_status}</Badge>}
                     {lead.lead_campaigns.map((campaign) => (
                       <Badge key={campaign.id} tone="neutral">
-                        Campaign: {campaign.name}
+                        Pipeline: {campaign.name}
                       </Badge>
                     ))}
                   </div>

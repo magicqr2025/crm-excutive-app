@@ -10,8 +10,8 @@ export const CREATED_PRESETS: { value: CreatedPreset; label: string }[] = [
   { value: 'all', label: 'All time' },
 ]
 
-// Default: meetings created in the last 7 days.
-export const DEFAULT_CREATED_PRESET: CreatedPreset = '7d'
+// Default: meetings created today.
+export const DEFAULT_CREATED_PRESET: CreatedPreset = 'today'
 
 const PRESET_DAYS: Partial<Record<CreatedPreset, number>> = { today: 1, '7d': 7, '15d': 15, '30d': 30 }
 

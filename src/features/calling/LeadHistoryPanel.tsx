@@ -210,7 +210,7 @@ export function LeadHistoryPanel({ lead, showAbout = true }: { lead: CrmLead; sh
             <Row label="Tag" value={lead.tag_name} />
             <Row label="Deal Amount" value={lead.deal_value} />
             <Row label="User Assigned" value={lead.assign_staff_name ?? (lead.assign_to_staff_id ? null : 'Unassigned')} />
-            <Row label="Campaign" value={lead.lead_campaigns.map((c) => c.name).join(', ')} />
+            <Row label="Pipeline" value={lead.lead_campaigns.map((c) => c.name).join(', ')} />
           </Section>
           <Section title="Latest Remark">
             <Row label="Remark" value={latestRemark?.remark ?? lead.discussion} />

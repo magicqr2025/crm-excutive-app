@@ -1,29 +1,31 @@
 import { PageLoader } from '@/components/ui/Spinner'
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Lock } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useCampaignLeadsPage, useMyLeadCampaigns } from '@/api/queries'
+import { useCampaignLeadsPage, useMyLeadCampaigns, useSearchPipelines } from '@/api/queries'
 import type { CampaignLeadScope } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
 import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
-
-const TABS: { value: CampaignLeadScope; label: string }[] = [
-  { value: 'mine', label: 'My Leads' },
-  { value: 'campaign', label: 'All Leads' },
-]
 
 export function CampaignLeadsPage() {
   const { campaignId = '' } = useParams<{ campaignId: string }>()
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id ?? '')
-  const [scope, setScope] = useState<CampaignLeadScope>('mine')
   const { data: campaigns = [] } = useMyLeadCampaigns()
-  const [search, setSearch] = useState('')
+  // The search lives in the URL (?q=) so an "Also found in" link can open another
+  // pipeline with the same search already applied.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const search = searchParams.get('q') ?? ''
+  const setSearch = (q: string) => setSearchParams(q ? { q } : {}, { replace: true })
+  const { data: otherPipelines = [] } = useSearchPipelines(search, campaignId)
+  // The list shows only the executive's own leads. A search looks across this
+  // campaign (and only this campaign), so a lead owned by someone else shows up
+  // locked with its owner's name.
+  const scope: CampaignLeadScope = search ? 'campaign' : 'mine'
   const {
     items: leads,
     total,
@@ -45,28 +47,8 @@ export function CampaignLeadsPage() {
           <ArrowLeft size={17} />
         </button>
         <div>
-          <p className="text-[13.5px] font-semibold text-[var(--text-h)]">{campaign?.name ?? 'Campaign'}</p>
+          <p className="text-[13.5px] font-semibold text-[var(--text-h)]">{campaign?.name ?? 'Pipeline'}</p>
           {!search && <p className="text-[12px] text-[var(--text-muted)]">{total} leads</p>}
-        </div>
-        <div className="ml-auto flex rounded-lg border border-[var(--border)] p-0.5">
-          {TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => {
-                setScope(tab.value)
-                setSearch('')
-              }}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-[12.5px] font-medium',
-                scope === tab.value
-                  ? 'bg-[var(--accent-bg)] text-[var(--accent)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)]',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -75,6 +57,23 @@ export function CampaignLeadsPage() {
         {search && !isLoading && (
           <p className="text-[12px] text-[var(--text-muted)]">
             {total} {total === 1 ? 'result' : 'results'} for “{search}”
+          </p>
+        )}
+        {search && otherPipelines.length > 0 && (
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-2 text-[12.5px] text-[var(--text-muted)]">
+            <span>Also found in:</span>
+            {otherPipelines.map((p, i) => (
+              <span key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/campaigns/${p.id}/leads?q=${encodeURIComponent(search)}`)}
+                  className="font-semibold text-[var(--accent)] hover:underline"
+                >
+                  {p.name}
+                </button>{' '}
+                ({p.count}){i < otherPipelines.length - 1 ? ' ·' : ''}
+              </span>
+            ))}
           </p>
         )}
         {isLoading ? (
@@ -87,15 +86,14 @@ export function CampaignLeadsPage() {
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
             {search
               ? `No results for “${search}”.`
-              : scope === 'mine'
-                ? 'No leads for you in this campaign yet.'
-                : 'No leads in this campaign yet.'}
+              : 'No leads for you in this pipeline yet.'}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {leads.map((lead) => {
               // Another executive's lead: view-only, can't be called from here.
               const othersLead = Boolean(lead.assign_to_staff_id) && lead.assign_to_staff_id !== userId
+              const open = () => navigate(`/campaigns/${campaignId}/call/${lead.id}`)
               return (
                 // A div, not a <button>: the WhatsApp links inside can't be nested in one.
                 <div
@@ -104,10 +102,10 @@ export function CampaignLeadsPage() {
                   tabIndex={othersLead ? -1 : 0}
                   aria-disabled={othersLead}
                   onClick={() => {
-                    if (!othersLead) navigate(`/campaigns/${campaignId}/call/${lead.id}`)
+                    if (!othersLead) open()
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !othersLead) navigate(`/campaigns/${campaignId}/call/${lead.id}`)
+                    if (e.key === 'Enter' && !othersLead) open()
                   }}
                   className={cn(
                     'rounded-xl border border-[var(--border)] p-3.5 text-left',
