@@ -43,7 +43,7 @@ export function CampaignLeadsPage() {
           <ArrowLeft size={17} />
         </button>
         <div>
-          <p className="text-[13.5px] font-semibold text-[var(--text-h)]">{campaign?.name ?? 'Campaign'}</p>
+          <p className="text-[13.5px] font-semibold text-[var(--text-h)]">{campaign?.name ?? 'Pipeline'}</p>
           {!search && <p className="text-[12px] text-[var(--text-muted)]">{total} leads</p>}
         </div>
       </div>
@@ -65,7 +65,7 @@ export function CampaignLeadsPage() {
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
             {search
               ? `No results for “${search}”.`
-              : 'No leads for you in this campaign yet.'}
+              : 'No leads for you in this pipeline yet.'}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

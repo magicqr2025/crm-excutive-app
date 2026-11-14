@@ -14,7 +14,7 @@ export function CampaignsPage() {
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
-        title="My Campaigns"
+        title="My Pipelines"
         subtitle="Campaigns assigned to you."
         action={
           <Button size="sm" onClick={() => setAddLeadOpen(true)}>
@@ -28,7 +28,7 @@ export function CampaignsPage() {
         {isLoading ? (
           <PageLoader />
         ) : campaigns.length === 0 ? (
-          <p className="text-[13px] text-[var(--text-muted)]">No campaigns assigned to you yet.</p>
+          <p className="text-[13px] text-[var(--text-muted)]">No pipelines assigned to you yet.</p>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {campaigns.map((c) => (

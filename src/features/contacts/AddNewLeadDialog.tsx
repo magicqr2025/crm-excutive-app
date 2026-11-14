@@ -48,7 +48,7 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
     name: name.trim() ? undefined : 'Name is required',
     mobile: validateMobile(countryCode, mobile),
     email: validateEmail(email),
-    campaign: leadCampaignId ? undefined : 'Pick a campaign',
+    campaign: leadCampaignId ? undefined : 'Pick a pipeline',
   }
   const valid = !errors.name && !errors.mobile && !errors.email && !errors.campaign
   const shown = (field: keyof typeof touched) => (submitted || touched[field] ? errors[field] : undefined)
@@ -145,12 +145,12 @@ export function AddNewLeadDialog({ onClose }: AddNewLeadDialogProps) {
           </select>
         </Field>
         <Field
-          label="Campaign *"
-          hint={campaigns.length === 0 ? "You're not on any campaign yet — ask your admin to add you to one." : undefined}
+          label="Pipeline *"
+          hint={campaigns.length === 0 ? "You're not on any pipeline yet — ask your admin to add you to one." : undefined}
           error={submitted && campaigns.length > 0 ? errors.campaign : undefined}
         >
           <select value={leadCampaignId} onChange={(e) => setLeadCampaignId(e.target.value)} className={SELECT_CLASSES}>
-            <option value="">Select campaign</option>
+            <option value="">Select pipeline</option>
             {campaigns.map((campaign) => (
               <option key={campaign.id} value={campaign.id}>
                 {campaign.name}

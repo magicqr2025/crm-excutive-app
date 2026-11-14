@@ -16,7 +16,7 @@ import { LeaveToggle } from '@/features/leave/LeaveToggle'
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Home', icon: Home },
-  { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
+  { to: '/campaigns', label: 'Pipelines', icon: Megaphone },
   { to: '/inbox', label: 'Inbox', icon: MessagesSquare },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/followups', label: 'Follow-ups', icon: CalendarClock },
