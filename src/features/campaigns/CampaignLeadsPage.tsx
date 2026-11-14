@@ -12,18 +12,16 @@ import type { CampaignLeadScope } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
 import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 
-const TABS: { value: CampaignLeadScope; label: string }[] = [
-  { value: 'mine', label: 'My Leads' },
-  { value: 'campaign', label: 'All Leads' },
-]
-
 export function CampaignLeadsPage() {
   const { campaignId = '' } = useParams<{ campaignId: string }>()
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id ?? '')
-  const [scope, setScope] = useState<CampaignLeadScope>('mine')
   const { data: campaigns = [] } = useMyLeadCampaigns()
   const [search, setSearch] = useState('')
+  // The list shows only the executive's own leads. A search looks across this
+  // campaign (and only this campaign), so a lead owned by someone else shows up
+  // locked with its owner's name.
+  const scope: CampaignLeadScope = search ? 'campaign' : 'mine'
   const {
     items: leads,
     total,
@@ -48,26 +46,6 @@ export function CampaignLeadsPage() {
           <p className="text-[13.5px] font-semibold text-[var(--text-h)]">{campaign?.name ?? 'Campaign'}</p>
           {!search && <p className="text-[12px] text-[var(--text-muted)]">{total} leads</p>}
         </div>
-        <div className="ml-auto flex rounded-lg border border-[var(--border)] p-0.5">
-          {TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => {
-                setScope(tab.value)
-                setSearch('')
-              }}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-[12.5px] font-medium',
-                scope === tab.value
-                  ? 'bg-[var(--accent-bg)] text-[var(--accent)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)]',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="space-y-4 p-4">
@@ -87,9 +65,7 @@ export function CampaignLeadsPage() {
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
             {search
               ? `No results for “${search}”.`
-              : scope === 'mine'
-                ? 'No leads for you in this campaign yet.'
-                : 'No leads in this campaign yet.'}
+              : 'No leads for you in this campaign yet.'}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
