@@ -9,7 +9,18 @@ import { Composer } from './Composer'
 import { ConversationInfoSheet } from './ConversationInfoSheet'
 import { isSessionOpen } from './inboxFormat'
 import { MessageBubble } from './MessageBubble'
-import { useConversations, useMarkConversationRead, useMessages, useSendMessage, useSendQuickReply, useSendTemplateMessage } from './useInbox'
+import {
+  useConversations,
+  useMarkConversationRead,
+  useMessages,
+  useSendContactMessage,
+  useSendLocationMessage,
+  useSendMediaMessage,
+  useSendMessage,
+  useSendMessageReaction,
+  useSendQuickReply,
+  useSendTemplateMessage,
+} from './useInbox'
 
 export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
@@ -23,6 +34,10 @@ export function ConversationPage() {
   const sendMessage = useSendMessage()
   const sendTemplate = useSendTemplateMessage()
   const sendQuickReply = useSendQuickReply()
+  const sendMedia = useSendMediaMessage()
+  const sendLocation = useSendLocationMessage()
+  const sendContact = useSendContactMessage()
+  const sendReaction = useSendMessageReaction()
   const markRead = useMarkConversationRead()
 
   const conversation = conversations?.find((c) => c.id === conversationId)
@@ -107,7 +122,22 @@ export function ConversationPage() {
         ) : messages.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No messages yet. Send a template to start the chat.</p>
         ) : (
-          messages.map((m) => <MessageBubble key={m.id} message={m} />)
+          messages.map((m) => (
+            <MessageBubble
+              key={m.id}
+              message={m}
+              // Reacting to a customer's message is only allowed while the 24-hour window is open (WhatsApp's rule).
+              onReact={
+                m.direction === 'in' && sessionOpen && !conversation.blocked
+                  ? (emoji) =>
+                      sendReaction.mutate(
+                        { conversationId: conversation.id, messageId: m.id, emoji },
+                        { onError: (err) => reportFailure('Could not send the reaction', err) },
+                      )
+                  : undefined
+              }
+            />
+          ))
         )}
       </div>
 
@@ -115,7 +145,16 @@ export function ConversationPage() {
 
       <Composer
         sessionOpen={sessionOpen}
-        isSending={sendMessage.isPending || sendTemplate.isPending || sendQuickReply.isPending}
+        isSending={sendMessage.isPending || sendTemplate.isPending || sendQuickReply.isPending || sendMedia.isPending}
+        onSendMedia={(file, caption) =>
+          sendMedia.mutate({ conversationId: conversation.id, file, caption }, { onError: (err) => reportFailure('Failed to send the file', err) })
+        }
+        onSendLocation={(input) =>
+          sendLocation.mutate({ conversationId: conversation.id, input }, { onError: (err) => reportFailure('Failed to send location', err) })
+        }
+        onSendContact={(input) =>
+          sendContact.mutate({ conversationId: conversation.id, input }, { onError: (err) => reportFailure('Failed to send contact card', err) })
+        }
         onSend={(text) =>
           sendMessage.mutate({ conversationId: conversation.id, text }, { onError: (err) => reportFailure('Failed to send message', err) })
         }

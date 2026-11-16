@@ -29,6 +29,16 @@ const FILTERS: { value: Filter; label: string }[] = [
 ]
 
 // Remembers the last pipeline between visits.
+/** Chat-list preview for a last message that has no text of its own. */
+const EMPTY_PREVIEW: Record<string, string> = {
+  image: '📷 Photo',
+  video: '🎥 Video',
+  audio: '🎤 Voice note',
+  document: '📄 Document',
+  template: 'Template',
+  unsupported: 'Unsupported message',
+}
+
 const PIPELINE_KEY = 'exec_inbox_pipeline'
 const TAB_KEY = 'exec_inbox_tab'
 
@@ -83,7 +93,7 @@ function ConversationRow({ conversation: c, agentName, onOpen }: { conversation:
                 <span className="shrink-0 font-medium text-[var(--text-h)]">You:</span>
               </>
             )}
-            <span className="truncate">{last ? (last.body ?? 'Attachment') : 'No messages yet'}</span>
+            <span className="truncate">{last ? last.body || EMPTY_PREVIEW[last.kind ?? ''] || 'Attachment' : 'No messages yet'}</span>
           </p>
           {c.unreadCount > 0 && (
             <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-1 text-[10.5px] font-semibold text-[var(--ink)]">
