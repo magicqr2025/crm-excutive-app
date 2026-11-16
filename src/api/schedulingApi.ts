@@ -11,6 +11,9 @@ export interface EventType {
   host_user_id: string
   /** the owner's public name, used to build the link's address */
   host_username: string | null
+  /** the link's one public address; stays the same when the host changes */
+  address_username?: string | null
+  address_slug?: string
   title: string
   slug: string
   description: string | null
