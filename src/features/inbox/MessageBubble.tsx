@@ -139,9 +139,9 @@ function ReactionPicker({ current, onPick }: { current: string | null; onPick: (
         onClick={() => setOpen((v) => !v)}
         aria-label="React to this message"
         title="React"
-        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] opacity-60 hover:bg-[var(--surface-hover)] hover:opacity-100"
+        className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] opacity-35 hover:bg-[var(--surface-hover)] hover:opacity-100"
       >
-        <SmilePlus size={16} />
+        <SmilePlus size={14} />
       </button>
       {open && (
         <>

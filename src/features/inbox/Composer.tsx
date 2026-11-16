@@ -1,9 +1,9 @@
 import { type ChangeEvent, useRef, useState } from 'react'
-import { AlertTriangle, Contact, FileText, Image as ImageIcon, LayoutTemplate, MapPin, MessageSquareText, Music, Paperclip, Send, Video, X } from 'lucide-react'
+import { AlertTriangle, Camera, FileText, Headphones, Images, LayoutTemplate, MapPin, MessageSquareText, Paperclip, Send, UserRound, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { PageLoader } from '@/components/ui/Spinner'
-import { Textarea } from '@/components/ui/Input'
 import { QuickRepliesDialog } from './QuickRepliesDialog'
 import { ShareContactDialog, ShareLocationDialog } from './ShareDialogs'
 import type { ShareContactInput, ShareLocationInput } from '@/api/inboxApi'
@@ -46,7 +46,17 @@ const FILE_RULES: Record<FileKind, { label: string; types: string[]; maxBytes: n
     limit: '20 MB',
   },
 }
-const FILE_ICONS: Record<FileKind, typeof ImageIcon> = { image: ImageIcon, video: Video, audio: Music, document: FileText }
+// 'gallery' picks a photo or a video, like WhatsApp; the file's own type decides which.
+type PickKind = FileKind | 'gallery'
+
+// The attach tray, in WhatsApp's order and colours.
+const ATTACH_ITEMS: { id: 'gallery' | 'location' | 'contact' | 'document' | 'audio'; label: string; icon: typeof Images; color: string }[] = [
+  { id: 'gallery', label: 'Gallery', icon: Images, color: '#3b82f6' },
+  { id: 'location', label: 'Location', icon: MapPin, color: '#10b981' },
+  { id: 'contact', label: 'Contact', icon: UserRound, color: '#0ea5e9' },
+  { id: 'document', label: 'Document', icon: FileText, color: '#8b5cf6' },
+  { id: 'audio', label: 'Audio', icon: Headphones, color: '#f97316' },
+]
 
 // Some phones report no type for Office files; fall back to the extension.
 const DOC_TYPE_BY_EXT: Record<string, string> = {
@@ -78,8 +88,10 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
   const [share, setShare] = useState<'location' | 'contact' | null>(null)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState('')
-  const pickingKind = useRef<FileKind>('image')
+  const pickingKind = useRef<PickKind>('image')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const typing = value.trim() !== ''
   const { data: templates = [], isLoading, isError } = useSendableTemplates(pickerOpen)
 
   function send() {
@@ -97,13 +109,15 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
     setValue('')
   }
 
-  function pickFile(kind: FileKind) {
+  function pickFile(kind: PickKind) {
     setAttachOpen(false)
     const input = fileInputRef.current
     if (!input) return
     pickingKind.current = kind
     const extensions = kind === 'document' ? Object.keys(DOC_TYPE_BY_EXT).map((e) => `.${e}`) : []
-    input.accept = [...FILE_RULES[kind].types, ...extensions].join(',')
+    // Gallery = photos and videos together, like WhatsApp.
+    const types = kind === 'gallery' ? [...FILE_RULES.image.types, ...FILE_RULES.video.types] : FILE_RULES[kind].types
+    input.accept = [...types, ...extensions].join(',')
     input.click()
   }
 
@@ -111,7 +125,9 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const problem = fileProblem(pickingKind.current, file)
+    const picked = pickingKind.current
+    const kind: FileKind = picked === 'gallery' ? (file.type.startsWith('video/') ? 'video' : 'image') : picked
+    const problem = fileProblem(kind, file)
     setFileError(problem ?? '')
     setPendingFile(problem ? null : file)
   }
@@ -127,7 +143,8 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
   }
 
   return (
-    <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)]">
+    // Lifted above the page while the attach tray is open, so its backdrop catches taps elsewhere.
+    <div className={cn('shrink-0 border-t border-[var(--border)] bg-[var(--surface)]', attachOpen && 'relative z-30 isolate')}>
       {!sessionOpen && (
         <div className="flex items-start gap-2 border-b border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-[12px] text-[var(--warning)]">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
@@ -157,87 +174,102 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
       )}
 
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFile} />
+      {/* The 📷 button: opens the phone camera straight away; the photo is checked like any image. */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          pickingKind.current = 'image'
+          handleFile(e)
+        }}
+      />
 
-      <div className="flex items-end gap-2 p-3">
-        {sessionOpen && (
-          <button
-            type="button"
-            onClick={() => setAttachOpen(true)}
-            disabled={isSending}
-            aria-label="Attach"
-            title="Send a file, location or contact"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--accent-strong)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-          >
-            <Paperclip size={19} />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          disabled={isSending}
-          aria-label="Send a template"
-          title="Send a template"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--accent-strong)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-        >
-          <LayoutTemplate size={19} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setQuickOpen(true)}
-          disabled={isSending}
-          aria-label="Quick replies"
-          title="Quick replies"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--accent-strong)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-        >
-          <MessageSquareText size={19} />
-        </button>
-
-        {sessionOpen ? (
-          <>
-            <Textarea
+      {sessionOpen ? (
+        // WhatsApp-style: one rounded box with the tools inside it, and a round send button beside it.
+        <div className="flex items-end gap-2 px-2 py-2">
+          <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-[22px] border border-[var(--border)] bg-[var(--bg)] px-1">
+            <PillButton label="Quick replies" onClick={() => setQuickOpen(true)} disabled={isSending}>
+              <MessageSquareText size={21} />
+            </PillButton>
+            <textarea
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={pendingFile ? 'Add a caption (optional)…' : 'Type a message…'}
+              placeholder={pendingFile ? 'Add a caption…' : 'Message'}
               rows={1}
-              className="max-h-32 min-h-10 flex-1 rounded-2xl py-2"
+              className="max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1 py-[11px] text-[15px] leading-[20px] text-[var(--text-h)] outline-none field-sizing-content placeholder:text-[var(--text-muted)]"
             />
-            <button
-              type="button"
-              onClick={send}
-              disabled={(!value.trim() && !pendingFile) || isSending}
-              aria-label="Send"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--ink)] disabled:opacity-40"
-            >
-              <Send size={16} />
-            </button>
-          </>
-        ) : (
+            <PillButton label="Send a file, location or contact" onClick={() => setAttachOpen((v) => !v)} disabled={isSending}>
+              <Paperclip size={20} />
+            </PillButton>
+            {/* Like WhatsApp, these step aside once you start typing so the text has room. */}
+            {!typing && (
+              <>
+                <PillButton label="Send a template" onClick={() => setPickerOpen(true)} disabled={isSending}>
+                  <LayoutTemplate size={20} />
+                </PillButton>
+                <PillButton label="Take a photo" onClick={() => cameraInputRef.current?.click()} disabled={isSending}>
+                  <Camera size={21} />
+                </PillButton>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={send}
+            disabled={(!value.trim() && !pendingFile) || isSending}
+            aria-label="Send"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--success)] text-white shadow-sm transition-opacity disabled:opacity-50"
+          >
+            <Send size={19} className="-ml-0.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-end gap-2 p-3">
+          <button
+            type="button"
+            onClick={() => setQuickOpen(true)}
+            disabled={isSending}
+            aria-label="Quick replies"
+            title="Quick replies"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--accent-strong)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+          >
+            <MessageSquareText size={19} />
+          </button>
           <Button className="flex-1" onClick={() => setPickerOpen(true)} disabled={isSending}>
             <LayoutTemplate size={15} /> Send a template
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <Dialog
-        open={attachOpen}
-        onClose={() => setAttachOpen(false)}
-        className="max-w-md self-end !h-auto rounded-t-[var(--radius-card)] border border-[var(--border)] sm:self-center sm:rounded-[var(--radius-card)]"
-      >
-        <Dialog.Header>
-          <Dialog.Title>Send</Dialog.Title>
-          <Dialog.CloseButton onClose={() => setAttachOpen(false)} />
-        </Dialog.Header>
-        <Dialog.Body className="grid grid-cols-3 gap-2">
-          {(Object.keys(FILE_RULES) as FileKind[]).map((kind) => {
-            const Icon = FILE_ICONS[kind]
-            return (
-              <AttachOption key={kind} icon={<Icon size={22} />} label={FILE_RULES[kind].label} hint={`${FILE_RULES[kind].allowed} · ${FILE_RULES[kind].limit}`} onClick={() => pickFile(kind)} />
-            )
-          })}
-          <AttachOption icon={<MapPin size={22} />} label="Location" onClick={() => openShare('location')} />
-          <AttachOption icon={<Contact size={22} />} label="Contact card" onClick={() => openShare('contact')} />
-        </Dialog.Body>
-      </Dialog>
+      {/* WhatsApp-style attach tray: opens under the message box from the 📎 button. */}
+      {sessionOpen && attachOpen && (
+        <>
+          {/* Tap anywhere outside the composer to close it. */}
+          <button type="button" aria-label="Close" className="fixed inset-0 -z-10 cursor-default" onClick={() => setAttachOpen(false)} />
+          <div className="rounded-t-[22px] border-t border-[var(--border)] bg-[var(--surface)] px-3 pb-4 pt-2">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--border)]" />
+            <div className="grid grid-cols-4 gap-y-4">
+              {ATTACH_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => (item.id === 'location' || item.id === 'contact' ? openShare(item.id) : pickFile(item.id))}
+                  className="flex flex-col items-center gap-1.5"
+                >
+                  <span className="flex h-12 w-[68px] items-center justify-center rounded-full border border-[var(--border)]" style={{ color: item.color }}>
+                    <item.icon size={24} strokeWidth={2.2} />
+                  </span>
+                  <span className="text-[12.5px] text-[var(--text-h)]">{item.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-center text-[11px] text-[var(--text-muted)]">Photos 5 MB · videos and audio 16 MB · documents 20 MB</p>
+          </div>
+        </>
+      )}
 
       {share === 'location' && <ShareLocationDialog onClose={() => setShare(null)} onSubmit={onSendLocation} />}
       {share === 'contact' && <ShareContactDialog onClose={() => setShare(null)} onSubmit={onSendContact} />}
@@ -278,17 +310,18 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
   )
 }
 
-/** One tile in the "Send" sheet (a file kind, Location or Contact card). */
-function AttachOption({ icon, label, hint, onClick }: { icon: React.ReactNode; label: string; hint?: string; onClick: () => void }) {
+/** An icon button inside the WhatsApp-style message box. */
+function PillButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-1 rounded-xl border border-[var(--border)] px-2 py-3 text-center hover:bg-[var(--surface-hover)]"
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:text-[var(--text-h)] disabled:opacity-40"
     >
-      <span className="text-[var(--accent-strong)]">{icon}</span>
-      <span className="text-[12.5px] font-medium text-[var(--text-h)]">{label}</span>
-      {hint && <span className="text-[10.5px] leading-tight text-[var(--text-muted)]">{hint}</span>}
+      {children}
     </button>
   )
 }
