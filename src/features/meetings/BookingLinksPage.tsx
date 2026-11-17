@@ -18,7 +18,11 @@ export function BookingLinksPage() {
   const setActive = useSetEventTypeActive()
   const slug = profile?.slug ?? null
 
-  const addressFor = (link: EventType) => (slug && link.host_username ? publicBookingPath(profile?.public_host, slug, link.host_username, link.slug) : null)
+  // The link's own address, which stays the same when its host changes (older servers: host name + slug).
+  const addressFor = (link: EventType) => {
+    const username = link.address_username ?? link.host_username
+    return slug && username ? publicBookingPath(profile?.public_host, slug, username, link.address_slug ?? link.slug) : null
+  }
 
   function copy(text: string, done: string) {
     navigator.clipboard

@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestBlob } from '@/lib/apiClient'
+import { apiRequest, apiRequestBlob, apiRequestForm } from '@/lib/apiClient'
 import { crmSessionAuthHeaders } from '@/lib/crmSessionClient'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -35,19 +35,27 @@ export interface Conversation {
   tags?: string[]
   lastMessageAt: string
   sessionExpiresAt: string | null
-  lastMessage: { body: string | null; direction: 'in' | 'out'; status: MessageStatus } | null
+  lastMessage: { body: string | null; direction: 'in' | 'out'; status: MessageStatus; kind?: MessageKind } | null
 }
+
+// 'location' / 'contact': body holds the text crmbackend builds (inbox/inboundContent.js), which
+// MessageBubble turns into a card. 'unsupported': something WhatsApp didn't pass on (view-once, poll…).
+export type MessageKind = 'text' | 'template' | 'interactive' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'unsupported'
 
 export interface ConversationMessage {
   id: string
   conversationId: string
   direction: 'in' | 'out'
-  kind: 'text' | 'template' | 'interactive' | 'image' | 'video' | 'audio' | 'document'
+  kind: MessageKind
   body: string
   timestamp: string
   status: MessageStatus
   mediaUrl?: string | null
   mediaFilename?: string | null
+  /** The customer's emoji reaction on this message. */
+  reaction?: string | null
+  /** Our own (staff) emoji reaction on this message. */
+  staffReaction?: string | null
 }
 
 export interface SendableTemplate {
@@ -122,4 +130,52 @@ export async function fetchSendableTemplates(): Promise<SendableTemplate[]> {
 export async function fetchMessageMedia(messageId: string): Promise<Blob> {
   const params = new URLSearchParams({ business_id: getActiveBusinessId() })
   return apiRequestBlob(`/inbox/messages/${messageId}/media?${params}`, { headers: authHeaders() })
+}
+
+// ---- Sending files, locations, contact cards and reactions ----
+
+export async function sendMediaMessage(conversationId: string, file: File, caption?: string): Promise<ConversationMessage> {
+  const form = new FormData()
+  form.append('businessId', getActiveBusinessId())
+  if (caption) form.append('caption', caption)
+  form.append('file', file)
+  return apiRequestForm<ConversationMessage>(`/inbox/conversations/${conversationId}/media-messages`, form, authHeaders())
+}
+
+export interface ShareLocationInput {
+  /** A Google Maps link (full or short) or "lat, lng" text. */
+  mapsLink: string
+  name?: string
+  address?: string
+}
+
+export async function sendLocationMessage(conversationId: string, input: ShareLocationInput): Promise<ConversationMessage> {
+  return apiRequest<ConversationMessage>(`/inbox/conversations/${conversationId}/location-messages`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ businessId: getActiveBusinessId(), ...input }),
+  })
+}
+
+export interface ShareContactInput {
+  name: string
+  phone: string
+  email?: string
+}
+
+export async function sendContactMessage(conversationId: string, input: ShareContactInput): Promise<ConversationMessage> {
+  return apiRequest<ConversationMessage>(`/inbox/conversations/${conversationId}/contact-messages`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ businessId: getActiveBusinessId(), ...input }),
+  })
+}
+
+/** An empty emoji removes our reaction. */
+export async function sendMessageReaction(messageId: string, emoji: string): Promise<ConversationMessage> {
+  return apiRequest<ConversationMessage>(`/inbox/messages/${messageId}/reaction`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ businessId: getActiveBusinessId(), emoji }),
+  })
 }

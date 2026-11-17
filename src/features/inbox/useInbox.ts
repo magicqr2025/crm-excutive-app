@@ -70,10 +70,16 @@ export function useSendableTemplates(enabled: boolean) {
   return useQuery({ queryKey: ['inbox-templates'], queryFn: inboxApi.fetchSendableTemplates, enabled, staleTime: 60 * 1000 })
 }
 
+// 'none' = the message has no stored file (e.g. received before inbound media was saved),
+// 'failed' = it could not be loaded; both show "not available" instead of an endless "Loading…".
+export type MessageMediaState = 'none' | 'loading' | 'ready' | 'failed'
+
 // Fetches a message's attachment through the authenticated proxy and hands back
 // an object URL, revoked when it changes or the bubble unmounts.
-export function useMessageMediaUrl(message: { id: string; mediaUrl?: string | null }): string | null {
+export function useMessageMediaUrl(message: { id: string; mediaUrl?: string | null }): { url: string | null; state: MessageMediaState } {
   const [url, setUrl] = useState<string | null>(null)
+  // The id of the message whose file failed to load (so a different message starts clean).
+  const [failedId, setFailedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!message.mediaUrl) return
@@ -86,14 +92,19 @@ export function useMessageMediaUrl(message: { id: string; mediaUrl?: string | nu
         objectUrl = URL.createObjectURL(blob)
         setUrl(objectUrl)
       })
-      .catch((err) => console.error(`[inbox] could not load attachment for message ${message.id}:`, err))
+      .catch((err) => {
+        console.error(`[inbox] could not load attachment for message ${message.id}:`, err)
+        if (!cancelled) setFailedId(message.id)
+      })
     return () => {
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [message.id, message.mediaUrl])
 
-  return message.mediaUrl ? url : null
+  if (!message.mediaUrl) return { url: null, state: 'none' }
+  if (failedId === message.id) return { url: null, state: 'failed' }
+  return url ? { url, state: 'ready' } : { url: null, state: 'loading' }
 }
 
 // What the Company WhatsApp button needs to know: is a number connected, and
@@ -131,4 +142,40 @@ export function useSendQuickReply() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
     },
   })
+}
+
+// Files, locations, contact cards and reactions all refresh the chat the same way once sent.
+function useChatMutation<V extends { conversationId: string }>(fn: (v: V) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (_data, { conversationId }) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+  })
+}
+
+export function useSendMediaMessage() {
+  return useChatMutation(({ conversationId, file, caption }: { conversationId: string; file: File; caption?: string }) =>
+    inboxApi.sendMediaMessage(conversationId, file, caption),
+  )
+}
+
+export function useSendLocationMessage() {
+  return useChatMutation(({ conversationId, input }: { conversationId: string; input: inboxApi.ShareLocationInput }) =>
+    inboxApi.sendLocationMessage(conversationId, input),
+  )
+}
+
+export function useSendContactMessage() {
+  return useChatMutation(({ conversationId, input }: { conversationId: string; input: inboxApi.ShareContactInput }) =>
+    inboxApi.sendContactMessage(conversationId, input),
+  )
+}
+
+export function useSendMessageReaction() {
+  return useChatMutation(({ messageId, emoji }: { conversationId: string; messageId: string; emoji: string }) =>
+    inboxApi.sendMessageReaction(messageId, emoji),
+  )
 }
