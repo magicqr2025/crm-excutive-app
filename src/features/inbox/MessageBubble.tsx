@@ -17,7 +17,7 @@ function StatusTick({ status }: { status: ConversationMessage['status'] }) {
 function MediaPlaceholder({ state, label, icon }: { state: MessageMediaState; label: string; icon?: React.ReactNode }) {
   const unavailable = state === 'none' || state === 'failed'
   return (
-    <div className="mb-1 flex h-28 w-44 flex-col items-center justify-center gap-1 rounded-lg bg-[var(--surface-hover)] text-[12px] text-[var(--text-muted)]">
+    <div className="flex h-36 w-full flex-col items-center justify-center gap-1 rounded-lg bg-[var(--surface-hover)] text-[12px] text-[var(--text-muted)]">
       {unavailable ? (
         <>
           <ImageOff size={20} />
@@ -177,11 +177,25 @@ export function MessageBubble({ message, onReact }: { message: ConversationMessa
   const hasReaction = Boolean(message.reaction || message.staffReaction)
   const isCard = message.kind === 'location' || message.kind === 'contact'
 
+  // WhatsApp-style layout: a bubble that starts with an image / video / voice note / file has a thin
+  // 4px frame around it; text sits close to the edge and the time tucks in at the end of the last line.
+  const isMedia = message.kind === 'image' || message.kind === 'video' || message.kind === 'audio' || message.kind === 'document'
+  const showBody = Boolean(message.body) && !isCard
+  // An image with nothing under it carries its time on the picture itself.
+  const timeOnImage = message.kind === 'image' && !!mediaUrl && !showBody
+  const meta = (className?: string) => (
+    <span className={cn('inline-flex items-center gap-1 whitespace-nowrap text-[10.5px] leading-none', className)}>
+      {formatClock(message.timestamp)}
+      {out && <StatusTick status={message.status} />}
+    </span>
+  )
+
   return (
     <div className={cn('flex items-center gap-1', out ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'relative max-w-[82%] rounded-2xl px-3 py-2 text-[14px] text-[var(--text-h)]',
+          'relative rounded-2xl text-[14px] text-[var(--text-h)]',
+          isMedia ? 'w-[280px] max-w-[82%] p-1' : 'max-w-[82%] px-2.5 py-1.5',
           hasReaction && 'mb-3',
           out ? 'rounded-tr-sm bg-[var(--accent-bg)]' : 'rounded-tl-sm border border-[var(--border)] bg-[var(--surface)]',
         )}
@@ -195,23 +209,30 @@ export function MessageBubble({ message, onReact }: { message: ConversationMessa
 
         {message.kind === 'image' &&
           (mediaUrl ? (
-            <img src={mediaUrl} alt="" className="mb-1 max-h-64 max-w-full rounded-lg object-contain" />
+            <div className="relative overflow-hidden rounded-xl">
+              <img src={mediaUrl} alt="" className="block max-h-64 w-full object-cover" />
+              {timeOnImage && (
+                <span className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end bg-gradient-to-t from-black/50 to-transparent px-1.5 pb-1 pt-4 text-white [&_svg]:text-white">
+                  {meta()}
+                </span>
+              )}
+            </div>
           ) : (
             <MediaPlaceholder state={mediaState} label="Image" />
           ))}
 
         {message.kind === 'video' &&
           (mediaUrl ? (
-            <video src={mediaUrl} controls className="mb-1 max-h-64 max-w-full rounded-lg" />
+            <video src={mediaUrl} controls className="block max-h-64 w-full rounded-xl bg-black" />
           ) : (
             <MediaPlaceholder state={mediaState} label="Video" icon={<Video size={22} />} />
           ))}
 
         {message.kind === 'audio' &&
           (mediaUrl ? (
-            <audio src={mediaUrl} controls className="mb-1 max-w-full" />
+            <audio src={mediaUrl} controls className="block h-11 w-full" />
           ) : (
-            <div className="mb-1 flex items-center gap-2 rounded-lg bg-[var(--surface-hover)] px-2.5 py-2 text-[12.5px] text-[var(--text-muted)]">
+            <div className="flex items-center gap-2 rounded-xl bg-[var(--surface-hover)] px-2.5 py-2 text-[12.5px] text-[var(--text-muted)]">
               <Music size={16} /> {mediaUnavailable ? 'Voice note not available' : 'Loading…'}
             </div>
           ))}
@@ -222,7 +243,7 @@ export function MessageBubble({ message, onReact }: { message: ConversationMessa
             download={message.mediaFilename ?? undefined}
             target="_blank"
             rel="noreferrer"
-            className="mb-1 flex items-center gap-2 rounded-lg bg-[var(--surface-hover)] px-2.5 py-2"
+            className="flex items-center gap-2 rounded-xl bg-[var(--surface-hover)] px-2.5 py-2"
           >
             <FileText size={18} className="shrink-0 text-[var(--accent-strong)]" />
             <span className="min-w-0 flex-1 truncate text-[13px]">{message.mediaFilename || 'Document'}</span>
@@ -244,12 +265,22 @@ export function MessageBubble({ message, onReact }: { message: ConversationMessa
           </div>
         )}
 
-        {message.body && !isCard && <p className="whitespace-pre-wrap break-words leading-snug">{message.body}</p>}
-
-        <div className="mt-1 flex items-center justify-end gap-1">
-          <span className="text-[10.5px] text-[var(--text-muted)]">{formatClock(message.timestamp)}</span>
-          {out && <StatusTick status={message.status} />}
-        </div>
+        {!timeOnImage && (
+          <div className={cn(isMedia && 'px-1.5 pb-0.5 pt-1')}>
+            {showBody && (
+              <p className="whitespace-pre-wrap break-words leading-snug">
+                {message.body}
+                {/* Hidden copy of the time reserves room at the end of the last line for the real one. */}
+                {meta('invisible ml-2 align-bottom')}
+              </p>
+            )}
+            {showBody ? (
+              meta('absolute bottom-1.5 right-2.5 text-[var(--text-muted)]')
+            ) : (
+              <div className="mt-0.5 flex justify-end text-[var(--text-muted)]">{meta()}</div>
+            )}
+          </div>
+        )}
 
         {/* Reactions (the customer's and ours), pinned to the bubble's bottom edge like WhatsApp. */}
         {hasReaction && (

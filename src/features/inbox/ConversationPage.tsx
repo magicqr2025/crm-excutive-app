@@ -116,7 +116,7 @@ export function ConversationPage() {
         </button>
       </div>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {isLoadingMessages ? (
           <PageLoader />
         ) : messages.length === 0 ? (
