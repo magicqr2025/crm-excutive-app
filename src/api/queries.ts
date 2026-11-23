@@ -46,6 +46,8 @@ import {
   fetchMyActiveFollowupsPage,
   fetchFollowupById,
   fetchMyFollowupsPage,
+  fetchTodayFollowupCount,
+  fetchTodayMeetingCount,
   markFollowupDone,
   type FollowupTab,
   fetchContactActiveFollowups,
@@ -268,6 +270,20 @@ export function useOverdueFollowupCount(staffId: string) {
     queryFn: async () => (await fetchMyFollowupsPage({ staffId, tab: 'overdue', page: 1, perPage: 1 })).total,
     enabled: Boolean(staffId),
   })
+}
+
+// Counts for the Home tiles. Keys sit under 'my-followups' / 'meetings' so the
+// existing invalidations (mark done, create, reschedule…) refresh them too.
+export function useTodayFollowupCount(staffId: string) {
+  return useQuery({
+    queryKey: ['my-followups', 'today-count', staffId],
+    queryFn: () => fetchTodayFollowupCount(staffId),
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useTodayMeetingCount() {
+  return useQuery({ queryKey: ['meetings', 'today-count'], queryFn: fetchTodayMeetingCount })
 }
 
 export function useMarkFollowupDone() {

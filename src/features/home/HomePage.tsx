@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuthStore } from '@/store/useAuthStore'
 import { RaisedForYou } from './RaisedForYou'
 import { useChatUnreadTotal } from '@/features/teamChat/useTeamChat'
+import { useTodayFollowupCount, useTodayMeetingCount } from '@/api/queries'
 
 interface Tile {
   to: string
@@ -13,11 +14,11 @@ interface Tile {
 }
 
 const TILES: Tile[] = [
+  { to: '/contacts', label: 'Contacts', hint: 'Your leads and clients', icon: Users },
+  { to: '/followups', label: 'Follow-ups', hint: 'Calls and reminders due', icon: CalendarClock },
+  { to: '/meetings', label: 'Meetings', hint: 'Scheduled, completed and rescheduled', icon: CalendarCheck },
   { to: '/target', label: 'Target', hint: 'Your month against target, pay and incentive', icon: Target },
   { to: '/payments', label: 'Payments', hint: 'Log and review money received', icon: Wallet },
-  { to: '/contacts', label: 'Contacts', hint: 'Your leads and clients', icon: Users },
-  { to: '/meetings', label: 'Meetings', hint: 'Scheduled, completed and rescheduled', icon: CalendarCheck },
-  { to: '/followups', label: 'Follow-ups', hint: 'Calls and reminders due', icon: CalendarClock },
   { to: '/deals', label: 'Deals', hint: 'Deals you’ve closed and what’s unpaid', icon: Handshake },
   { to: '/call-logs', label: 'Call Logs', hint: 'Calls you’ve made and received', icon: Phone },
   { to: '/subscriptions', label: 'Subscriptions', hint: 'Renewals coming up for your customers', icon: Repeat },
@@ -37,6 +38,10 @@ export function HomePage() {
   const name = useAuthStore((s) => s.user?.name)
   const first = name?.trim().split(/\s+/)[0]
   const chatUnread = useChatUnreadTotal()
+  const userId = useAuthStore((s) => s.user?.id ?? '')
+  const { data: followupsToday } = useTodayFollowupCount(userId)
+  const { data: meetingsToday } = useTodayMeetingCount()
+  const todayCount: Record<string, number | undefined> = { '/followups': followupsToday, '/meetings': meetingsToday }
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -66,7 +71,14 @@ export function HomePage() {
               <ArrowUpRight size={16} className="text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-strong)]" />
             </div>
             <div>
-              <p className="font-display text-[15px] font-semibold text-[var(--text-h)]">{label}</p>
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="font-display text-[15px] font-semibold text-[var(--text-h)]">{label}</p>
+                {todayCount[to] !== undefined && (
+                  <span className="shrink-0 rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[11.5px] font-semibold text-[var(--accent-strong)]">
+                    <span className="font-mono-num">{todayCount[to]}</span> today
+                  </span>
+                )}
+              </div>
               <p className="mt-0.5 text-[12px] leading-snug text-[var(--text-muted)]">{hint}</p>
             </div>
           </Link>
