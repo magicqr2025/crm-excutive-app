@@ -460,6 +460,36 @@ export async function fetchMyFollowupsPage(opts: {
   return toPageResult(result.data, result.meta)
 }
 
+// How many of the caller's open follow-ups are due today (IST), for the Home tile.
+export async function fetchTodayFollowupCount(staffId: string): Promise<number> {
+  const params = new URLSearchParams({
+    business_id: getActiveBusinessId(),
+    assign_to_staff_id: staffId,
+    due: 'today',
+    page: '1',
+    per_page: '1',
+  })
+  const result = await apiRequestWithMeta<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta).total
+}
+
+// How many of the caller's meetings (not cancelled) fall on today, local time, for the Home tile.
+export async function fetchTodayMeetingCount(): Promise<number> {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1)
+  const params = new URLSearchParams({
+    business_id: getActiveBusinessId(),
+    view: 'active',
+    date_from: start.toISOString(),
+    date_to: end.toISOString(),
+    page: '1',
+    per_page: '1',
+  })
+  const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?${params}`, { headers: authHeaders() })
+  return toPageResult(result.data, result.meta).total
+}
+
 export async function markFollowupDone(id: string): Promise<CrmFollowup> {
   return apiRequest<CrmFollowup>(`/crm/followup/update/${encodeURIComponent(id)}`, {
     method: 'PUT',
