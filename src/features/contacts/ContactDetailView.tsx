@@ -27,9 +27,12 @@ import {
   useCreateMeeting,
   useCreateFollowup,
   useContactActiveFollowups,
+  useLead,
 } from '@/api/queries'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
+import { DispositionForm } from '@/features/calling/DispositionForm'
+import { formatMeetingWhen, isOverdue } from '@/features/meetings/meetingUi'
 import { RecordPaymentForm } from '@/features/payments/RecordPaymentForm'
 import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
 import { formatTalkTime } from '@/lib/utils'
@@ -112,6 +115,11 @@ export function ContactDetailView({
   const { show } = useToast()
   const [discussionDraft, setDiscussionDraft] = useState('')
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
+  // Call Status form, shown once the dialer opens. Pages that don't pass the
+  // full lead (e.g. Follow-up Details) fetch it only when a call starts.
+  const [callStatusLeadId, setCallStatusLeadId] = useState<string | null>(null)
+  const { data: fetchedLead } = useLead(callStatusLeadId && !lead ? callStatusLeadId : '')
+  const callStatusLead = callStatusLeadId ? (lead ?? fetchedLead) : undefined
 
   const [newFollowupDate, setNewFollowupDate] = useState('')
   const [followupTimeInput, setFollowupTimeInput] = useState('')
@@ -151,6 +159,11 @@ export function ContactDetailView({
     .filter((p) => p.contact_id === contactId)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   const discussionEntries = leadActivity.filter((a) => a.kind === 'discussion')
+  // Meeting badge: the next scheduled meeting still ahead ("upcoming"), else the
+  // latest scheduled one whose time passed without being marked done ("pending").
+  const scheduledMeetings = meetings.filter((m) => m.meeting_status === 'scheduled')
+  const upcomingMeeting = scheduledMeetings.filter((m) => !isOverdue(m)).at(-1)
+  const pendingMeeting = upcomingMeeting ? undefined : scheduledMeetings.find((m) => isOverdue(m))
 
   function saveDiscussion() {
     if (!leadId || !discussionDraft.trim()) return
@@ -305,7 +318,15 @@ export function ContactDetailView({
             {contactPhone && (
               <button
                 type="button"
-                onClick={() => startCall({ leadId, phone: contactPhone, countryCode: lead?.contact_country_code, assignToStaffId })}
+                onClick={() =>
+                  startCall({
+                    leadId,
+                    phone: contactPhone,
+                    countryCode: lead?.contact_country_code,
+                    assignToStaffId,
+                    onDial: () => leadId && setCallStatusLeadId(leadId),
+                  })
+                }
                 disabled={isClaiming}
                 aria-label={`Call ${contactPhone}`}
                 title={`Call ${contactPhone}`}
@@ -320,9 +341,17 @@ export function ContactDetailView({
               Due {formatDate(followupDate)} · {followupTime ? formatTime(followupTime) : '—'}
             </p>
           )}
-          {followupStatus && (
-            <div className="mt-2">
-              <Badge tone={STATUS_TONE[followupStatus]}>{STATUS_LABEL[followupStatus]}</Badge>
+          {(followupStatus || upcomingMeeting || pendingMeeting) && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {followupStatus && (
+                <Badge tone={STATUS_TONE[followupStatus]}>Follow-up {STATUS_LABEL[followupStatus].toLowerCase()}</Badge>
+              )}
+              {upcomingMeeting && (
+                <Badge tone="accent">Meeting upcoming · {formatMeetingWhen(upcomingMeeting.meeting_time)}</Badge>
+              )}
+              {pendingMeeting && (
+                <Badge tone="warning">Meeting pending · {formatMeetingWhen(pendingMeeting.meeting_time)}</Badge>
+              )}
             </div>
           )}
           <div className="mt-3 grid grid-cols-[2.5rem_2.5rem_repeat(3,minmax(0,1fr))] gap-1.5">
@@ -370,6 +399,21 @@ export function ContactDetailView({
             </Button>
           </div>
         </div>
+
+      {callStatusLead && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setCallStatusLeadId(null)}
+            aria-label="Close call status"
+            title="Close"
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
+          >
+            <X size={16} />
+          </button>
+          <DispositionForm key={callStatusLead.id} lead={callStatusLead} onSubmitted={() => setCallStatusLeadId(null)} />
+        </div>
+      )}
 
       {activeTab === 'overview' && lead && <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} showAbout={false} />}
 

@@ -7,6 +7,8 @@ interface CallTarget {
   phone: string | null
   countryCode?: string | null
   assignToStaffId?: string | null
+  /** Runs right before the dialer opens (not when the claim fails). */
+  onDial?: () => void
 }
 
 // Shared "Call" action. Unassigned leads are visible to every executive and the
@@ -16,9 +18,10 @@ export function useCallLead() {
   const claimLead = useClaimLead()
   const { show } = useToast()
 
-  function startCall({ leadId, phone, countryCode, assignToStaffId }: CallTarget) {
+  function startCall({ leadId, phone, countryCode, assignToStaffId, onDial }: CallTarget) {
     if (!phone) return
     const dial = () => {
+      onDial?.()
       window.location.href = telHref(phone, countryCode)
     }
     // Only an explicit null means unassigned; undefined = owner not known here (e.g. your own followup).
