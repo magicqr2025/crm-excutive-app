@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Calendar, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { useCreateCallLog, useLeadFlags, useLeadStageTypes, useLeadStatuses } from '@/api/queries'
-import type { CallOutcome, CrmLead } from '@/api/crmApi'
+import { fetchContactActiveFollowups, updateFollowup, type CallOutcome, type CrmLead } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
 
 const NOT_CONNECTED_REASONS = [
@@ -30,9 +31,22 @@ function formatElapsed(totalSeconds: number) {
 interface DispositionFormProps {
   lead: CrmLead
   onSubmitted: () => void
+  /** Set when the call was started from this follow-up's page: this call closes it even if it isn't due yet. */
+  followupId?: string
 }
 
-export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
+// YYYY-MM-DD of a local date (not toISOString, which is the UTC day and wrong late at night in India).
+function localYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Today's IST day, which follow-up dates are stored in.
+function istTodayYmd(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+}
+
+export function DispositionForm({ lead, onSubmitted, followupId }: DispositionFormProps) {
+  const queryClient = useQueryClient()
   const { data: leadStatuses = [] } = useLeadStatuses()
   const { data: stageTypes = [] } = useLeadStageTypes()
   const createCallLog = useCreateCallLog()
@@ -83,7 +97,19 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
 
   const anyFlagOn = flagId !== null
   const outcomeValid = outcome === 'connected' ? leadStatusId.length > 0 : outcome === 'not_connected' ? reason.length > 0 : false
-  const valid = outcomeValid && (!anyFlagOn || flagNote.trim().length > 0)
+  const hasNext = quickHours !== null || customDateTime !== ''
+  // A picked date & time can't be in the past (a minute of slack).
+  const nextInPast = quickHours === null && customDateTime !== '' && new Date(customDateTime).getTime() < Date.now() - 60_000
+  // Not connected: the client must be tried again, so a next follow-up is required.
+  const nextRequired = outcome === 'not_connected'
+  const valid = outcomeValid && (!anyFlagOn || flagNote.trim().length > 0) && !nextInPast && (!nextRequired || hasNext)
+
+  // The call result, written as the note on the follow-up(s) this call closes.
+  function callNote(): string {
+    const status = leadStatuses.find((s) => s.id === leadStatusId)?.lead_status
+    const head = outcome === 'connected' ? `Connected${status ? ` — ${status}` : ''}` : `Not connected — ${reason}`
+    return (remark.trim() ? `${head}: ${remark.trim()}` : head).slice(0, 2000)
+  }
 
   // Flags are mutually exclusive — checking one clears the others;
   // unchecking the active one leaves none selected.
@@ -91,19 +117,30 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
     setFlagId(checked ? id : null)
   }
 
-  function submit() {
+  async function submit() {
     if (!outcome || !valid) return
     setTimerStopped(true)
     let followupDate: string | undefined
     let followupTime: string | undefined
     if (quickHours !== null) {
       const target = new Date(Date.now() + quickHours * 60 * 60 * 1000)
-      followupDate = target.toISOString().slice(0, 10)
+      followupDate = localYmd(target)
       followupTime = `${String(target.getHours()).padStart(2, '0')}:${String(target.getMinutes()).padStart(2, '0')}:00`
     } else if (customDateTime) {
       const target = new Date(customDateTime)
       followupDate = customDateTime.slice(0, 10)
       followupTime = `${String(target.getHours()).padStart(2, '0')}:${String(target.getMinutes()).padStart(2, '0')}:00`
+    }
+
+    // The open follow-ups this call answers: the one it was started from, plus any of this lead's that are
+    // due today or overdue. Read before saving, so the next follow-up this call books isn't closed too.
+    let toClose: string[] = followupId ? [followupId] : []
+    try {
+      const today = istTodayYmd()
+      const open = await fetchContactActiveFollowups(lead.contact_id)
+      toClose = [...new Set([...toClose, ...open.filter((f) => f.followup_date.slice(0, 10) <= today).map((f) => f.id)])]
+    } catch {
+      // Couldn't look them up; still save the call and close the one it was started from.
     }
 
     createCallLog.mutate(
@@ -119,8 +156,18 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
         flagNote: flagNote.trim(),
       },
       {
-        onSuccess: () => {
-          show({ title: 'Call outcome saved', tone: 'success' })
+        onSuccess: async () => {
+          const note = callNote()
+          const results = await Promise.allSettled(toClose.map((id) => updateFollowup(id, { status: '2', note })))
+          const failed = results.some((r) => r.status === 'rejected')
+          // The call may also have booked the next follow-up.
+          queryClient.invalidateQueries({ queryKey: ['my-followups'] })
+          queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+          if (failed) {
+            show({ title: 'Call saved, but the follow-up was not closed', description: 'Complete it from the Follow-ups page.', tone: 'error' })
+          } else {
+            show({ title: 'Call outcome saved', description: toClose.length > 0 ? 'Follow-up completed.' : undefined, tone: 'success' })
+          }
           onSubmitted()
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to save call outcome', tone: 'error' }),
@@ -224,7 +271,8 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
 
       {outcome && (
         <div className="rounded-xl border border-[var(--border)] p-3.5 space-y-3">
-          <p className="text-[13px] font-semibold text-[var(--text-h)]">Select next action</p>
+          <p className="text-[13px] font-semibold text-[var(--text-h)]">Select next action{nextRequired ? ' *' : ''}</p>
+          {nextRequired && !hasNext && <p className="text-[12px] text-[var(--text-muted)]">Not connected — pick when to try again.</p>}
           <div className="flex flex-wrap gap-2">
             {QUICK_FOLLOWUPS.map((opt) => (
               <button
@@ -261,6 +309,7 @@ export function DispositionForm({ lead, onSubmitted }: DispositionFormProps) {
               setQuickHours(null)
             }}
           />
+          {nextInPast && <p className="text-[12px] text-[var(--error)]">Next follow-up can’t be earlier than now.</p>}
           <div>
             <p className="mb-1.5 text-[13px] font-semibold text-[var(--text-h)]">Dispose Remark</p>
             <textarea

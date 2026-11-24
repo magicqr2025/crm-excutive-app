@@ -411,6 +411,8 @@ export interface CrmFollowup {
   followup_date: string
   followup_time: string
   followup_status: '0' | '1' | '2'
+  /** What was discussed — set when it's created with a note or completed. */
+  note?: string | null
   /** Set while a manager's "raise priority" on this follow-up is still open. */
   raised?: CrmRaised | null
 }
@@ -520,6 +522,23 @@ export async function markFollowupDone(id: string): Promise<CrmFollowup> {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ followup_status: '2' }),
+  })
+}
+
+/** Complete with a note, or move to a new date/time (HH:MM). */
+export async function updateFollowup(
+  id: string,
+  patch: { status?: '2'; note?: string; date?: string; time?: string },
+): Promise<CrmFollowup> {
+  return apiRequest<CrmFollowup>(`/crm/followup/update/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...(patch.status ? { followup_status: patch.status } : {}),
+      ...(patch.note ? { note: patch.note } : {}),
+      ...(patch.date ? { followup_date: patch.date } : {}),
+      ...(patch.time ? { followup_time: `${patch.time}:00` } : {}),
+    }),
   })
 }
 
@@ -1041,6 +1060,8 @@ export interface CreateFollowupInput {
   assignToStaffId: string
   followupDate: string // YYYY-MM-DD, IST wall clock
   followupTime: string // HH:MM, IST wall clock
+  /** Optional: what was discussed / why this follow-up is needed. */
+  note?: string
 }
 
 export async function createFollowup(input: CreateFollowupInput): Promise<CrmFollowup> {
@@ -1054,6 +1075,7 @@ export async function createFollowup(input: CreateFollowupInput): Promise<CrmFol
       assign_to_staff_id: input.assignToStaffId,
       followup_date: input.followupDate,
       followup_time: `${input.followupTime}:00`,
+      ...(input.note ? { note: input.note } : {}),
     }),
   })
 }

@@ -4,19 +4,21 @@ import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, Filter, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FOLLOWUP_DATE_PRESETS, NO_DATE_RANGE, describeDateRange, presetRange, type FollowupDateRange } from './followupDateFilter'
+import { FollowupWhenPicker, initialWhen, resolveWhen, whenIsValid, type When } from './FollowupWhenPicker'
+import { CompleteFollowupDialog, RescheduleFollowupDialog } from './FollowupDialogs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { RaisedBadge } from '@/components/shared/RaisePriority'
 import { Button } from '@/components/ui/Button'
-import { Input, Field } from '@/components/ui/Input'
+import { Input, Field, Textarea } from '@/components/ui/Input'
 import { ContactPicker } from '@/components/ui/ContactPicker'
 import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useCreateFollowup, useFollowupTabCounts, useMarkFollowupDone, useMyFollowupsTabPage } from '@/api/queries'
-import type { CrmContact, FollowupTab } from '@/api/crmApi'
+import { useCreateFollowup, useFollowupTabCounts, useMyFollowupsTabPage } from '@/api/queries'
+import type { CrmContact, CrmFollowup, FollowupTab } from '@/api/crmApi'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 
 export { STATUS_LABEL, STATUS_TONE, formatDate, formatTime }
@@ -72,36 +74,34 @@ export function FollowupsPage() {
   const dateActive = Boolean(dateRange.from || dateRange.to)
   const { items: followups, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyFollowupsTabPage(userId, tab, filters)
   const { data: counts } = useFollowupTabCounts(userId, filters)
-  const markDone = useMarkFollowupDone()
   const createFollowup = useCreateFollowup()
   const [formOpen, setFormOpen] = useState(false)
   const [contact, setContact] = useState<CrmContact | null>(null)
-  const [date, setDate] = useState('')
-  const [time, setTime] = useState('')
+  const [when, setWhen] = useState<When>(initialWhen)
+  const [note, setNote] = useState('')
+  // The follow-up a Complete / Reschedule dialog is open for.
+  const [completing, setCompleting] = useState<CrmFollowup | null>(null)
+  const [rescheduling, setRescheduling] = useState<CrmFollowup | null>(null)
+  const canCreate = Boolean(contact) && whenIsValid(when)
 
   function submit() {
-    if (!contact || !date || !time) return
+    if (!contact || !canCreate) return
+    // A 1 / 2 / 4 hr button is relative to now, so it's worked out at submit time.
+    const { date, time } = resolveWhen(when)
     // Executives always assign follow-ups to themselves.
     createFollowup.mutate(
-      { contactId: contact.id, assignToStaffId: userId, followupDate: date, followupTime: time },
+      { contactId: contact.id, assignToStaffId: userId, followupDate: date, followupTime: time, note: note.trim() || undefined },
       {
         onSuccess: () => {
           show({ title: 'Follow-up scheduled', tone: 'success' })
           setContact(null)
-          setDate('')
-          setTime('')
+          setWhen(initialWhen())
+          setNote('')
           setFormOpen(false)
         },
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to schedule follow-up', tone: 'error' }),
       },
     )
-  }
-
-  function done(id: string) {
-    markDone.mutate(id, {
-      onSuccess: () => show({ title: 'Follow-up marked done', tone: 'success' }),
-      onError: (err) => show({ title: err instanceof Error ? err.message : 'Could not mark it done', tone: 'error' }),
-    })
   }
 
   return (
@@ -122,15 +122,11 @@ export function FollowupsPage() {
             <Field label="Contact">
               <ContactPicker value={contact} onChange={setContact} />
             </Field>
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Date">
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </Field>
-              <Field label="Time">
-                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-              </Field>
-            </div>
-            <Button className="w-full justify-center" onClick={submit} disabled={!contact || !date || !time || createFollowup.isPending}>
+            <FollowupWhenPicker value={when} onChange={setWhen} />
+            <Field label="Discussion" hint="Optional — what was discussed, or what to cover">
+              <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="What was discussed, or what to cover in this follow-up" />
+            </Field>
+            <Button className="w-full justify-center" onClick={submit} disabled={!canCreate || createFollowup.isPending}>
               {createFollowup.isPending ? 'Saving…' : 'Create Follow-up'}
             </Button>
           </div>
@@ -296,19 +292,34 @@ export function FollowupsPage() {
                 <div className="mt-2 flex items-center justify-between gap-2">
                   {f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
                   {!isDone && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={markDone.isPending}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        done(f.id)
-                      }}
-                    >
-                      <Check size={13} /> Mark done
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        aria-label="Reschedule"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setRescheduling(f)
+                        }}
+                      >
+                        <CalendarClock size={13} /> <span className="max-[380px]:hidden">Reschedule</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCompleting(f)
+                        }}
+                      >
+                        <Check size={13} /> Complete
+                      </Button>
+                    </div>
                   )}
                 </div>
+                {isDone && f.note && (
+                  <p className="mt-2 rounded-lg bg-[var(--surface-hover)] px-2.5 py-1.5 text-[12px] text-[var(--text-h)]">{f.note}</p>
+                )}
               </div>
               )
             })}
@@ -316,6 +327,8 @@ export function FollowupsPage() {
         )}
         <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
       </div>
+      <CompleteFollowupDialog followup={completing} onClose={() => setCompleting(null)} />
+      <RescheduleFollowupDialog followup={rescheduling} onClose={() => setRescheduling(null)} />
     </div>
   )
 }

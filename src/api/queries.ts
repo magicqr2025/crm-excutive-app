@@ -49,6 +49,7 @@ import {
   fetchTodayFollowupCount,
   fetchTodayMeetingCount,
   markFollowupDone,
+  updateFollowup,
   type FollowupTab,
   fetchContactActiveFollowups,
   fetchDealsPage,
@@ -306,6 +307,18 @@ export function useMarkFollowupDone() {
   return useMutation({
     mutationFn: (id: string) => markFollowupDone(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-followups'] }),
+  })
+}
+
+/** Complete with a note, or reschedule. Refreshes every follow-up list and the lead's activity. */
+export function useUpdateFollowup() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof updateFollowup>[1] }) => updateFollowup(id, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-followups'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
 
