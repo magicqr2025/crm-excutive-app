@@ -1,5 +1,5 @@
 import { PageLoader } from '@/components/ui/Spinner'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Link2, Plus, X } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -19,7 +19,7 @@ import { FreeTimeBooking } from './FreeTimeBooking'
 import { MeetingStatCards, MEETING_VIEW_LABEL } from './MeetingStatCards'
 import { UnclaimedBookingsPanel } from './UnclaimedBookingsPanel'
 import type { MeetingReminder } from '@/api/crmApi'
-import { CREATED_PRESETS, DEFAULT_CREATED_PRESET, createdFrom, describeCreated, type CreatedPreset } from './meetingRange'
+import { CREATED_PRESETS, DEFAULT_CREATED_PRESET, createdFrom, describeCreated, todayBounds, type CreatedPreset } from './meetingRange'
 import { LENGTH_OPTIONS, DEFAULT_LENGTH, SELECT_CLASS } from './meetingUi'
 
 type SourceFilter = '' | 'booking' | 'manual'
@@ -30,6 +30,9 @@ export function MeetingsPage() {
   const location = useLocation()
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
   const navigate = useNavigate()
+  // Default view: meetings set for today, whenever they were created. Picking a created-on chip switches to that range.
+  const [scheduledToday, setScheduledToday] = useState(true)
+  const scheduledRange = useMemo(() => (scheduledToday ? todayBounds() : null), [scheduledToday])
   const [search, setSearch] = useState('')
   // Which stat card is selected ('all' = no card filter), the created-on range and the source filter.
   const [view, setView] = useState<MeetingView>('all')
@@ -53,7 +56,17 @@ export function MeetingsPage() {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useMeetingsPage({ search: search || undefined, view, upcomingFrom: nowIso, source: source || undefined, createdFrom: from })
+  } = useMeetingsPage({
+    search: search || undefined,
+    view,
+    upcomingFrom: nowIso,
+    source: source || undefined,
+    // The scheduled-today view ignores the created-on range.
+    createdFrom: scheduledRange ? undefined : from,
+    dateFrom: scheduledRange?.from,
+    dateTo: scheduledRange?.to,
+  })
+  const rangeLabel = scheduledToday ? 'scheduled for today' : describeCreated(preset)
   const createMeeting = useCreateMeeting()
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { show } = useToast()
@@ -113,7 +126,7 @@ export function MeetingsPage() {
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
         title="Meetings"
-        subtitle={`${describeCreated(preset)} · ${MEETING_VIEW_LABEL[view].toLowerCase()}`}
+        subtitle={scheduledToday && view === 'all' ? rangeLabel : `${rangeLabel} · ${MEETING_VIEW_LABEL[view].toLowerCase()}`}
         action={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="secondary" onClick={() => navigate('/meetings/links')} className="gap-1.5">
@@ -198,23 +211,44 @@ export function MeetingsPage() {
           </div>
         )}
 
-        <MeetingStatCards view={view} counts={counts} onSelect={setView} />
+        <MeetingStatCards
+          view={view}
+          counts={counts}
+          onSelect={setView}
+          allCard={scheduledToday ? { label: 'Today', hint: 'All meetings scheduled today' } : undefined}
+        />
 
         <div className="mb-4 space-y-2">
-          <div className="scrollbar-thin flex items-center gap-1.5 overflow-x-auto" role="tablist" aria-label="Created on">
+          <div className="scrollbar-thin flex items-center gap-1.5 overflow-x-auto" role="tablist" aria-label="Meeting range">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={scheduledToday}
+              onClick={() => setScheduledToday(true)}
+              className={cn(
+                'h-8 shrink-0 rounded-full border px-3 text-[12.5px] font-medium transition-colors',
+                scheduledToday
+                  ? 'border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
+                  : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]',
+              )}
+            >
+              Scheduled today
+            </button>
+            <span className="ml-2 shrink-0 text-[12px] font-medium text-[var(--text-muted)]">Created:</span>
             {CREATED_PRESETS.map((p) => (
               <button
                 key={p.value}
                 type="button"
                 role="tab"
-                aria-selected={preset === p.value}
+                aria-selected={!scheduledToday && preset === p.value}
                 onClick={() => {
+                  setScheduledToday(false)
                   setPreset(p.value)
                   setFrom(createdFrom(p.value))
                 }}
                 className={cn(
                   'h-8 shrink-0 rounded-full border px-3 text-[12.5px] font-medium transition-colors',
-                  preset === p.value
+                  !scheduledToday && preset === p.value
                     ? 'border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
                     : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]',
                 )}
@@ -249,7 +283,7 @@ export function MeetingsPage() {
           <PageLoader />
         ) : meetings.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
-            {filtered ? 'No meetings match your search or filters.' : `No ${view === 'all' ? '' : `${MEETING_VIEW_LABEL[view].toLowerCase()} `}meetings ${describeCreated(preset)}. Try a wider range.`}
+            {filtered ? 'No meetings match your search or filters.' : `No ${view === 'all' ? '' : `${MEETING_VIEW_LABEL[view].toLowerCase()} `}meetings ${rangeLabel}.${scheduledToday ? '' : ' Try a wider range.'}`}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

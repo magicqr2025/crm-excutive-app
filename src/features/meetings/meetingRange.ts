@@ -25,6 +25,16 @@ export function createdFrom(preset: CreatedPreset): string | undefined {
   return from.toISOString()
 }
 
+/** Today's local day as ISO bounds — the Home tile's "N today" and `/meetings?scheduled=today` both use it. */
+export function todayBounds(): { from: string; to: string } {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 1)
+  end.setMilliseconds(-1)
+  return { from: start.toISOString(), to: end.toISOString() }
+}
+
 export function describeCreated(preset: CreatedPreset): string {
   if (preset === 'all') return 'created at any time'
   if (preset === 'today') return 'created today'

@@ -719,6 +719,9 @@ export interface MeetingsPageOpts {
   /** ISO instants bounding when the meeting was created. */
   createdFrom?: string
   createdTo?: string
+  /** ISO instants bounding when the meeting is scheduled for. */
+  dateFrom?: string
+  dateTo?: string
 }
 
 export async function fetchMeetingsPage(opts: MeetingsPageOpts): Promise<PageResult<CrmMeeting>> {
@@ -733,6 +736,8 @@ export async function fetchMeetingsPage(opts: MeetingsPageOpts): Promise<PageRes
     ...(opts.source ? { source: opts.source } : {}),
     ...(opts.createdFrom ? { created_from: opts.createdFrom } : {}),
     ...(opts.createdTo ? { created_to: opts.createdTo } : {}),
+    ...(opts.dateFrom ? { date_from: opts.dateFrom } : {}),
+    ...(opts.dateTo ? { date_to: opts.dateTo } : {}),
   })
   const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?${params}`, { headers: authHeaders() })
   // The per-card counts ride along as the page "summary".
