@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home, Bell } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -168,7 +168,15 @@ export function AppShell() {
         <RouteFetchBar />
 
         <main className="min-h-0 flex-1 overflow-hidden">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--text-h)]" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 
