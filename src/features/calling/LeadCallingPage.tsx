@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { PageLoader, Spinner } from '@/components/ui/Spinner'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, History, Phone } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useLead } from '@/api/queries'
@@ -13,6 +13,10 @@ import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 export function LeadCallingPage() {
   const { campaignId = '', leadId = '' } = useParams<{ campaignId: string; leadId: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const fromList = searchParams.get('from') === 'list'
+  const listSearch = searchParams.get('q') ?? ''
+  const leadsListUrl = `/campaigns/${campaignId}/leads${listSearch ? `?${new URLSearchParams({ q: listSearch })}` : ''}`
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { data: lead, isLoading } = useLead(leadId)
   const { startCall, assignToMe, isClaiming } = useCallLead()
@@ -25,6 +29,11 @@ export function LeadCallingPage() {
   // prefetch resolves (real risk given crmbackend's DB round-trip latency),
   // so the hook's cached value may still be stale/pending at submit time.
   async function handleSubmitted() {
+    // Opened from View Leads: the executive chooses who to call next, so go back to the list.
+    if (fromList) {
+      navigate(leadsListUrl, { replace: true })
+      return
+    }
     const next = await fetchNextQueueLead(campaignId, userId, leadId)
     if (next) {
       navigate(`/campaigns/${campaignId}/call/${next.id}`, { replace: true })
@@ -54,7 +63,7 @@ export function LeadCallingPage() {
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-2.5">
         <button
-          onClick={() => navigate(`/campaigns/${campaignId}/leads`)}
+          onClick={() => navigate(leadsListUrl)}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
         >
           <ArrowLeft size={17} />
