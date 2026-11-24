@@ -93,7 +93,12 @@ export function CampaignLeadsPage() {
             {leads.map((lead) => {
               // Another executive's lead: view-only, can't be called from here.
               const othersLead = Boolean(lead.assign_to_staff_id) && lead.assign_to_staff_id !== userId
-              const open = () => navigate(`/campaigns/${campaignId}/call/${lead.id}`)
+              // from=list: the executive picked this lead, so saving the call brings
+              // them back here (keeping the search) instead of moving to the next queue lead.
+              const open = () => {
+                const params = new URLSearchParams({ from: 'list', ...(search ? { q: search } : {}) })
+                navigate(`/campaigns/${campaignId}/call/${lead.id}?${params}`)
+              }
               return (
                 // A div, not a <button>: the WhatsApp links inside can't be nested in one.
                 <div

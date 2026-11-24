@@ -70,6 +70,8 @@ export interface CrmLead {
   deal_value: string | null
   deal_details: string | null
   lead_campaigns: { id: string; name: string }[]
+  /** Only list responses include labels; a single-lead response has []. */
+  labels?: { id: string; name: string }[]
   need_attention: boolean
   feature_requirement: boolean
   special_meeting: boolean
@@ -132,18 +134,71 @@ export async function fetchNextQueueLead(campaignId: string, staffId: string, ex
 // pool they may claim). `search` matches name/phone/email server-side;
 // `unassigned` limits to the Unassigned tab. `perPage` 1 is also how the tab
 // counts are read: only meta.total is used.
-export async function fetchLeadsPage(opts: { staffId: string; page: number; search?: string; unassigned?: boolean; perPage?: number }): Promise<PageResult<CrmLead>> {
+/** Server-side Contacts filters (crmbackend leads list); empty = no limit. */
+export interface LeadListFilters {
+  followup?: 'overdue' | 'today' | 'upcoming' | 'none'
+  meeting?: 'today'
+  leadStatusId?: string
+  campaignId?: string
+  labelId?: string
+  /** ISO instants bounding when the lead was added. */
+  createdFrom?: string
+  createdTo?: string
+}
+
+export async function fetchLeadsPage(opts: {
+  staffId: string
+  page: number
+  search?: string
+  unassigned?: boolean
+  perPage?: number
+  filters?: LeadListFilters
+  /** Admins only: every staff member's leads (no assign_to_staff_id), not just the caller's. */
+  allStaff?: boolean
+}): Promise<PageResult<CrmLead>> {
+  const f = opts.filters ?? {}
   const businessId = getActiveBusinessId()
   const params = new URLSearchParams({
     business_id: businessId,
-    assign_to_staff_id: opts.staffId,
+    ...(opts.allStaff ? {} : { assign_to_staff_id: opts.staffId }),
     page: String(opts.page),
     per_page: String(opts.perPage ?? PAGE_SIZE),
     ...(opts.search ? { search: opts.search } : {}),
     ...(opts.unassigned ? { unassigned: '1' } : {}),
+    ...(f.followup ? { followup: f.followup } : {}),
+    ...(f.meeting ? { meeting: f.meeting } : {}),
+    ...(f.leadStatusId ? { lead_status_id: f.leadStatusId } : {}),
+    ...(f.campaignId ? { lead_campaign_id: f.campaignId } : {}),
+    ...(f.labelId ? { label_id: f.labelId } : {}),
+    ...(f.createdFrom ? { created_from: f.createdFrom } : {}),
+    ...(f.createdTo ? { created_to: f.createdTo } : {}),
   })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
   return toPageResult(result.data, result.meta)
+}
+
+export interface CrmLabel {
+  id: string
+  name: string
+}
+
+/** The business's lead labels, for the Contacts label filter. */
+export async function fetchLabels(): Promise<CrmLabel[]> {
+  const params = new URLSearchParams({ business_id: getActiveBusinessId() })
+  return apiRequest<CrmLabel[]>(`/crm/labels/get-list?${params}`, { headers: authHeaders() })
+}
+
+/** The caller's open (pending / scheduled) follow-ups, soonest first — for the follow-up line on contact cards. */
+export async function fetchMyOpenFollowups(staffId: string): Promise<CrmFollowup[]> {
+  const params = new URLSearchParams({
+    business_id: getActiveBusinessId(),
+    assign_to_staff_id: staffId,
+    status: 'active',
+    page: '1',
+    per_page: '500',
+  })
+  const result = await apiRequestWithMeta<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
+  return result.data
 }
 
 // One lead the caller can see (own or unassigned pool); 404 otherwise.
@@ -411,6 +466,9 @@ export interface CrmFollowup {
   followup_date: string
   followup_time: string
   followup_status: '0' | '1' | '2'
+  assign_to_staff_id?: string
+  /** What was discussed — set when it's created with a note or completed. */
+  note?: string | null
   /** Set while a manager's "raise priority" on this follow-up is still open. */
   raised?: CrmRaised | null
 }
@@ -436,25 +494,52 @@ export async function fetchContactActiveFollowups(contactId: string): Promise<Cr
   return apiRequest<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
 }
 
-export type FollowupTab = 'overdue' | 'upcoming' | 'done'
+export type FollowupTab = 'all' | 'overdue' | 'today' | 'upcoming' | 'done'
 
-// The caller's follow-ups for one Follow-ups tab. Open ones (overdue = due before today IST,
-// upcoming = today or later) come soonest first; done ones newest due date first.
+// Today's IST calendar day as YYYY-MM-DD — the day the server splits overdue / today / upcoming on.
+function istTodayYmd(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+}
+
+// The caller's follow-ups for one Follow-ups tab. Overdue = due before today (IST), today = due today,
+// upcoming = due after today; open ones soonest first, done ones newest due date first.
+// `dateFrom` / `dateTo` (YYYY-MM-DD) narrow any tab to that due-date range.
 export async function fetchMyFollowupsPage(opts: {
   staffId: string
   tab: FollowupTab
   page: number
   search?: string
   perPage?: number
+  dateFrom?: string
+  dateTo?: string
+  /** Admins / managers only: everyone's follow-ups (no assign_to_staff_id), not just the caller's. */
+  allStaff?: boolean
 }): Promise<PageResult<CrmFollowup>> {
+  // The server's due=today replaces the date range rather than narrowing it, so a range
+  // that leaves out today means the Today tab is simply empty.
+  if (opts.tab === 'today' && (opts.dateFrom || opts.dateTo)) {
+    const today = istTodayYmd()
+    if ((opts.dateFrom && today < opts.dateFrom) || (opts.dateTo && today > opts.dateTo)) {
+      return { items: [], page: 1, totalPages: 1, total: 0 }
+    }
+  }
   const businessId = getActiveBusinessId()
+  const tabParams: Record<FollowupTab, Record<string, string>> = {
+    all: {},
+    overdue: { due: 'overdue' },
+    today: { due: 'today' },
+    upcoming: { due: 'later' },
+    done: { status: 'done' },
+  }
   const params = new URLSearchParams({
     business_id: businessId,
-    assign_to_staff_id: opts.staffId,
+    ...(opts.allStaff ? {} : { assign_to_staff_id: opts.staffId }),
     page: String(opts.page),
     per_page: String(opts.perPage ?? PAGE_SIZE),
-    ...(opts.tab === 'done' ? { status: 'done' } : { due: opts.tab }),
+    ...tabParams[opts.tab],
     ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.dateFrom ? { date_from: opts.dateFrom } : {}),
+    ...(opts.dateTo ? { date_to: opts.dateTo } : {}),
   })
   const result = await apiRequestWithMeta<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
   return toPageResult(result.data, result.meta)
@@ -495,6 +580,23 @@ export async function markFollowupDone(id: string): Promise<CrmFollowup> {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ followup_status: '2' }),
+  })
+}
+
+/** Complete with a note, or move to a new date/time (HH:MM). */
+export async function updateFollowup(
+  id: string,
+  patch: { status?: '2'; note?: string; date?: string; time?: string },
+): Promise<CrmFollowup> {
+  return apiRequest<CrmFollowup>(`/crm/followup/update/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...(patch.status ? { followup_status: patch.status } : {}),
+      ...(patch.note ? { note: patch.note } : {}),
+      ...(patch.date ? { followup_date: patch.date } : {}),
+      ...(patch.time ? { followup_time: `${patch.time}:00` } : {}),
+    }),
   })
 }
 
@@ -719,6 +821,9 @@ export interface MeetingsPageOpts {
   /** ISO instants bounding when the meeting was created. */
   createdFrom?: string
   createdTo?: string
+  /** ISO instants bounding when the meeting is scheduled for. */
+  dateFrom?: string
+  dateTo?: string
 }
 
 export async function fetchMeetingsPage(opts: MeetingsPageOpts): Promise<PageResult<CrmMeeting>> {
@@ -733,6 +838,8 @@ export async function fetchMeetingsPage(opts: MeetingsPageOpts): Promise<PageRes
     ...(opts.source ? { source: opts.source } : {}),
     ...(opts.createdFrom ? { created_from: opts.createdFrom } : {}),
     ...(opts.createdTo ? { created_to: opts.createdTo } : {}),
+    ...(opts.dateFrom ? { date_from: opts.dateFrom } : {}),
+    ...(opts.dateTo ? { date_to: opts.dateTo } : {}),
   })
   const result = await apiRequestWithMeta<CrmMeeting[]>(`/crm/meetings/list?${params}`, { headers: authHeaders() })
   // The per-card counts ride along as the page "summary".
@@ -1011,6 +1118,8 @@ export interface CreateFollowupInput {
   assignToStaffId: string
   followupDate: string // YYYY-MM-DD, IST wall clock
   followupTime: string // HH:MM, IST wall clock
+  /** Optional: what was discussed / why this follow-up is needed. */
+  note?: string
 }
 
 export async function createFollowup(input: CreateFollowupInput): Promise<CrmFollowup> {
@@ -1024,6 +1133,7 @@ export async function createFollowup(input: CreateFollowupInput): Promise<CrmFol
       assign_to_staff_id: input.assignToStaffId,
       followup_date: input.followupDate,
       followup_time: `${input.followupTime}:00`,
+      ...(input.note ? { note: input.note } : {}),
     }),
   })
 }

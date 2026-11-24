@@ -44,6 +44,7 @@ export function FollowupDetailPage() {
         followupDate={followup.followup_date}
         followupTime={followup.followup_time}
         followupStatus={followup.followup_status}
+        followupId={followup.followup_status === '2' ? undefined : followup.id}
       />
     </div>
   )

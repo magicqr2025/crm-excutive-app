@@ -19,7 +19,8 @@ import { FreeTimeBooking } from './FreeTimeBooking'
 import { MeetingStatCards, MEETING_VIEW_LABEL } from './MeetingStatCards'
 import { UnclaimedBookingsPanel } from './UnclaimedBookingsPanel'
 import type { MeetingReminder } from '@/api/crmApi'
-import { CREATED_PRESETS, DEFAULT_CREATED_PRESET, createdFrom, describeCreated, type CreatedPreset } from './meetingRange'
+import { DEFAULT_MEETING_RANGE, allCardFor, rangeBounds, type MeetingRangeValue } from './meetingRange'
+import { MeetingRangeBar } from './MeetingRangeBar'
 import { LENGTH_OPTIONS, DEFAULT_LENGTH, SELECT_CLASS } from './meetingUi'
 
 type SourceFilter = '' | 'booking' | 'manual'
@@ -31,9 +32,10 @@ export function MeetingsPage() {
   const prefillContact = (location.state as { prefillContact?: CrmContact } | null)?.prefillContact ?? null
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  // Which stat card is selected ('all' = no card filter), the created-on range and the source filter.
+  // Which stat card is selected ('all' = no card filter), the page-wide date range and the source filter.
   const [view, setView] = useState<MeetingView>('all')
-  const [preset, setPreset] = useState<CreatedPreset>(DEFAULT_CREATED_PRESET)
+  // Default: meetings happening today, whenever they were created.
+  const [range, setRange] = useState<MeetingRangeValue>(DEFAULT_MEETING_RANGE)
   const [source, setSource] = useState<SourceFilter>('')
 
   // "Now" splits Upcoming from Overdue; refreshed each minute so a meeting moves across while the page is open.
@@ -42,8 +44,8 @@ export function MeetingsPage() {
     const t = setInterval(() => setNowIso(new Date().toISOString()), 60_000)
     return () => clearInterval(t)
   }, [])
-  // Computed per range choice, not per render, so the query key stays stable.
-  const [from, setFrom] = useState(() => createdFrom(DEFAULT_CREATED_PRESET))
+  // Local-day bounds: the same instants on every render within a day, so the query key stays stable.
+  const bounds = rangeBounds(range)
 
   const {
     items: meetings,
@@ -53,7 +55,14 @@ export function MeetingsPage() {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useMeetingsPage({ search: search || undefined, view, upcomingFrom: nowIso, source: source || undefined, createdFrom: from })
+  } = useMeetingsPage({
+    search: search || undefined,
+    view,
+    upcomingFrom: nowIso,
+    source: source || undefined,
+    ...(range.basis === 'meeting' ? { dateFrom: bounds.from, dateTo: bounds.to } : { createdFrom: bounds.from, createdTo: bounds.to }),
+  })
+  const allCard = allCardFor(range)
   const createMeeting = useCreateMeeting()
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { show } = useToast()
@@ -113,7 +122,7 @@ export function MeetingsPage() {
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
         title="Meetings"
-        subtitle={`${describeCreated(preset)} · ${MEETING_VIEW_LABEL[view].toLowerCase()}`}
+        subtitle={`${view === 'all' ? 'All' : MEETING_VIEW_LABEL[view]} meetings`}
         action={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="secondary" onClick={() => navigate('/meetings/links')} className="gap-1.5">
@@ -198,31 +207,15 @@ export function MeetingsPage() {
           </div>
         )}
 
-        <MeetingStatCards view={view} counts={counts} onSelect={setView} />
+        <MeetingStatCards
+          view={view}
+          counts={counts}
+          onSelect={setView}
+          allCard={allCard}
+        />
 
         <div className="mb-4 space-y-2">
-          <div className="scrollbar-thin flex items-center gap-1.5 overflow-x-auto" role="tablist" aria-label="Created on">
-            {CREATED_PRESETS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                role="tab"
-                aria-selected={preset === p.value}
-                onClick={() => {
-                  setPreset(p.value)
-                  setFrom(createdFrom(p.value))
-                }}
-                className={cn(
-                  'h-8 shrink-0 rounded-full border px-3 text-[12.5px] font-medium transition-colors',
-                  preset === p.value
-                    ? 'border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
-                    : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <MeetingRangeBar value={range} onChange={setRange} />
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <SearchBox value={search} onSubmit={setSearch} placeholder="Search by contact or type…" />
@@ -249,7 +242,7 @@ export function MeetingsPage() {
           <PageLoader />
         ) : meetings.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
-            {filtered ? 'No meetings match your search or filters.' : `No ${view === 'all' ? '' : `${MEETING_VIEW_LABEL[view].toLowerCase()} `}meetings ${describeCreated(preset)}. Try a wider range.`}
+            {filtered ? 'No meetings match your search or filters.' : `No ${view === 'all' ? '' : `${MEETING_VIEW_LABEL[view].toLowerCase()} `}meetings in this range. Try a wider range.`}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

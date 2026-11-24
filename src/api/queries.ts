@@ -49,6 +49,7 @@ import {
   fetchTodayFollowupCount,
   fetchTodayMeetingCount,
   markFollowupDone,
+  updateFollowup,
   type FollowupTab,
   fetchContactActiveFollowups,
   fetchDealsPage,
@@ -60,6 +61,10 @@ import {
   fetchPaymentsPage,
   fetchMyTarget,
   fetchLeadsPage,
+  fetchLabels,
+  fetchMyOpenFollowups,
+  type LeadListFilters,
+  type CrmFollowup,
   fetchLeadById,
   fetchAllLeads,
   createFollowup,
@@ -145,10 +150,10 @@ export function useNextQueueLead(campaignId: string, staffId: string, excludeLea
 
 // Keys all start with 'my-leads' so the existing invalidations (create, claim,
 // update) refresh these too.
-export function useLeadsPage({ staffId, search, unassigned }: { staffId: string; search: string; unassigned: boolean }) {
+export function useLeadsPage({ staffId, search, unassigned, filters, allStaff = false }: { staffId: string; search: string; unassigned: boolean; filters?: LeadListFilters; allStaff?: boolean }) {
   return usePagedList({
-    queryKey: ['my-leads', 'paged', staffId, { search, unassigned }],
-    fetchPage: (page) => fetchLeadsPage({ staffId, page, search, unassigned }),
+    queryKey: ['my-leads', 'paged', staffId, { search, unassigned, filters, allStaff }],
+    fetchPage: (page) => fetchLeadsPage({ staffId, page, search, unassigned, filters, allStaff }),
     enabled: Boolean(staffId),
   })
 }
@@ -158,6 +163,23 @@ export function useLeadCount(staffId: string, unassigned: boolean) {
   return useQuery({
     queryKey: ['my-leads', 'count', staffId, unassigned],
     queryFn: async () => (await fetchLeadsPage({ staffId, page: 1, perPage: 1, unassigned })).total,
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useLabels() {
+  return useQuery({ queryKey: ['labels'], queryFn: fetchLabels, staleTime: 5 * 60_000 })
+}
+
+// The caller's open follow-ups by contact (soonest first), for the follow-up line on contact cards.
+export function useMyOpenFollowupsByContact(staffId: string) {
+  return useQuery({
+    queryKey: ['my-followups', 'open-by-contact', staffId],
+    queryFn: async () => {
+      const byContact = new Map<string, CrmFollowup>()
+      for (const f of await fetchMyOpenFollowups(staffId)) if (!byContact.has(f.contact_id)) byContact.set(f.contact_id, f)
+      return byContact
+    },
     enabled: Boolean(staffId),
   })
 }
@@ -255,19 +277,34 @@ export function useMyActiveFollowupsPage(staffId: string, search: string) {
   })
 }
 
-export function useMyFollowupsTabPage(staffId: string, tab: FollowupTab, search: string) {
+/** Optional due-date range (YYYY-MM-DD) and search shared by the Follow-ups list and its tab counts. */
+export interface FollowupListFilters {
+  search?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+export function useMyFollowupsTabPage(staffId: string, tab: FollowupTab, filters: FollowupListFilters, allStaff = false) {
   return usePagedList({
-    queryKey: ['my-followups', 'tab', staffId, tab, { search }],
-    fetchPage: (page) => fetchMyFollowupsPage({ staffId, tab, page, search }),
+    queryKey: ['my-followups', 'tab', staffId, tab, filters, allStaff],
+    fetchPage: (page) => fetchMyFollowupsPage({ staffId, tab, page, allStaff, ...filters }),
     enabled: Boolean(staffId),
   })
 }
 
-// Just the total, for the red count on the Overdue tab.
-export function useOverdueFollowupCount(staffId: string) {
+const FOLLOWUP_TABS: FollowupTab[] = ['all', 'overdue', 'today', 'upcoming', 'done']
+
+// The total for every tab under the same filters — one tiny request each, since the list
+// endpoint returns only its own total.
+export function useFollowupTabCounts(staffId: string, filters: FollowupListFilters, allStaff = false) {
   return useQuery({
-    queryKey: ['my-followups', 'overdue-count', staffId],
-    queryFn: async () => (await fetchMyFollowupsPage({ staffId, tab: 'overdue', page: 1, perPage: 1 })).total,
+    queryKey: ['my-followups', 'tab-counts', staffId, filters, allStaff],
+    queryFn: async () => {
+      const totals = await Promise.all(
+        FOLLOWUP_TABS.map(async (tab) => (await fetchMyFollowupsPage({ staffId, tab, page: 1, perPage: 1, allStaff, ...filters })).total),
+      )
+      return Object.fromEntries(FOLLOWUP_TABS.map((tab, i) => [tab, totals[i]])) as Record<FollowupTab, number>
+    },
     enabled: Boolean(staffId),
   })
 }
@@ -291,6 +328,18 @@ export function useMarkFollowupDone() {
   return useMutation({
     mutationFn: (id: string) => markFollowupDone(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-followups'] }),
+  })
+}
+
+/** Complete with a note, or reschedule. Refreshes every follow-up list and the lead's activity. */
+export function useUpdateFollowup() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof updateFollowup>[1] }) => updateFollowup(id, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-followups'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
+    },
   })
 }
 

@@ -27,12 +27,15 @@ interface MeetingStatCardsProps {
   counts?: Record<string, number>
   /** Tapping a card filters the list to it; tapping the active one goes back to "Created" (everything). */
   onSelect: (view: MeetingView) => void
+  /** Relabels the first ("all") card, e.g. "Today" on the scheduled-today view. */
+  allCard?: { label: string; hint: string }
 }
 
-export function MeetingStatCards({ view, counts, onSelect }: MeetingStatCardsProps) {
+export function MeetingStatCards({ view, counts, onSelect, allCard }: MeetingStatCardsProps) {
+  const cards = allCard ? CARDS.map((c) => (c.value === 'all' ? { ...c, ...allCard } : c)) : CARDS
   return (
     <div className="grid grid-cols-2 gap-2.5 pb-3 sm:grid-cols-3 lg:grid-cols-5">
-      {CARDS.map((c) => {
+      {cards.map((c) => {
         const active = view === c.value
         return (
           <button

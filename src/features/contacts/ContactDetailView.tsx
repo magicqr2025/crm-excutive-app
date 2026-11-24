@@ -32,6 +32,7 @@ import {
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
 import { DispositionForm } from '@/features/calling/DispositionForm'
+import { FollowupCallForm } from '@/features/followups/FollowupCallForm'
 import { formatMeetingWhen, isOverdue } from '@/features/meetings/meetingUi'
 import { RecordPaymentForm } from '@/features/payments/RecordPaymentForm'
 import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
@@ -78,6 +79,8 @@ export interface ContactDetailViewProps {
   initialTab?: ContactDetailTab
   /** Full lead record; when given, the overview shows the About/Timeline history panel. */
   lead?: CrmLead
+  /** Set on a follow-up's own page: a call made here closes that follow-up. */
+  followupId?: string
 }
 
 // Shared body for both "Follow-up Details" (a specific due follow-up) and
@@ -96,6 +99,7 @@ export function ContactDetailView({
   assignToStaffId,
   initialTab = 'overview',
   lead,
+  followupId,
 }: ContactDetailViewProps) {
   const { startCall, assignToMe, isClaiming } = useCallLead()
   const { data: callLogs = [], isLoading: isLoadingLogs } = useCallLogsForLead(leadId)
@@ -411,7 +415,12 @@ export function ContactDetailView({
           >
             <X size={16} />
           </button>
-          <DispositionForm key={callStatusLead.id} lead={callStatusLead} onSubmitted={() => setCallStatusLeadId(null)} />
+          {/* From a follow-up's own page: the short follow-up call form; everywhere else the full Call Status form. */}
+          {followupId ? (
+            <FollowupCallForm key={callStatusLead.id} lead={callStatusLead} followupId={followupId} contactName={contactName} onSubmitted={() => setCallStatusLeadId(null)} />
+          ) : (
+            <DispositionForm key={callStatusLead.id} lead={callStatusLead} onSubmitted={() => setCallStatusLeadId(null)} />
+          )}
         </div>
       )}
 
