@@ -1,7 +1,9 @@
 import { PageLoader } from '@/components/ui/Spinner'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, Plus, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, Filter, Plus, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { FOLLOWUP_DATE_PRESETS, NO_DATE_RANGE, describeDateRange, presetRange, type FollowupDateRange } from './followupDateFilter'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
@@ -13,38 +15,63 @@ import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useCreateFollowup, useMarkFollowupDone, useMyFollowupsTabPage, useOverdueFollowupCount } from '@/api/queries'
+import { useCreateFollowup, useFollowupTabCounts, useMarkFollowupDone, useMyFollowupsTabPage } from '@/api/queries'
 import type { CrmContact, FollowupTab } from '@/api/crmApi'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 
 export { STATUS_LABEL, STATUS_TONE, formatDate, formatTime }
 
 const TABS: { value: FollowupTab; label: string }[] = [
+  { value: 'all', label: 'All' },
   { value: 'overdue', label: 'Overdue' },
+  { value: 'today', label: 'Today' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'done', label: 'Done' },
 ]
 
 const SUBTITLES: Record<FollowupTab, string> = {
+  all: 'Every follow-up — open ones soonest first.',
   overdue: 'Past their due date and not done yet — oldest first.',
-  upcoming: 'Due today or later — soonest first.',
+  today: 'Due today and not done yet.',
+  upcoming: 'Due after today — soonest first.',
   done: 'Completed follow-ups — most recent first.',
 }
 
 const EMPTY: Record<FollowupTab, string> = {
+  all: 'No follow-ups yet.',
   overdue: 'Nothing overdue. 🎉',
+  today: 'Nothing due today.',
   upcoming: 'No upcoming follow-ups.',
   done: 'No completed follow-ups yet.',
+}
+
+// The stat cards: tapping one opens that tab.
+const CARDS: { value: FollowupTab; label: string; icon: ReactNode; chip: string }[] = [
+  { value: 'overdue', label: 'Overdue', icon: <AlertTriangle size={16} />, chip: 'bg-[var(--error-bg)] text-[var(--error)]' },
+  { value: 'today', label: 'Due today', icon: <CalendarClock size={16} />, chip: 'bg-[var(--accent-bg)] text-[var(--accent-strong)]' },
+  { value: 'upcoming', label: 'Upcoming', icon: <Clock size={16} />, chip: 'bg-[var(--surface-hover)] text-[var(--text)]' },
+  { value: 'done', label: 'Done', icon: <CheckCircle2 size={16} />, chip: 'bg-[var(--success-bg)] text-[var(--success)]' },
+]
+
+// followup_date is a date-only IST value; open and before today's IST day = overdue.
+function isOverdue(f: { followup_date: string; followup_status: string }): boolean {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  return f.followup_status !== '2' && f.followup_date.slice(0, 10) < today
 }
 
 export function FollowupsPage() {
   const navigate = useNavigate()
   const { show } = useToast()
   const userId = useAuthStore((s) => s.user?.id ?? '')
-  const [tab, setTab] = useState<FollowupTab>('upcoming')
+  // Opens on Today, matching the Home tile's "N today".
+  const [tab, setTab] = useState<FollowupTab>('today')
   const [search, setSearch] = useState('')
-  const { items: followups, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyFollowupsTabPage(userId, tab, search)
-  const { data: overdueCount = 0 } = useOverdueFollowupCount(userId)
+  const [dateRange, setDateRange] = useState<FollowupDateRange>(NO_DATE_RANGE)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filters = { search: search || undefined, dateFrom: dateRange.from || undefined, dateTo: dateRange.to || undefined }
+  const dateActive = Boolean(dateRange.from || dateRange.to)
+  const { items: followups, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyFollowupsTabPage(userId, tab, filters)
+  const { data: counts } = useFollowupTabCounts(userId, filters)
   const markDone = useMarkFollowupDone()
   const createFollowup = useCreateFollowup()
   const [formOpen, setFormOpen] = useState(false)
@@ -108,7 +135,28 @@ export function FollowupsPage() {
             </Button>
           </div>
         )}
-        <div className="flex items-center gap-1 self-start rounded-lg border border-[var(--border)] p-1" role="tablist">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {CARDS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              aria-pressed={tab === c.value}
+              onClick={() => setTab(c.value)}
+              className={cn(
+                'flex items-center gap-2.5 rounded-xl border bg-[var(--surface)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-hover)]',
+                tab === c.value ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-[var(--border)]',
+              )}
+            >
+              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', c.chip)}>{c.icon}</span>
+              <span className="min-w-0">
+                <span className="block text-[12px] font-medium text-[var(--text-muted)]">{c.label}</span>
+                <span className="block font-display text-[20px] font-semibold leading-tight tabular-nums text-[var(--text-h)]">{counts ? counts[c.value] : '–'}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        {/* Wraps on a phone so every tab stays visible. */}
+        <div className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-[var(--border)] p-1" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.value}
@@ -117,18 +165,95 @@ export function FollowupsPage() {
               onClick={() => setTab(t.value)}
               className={
                 tab === t.value
-                  ? 'flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-3 py-1.5 text-[12.5px] font-medium text-[var(--ink)]'
-                  : 'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-hover)]'
+                  ? 'flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--ink)] sm:px-3'
+                  : 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-hover)] sm:px-3'
               }
             >
               {t.label}
-              {t.value === 'overdue' && overdueCount > 0 && (
-                <span className="rounded-full bg-[var(--error)] px-1.5 text-[11px] font-semibold leading-4 text-white">{overdueCount}</span>
+              {counts && (
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 text-[11px] font-semibold leading-4 tabular-nums',
+                    t.value === 'overdue' && counts.overdue > 0 ? 'bg-[var(--error)] text-white' : 'bg-[var(--surface-hover)] text-[var(--text-muted)]',
+                  )}
+                >
+                  {counts[t.value]}
+                </span>
               )}
             </button>
           ))}
         </div>
-        <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+            aria-label="Filter by due date"
+            className="relative h-10 shrink-0 gap-1.5"
+          >
+            <Filter size={15} />
+            <span className="max-sm:hidden">Filter</span>
+            {dateActive && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[var(--error)]" />}
+          </Button>
+        </div>
+        {filterOpen && (
+          <div className="space-y-2.5 rounded-xl border border-[var(--border)] p-3">
+            <p className="text-[12px] font-medium text-[var(--text-muted)]">Follow-up date</p>
+            <div className="flex flex-wrap gap-1.5">
+              {FOLLOWUP_DATE_PRESETS.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  aria-pressed={dateRange.preset === p.value}
+                  // Tapping the selected chip again clears the filter.
+                  onClick={() => setDateRange((cur) => (cur.preset === p.value ? NO_DATE_RANGE : presetRange(p.value, cur)))}
+                  className={cn(
+                    'h-8 rounded-full border px-3 text-[12.5px] font-medium transition-colors',
+                    dateRange.preset === p.value
+                      ? 'border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
+                      : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]',
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {dateRange.preset === 'custom' && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  aria-label="From"
+                  value={dateRange.from}
+                  max={dateRange.to || undefined}
+                  onChange={(e) => setDateRange((cur) => ({ ...cur, from: e.target.value }))}
+                  className="min-w-0 flex-1"
+                />
+                <span className="text-[12.5px] text-[var(--text-muted)]">to</span>
+                <Input
+                  type="date"
+                  aria-label="To"
+                  value={dateRange.to}
+                  min={dateRange.from || undefined}
+                  onChange={(e) => setDateRange((cur) => ({ ...cur, to: e.target.value }))}
+                  className="min-w-0 flex-1"
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {dateActive && (
+          <div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] py-1 pl-3 pr-1.5 text-[12px] font-medium text-[var(--accent-strong)]">
+              {describeDateRange(dateRange)}
+              <button type="button" aria-label="Clear the date filter" onClick={() => setDateRange(NO_DATE_RANGE)} className="rounded-full p-0.5 hover:bg-[var(--surface-hover)]">
+                <X size={13} />
+              </button>
+            </span>
+          </div>
+        )}
         {search && !isLoading && (
           <p className="text-[12px] text-[var(--text-muted)]">
             {total} {total === 1 ? 'result' : 'results'} for “{search}”
@@ -137,10 +262,15 @@ export function FollowupsPage() {
         {isLoading ? (
           <PageLoader />
         ) : followups.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">{search ? `No results for “${search}”.` : EMPTY[tab]}</p>
+          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
+            {search ? `No results for “${search}”.` : dateActive ? 'No follow-ups in this date range.' : EMPTY[tab]}
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {followups.map((f) => (
+            {followups.map((f) => {
+              const overdue = isOverdue(f)
+              const isDone = f.followup_status === '2'
+              return (
               <div
                 key={f.id}
                 role="button"
@@ -149,7 +279,7 @@ export function FollowupsPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') navigate(`/followups/${f.id}`)
                 }}
-                className={`cursor-pointer rounded-xl border p-3.5 text-left hover:bg-[var(--surface-hover)] ${tab === 'overdue' ? 'border-[var(--error)]' : 'border-[var(--border)]'}`}
+                className={`cursor-pointer rounded-xl border p-3.5 text-left hover:bg-[var(--surface-hover)] ${overdue ? 'border-[var(--error)]' : 'border-[var(--border)]'}`}
               >
                 <div className="flex items-center gap-2.5">
                   <Avatar name={f.contact_name ?? 'Unknown'} size={32} />
@@ -159,13 +289,13 @@ export function FollowupsPage() {
                   </div>
                 </div>
                 <p
-                  className={`mt-2.5 font-mono-num text-[12px] ${tab === 'overdue' ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]'}`}
+                  className={`mt-2.5 font-mono-num text-[12px] ${overdue ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]'}`}
                 >
                   Due {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
                 </p>
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  {f.raised ? <RaisedBadge raised={f.raised} /> : tab === 'overdue' ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
-                  {tab !== 'done' && (
+                  {f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
+                  {!isDone && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -180,7 +310,8 @@ export function FollowupsPage() {
                   )}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
         <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />

@@ -436,25 +436,50 @@ export async function fetchContactActiveFollowups(contactId: string): Promise<Cr
   return apiRequest<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
 }
 
-export type FollowupTab = 'overdue' | 'upcoming' | 'done'
+export type FollowupTab = 'all' | 'overdue' | 'today' | 'upcoming' | 'done'
 
-// The caller's follow-ups for one Follow-ups tab. Open ones (overdue = due before today IST,
-// upcoming = today or later) come soonest first; done ones newest due date first.
+// Today's IST calendar day as YYYY-MM-DD — the day the server splits overdue / today / upcoming on.
+function istTodayYmd(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+}
+
+// The caller's follow-ups for one Follow-ups tab. Overdue = due before today (IST), today = due today,
+// upcoming = due after today; open ones soonest first, done ones newest due date first.
+// `dateFrom` / `dateTo` (YYYY-MM-DD) narrow any tab to that due-date range.
 export async function fetchMyFollowupsPage(opts: {
   staffId: string
   tab: FollowupTab
   page: number
   search?: string
   perPage?: number
+  dateFrom?: string
+  dateTo?: string
 }): Promise<PageResult<CrmFollowup>> {
+  // The server's due=today replaces the date range rather than narrowing it, so a range
+  // that leaves out today means the Today tab is simply empty.
+  if (opts.tab === 'today' && (opts.dateFrom || opts.dateTo)) {
+    const today = istTodayYmd()
+    if ((opts.dateFrom && today < opts.dateFrom) || (opts.dateTo && today > opts.dateTo)) {
+      return { items: [], page: 1, totalPages: 1, total: 0 }
+    }
+  }
   const businessId = getActiveBusinessId()
+  const tabParams: Record<FollowupTab, Record<string, string>> = {
+    all: {},
+    overdue: { due: 'overdue' },
+    today: { due: 'today' },
+    upcoming: { due: 'later' },
+    done: { status: 'done' },
+  }
   const params = new URLSearchParams({
     business_id: businessId,
     assign_to_staff_id: opts.staffId,
     page: String(opts.page),
     per_page: String(opts.perPage ?? PAGE_SIZE),
-    ...(opts.tab === 'done' ? { status: 'done' } : { due: opts.tab }),
+    ...tabParams[opts.tab],
     ...(opts.search ? { search: opts.search } : {}),
+    ...(opts.dateFrom ? { date_from: opts.dateFrom } : {}),
+    ...(opts.dateTo ? { date_to: opts.dateTo } : {}),
   })
   const result = await apiRequestWithMeta<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
   return toPageResult(result.data, result.meta)
