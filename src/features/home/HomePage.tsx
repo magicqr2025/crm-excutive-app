@@ -4,7 +4,8 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuthStore } from '@/store/useAuthStore'
 import { RaisedForYou } from './RaisedForYou'
 import { useChatUnreadTotal } from '@/features/teamChat/useTeamChat'
-import { useTodayFollowupCount, useTodayMeetingCount } from '@/api/queries'
+import { useMyActivity, useOpenTaskCount, useRenewalsDueCount, useTicketSummary, useTodayFollowupCount, useTodayMeetingCount } from '@/api/queries'
+import { toDay } from '@/features/performance/performanceUtils'
 
 interface Tile {
   to: string
@@ -41,7 +42,24 @@ export function HomePage() {
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { data: followupsToday } = useTodayFollowupCount(userId)
   const { data: meetingsToday } = useTodayMeetingCount()
-  const todayCount: Record<string, number | undefined> = { '/followups': followupsToday, '/meetings': meetingsToday }
+  // Today's own activity (IST day): new leads, payments, deals, calls.
+  const today = toDay(new Date())
+  const { data: activity } = useMyActivity({ from: today, to: today })
+  const mine = activity ? (activity.staff.find((s) => s.staff_id === userId) ?? (activity.staff.length <= 1 ? activity.totals : undefined)) : undefined
+  const { data: renewalsDue } = useRenewalsDueCount()
+  const { data: openTasks } = useOpenTaskCount()
+  const { data: ticketSummary } = useTicketSummary()
+  const tileCount: Record<string, { n: number | undefined; suffix: string }> = {
+    '/contacts': { n: mine?.leads, suffix: 'new today' },
+    '/followups': { n: followupsToday, suffix: 'today' },
+    '/meetings': { n: meetingsToday, suffix: 'today' },
+    '/payments': { n: mine?.payments.count, suffix: 'today' },
+    '/deals': { n: mine?.deals, suffix: 'today' },
+    '/call-logs': { n: mine?.calls.total, suffix: 'today' },
+    '/subscriptions': { n: renewalsDue, suffix: 'due' },
+    '/tasks': { n: openTasks, suffix: 'open' },
+    '/tickets': { n: ticketSummary?.active, suffix: 'open' },
+  }
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -73,9 +91,9 @@ export function HomePage() {
             <div>
               <div className="flex items-baseline justify-between gap-2">
                 <p className="font-display text-[15px] font-semibold text-[var(--text-h)]">{label}</p>
-                {todayCount[to] !== undefined && (
+                {tileCount[to]?.n !== undefined && (
                   <span className="shrink-0 rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[11.5px] font-semibold text-[var(--accent-strong)]">
-                    <span className="font-mono-num">{todayCount[to]}</span> today
+                    <span className="font-mono-num">{tileCount[to].n}</span> {tileCount[to].suffix}
                   </span>
                 )}
               </div>

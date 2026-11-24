@@ -48,6 +48,8 @@ import {
   fetchMyFollowupsPage,
   fetchTodayFollowupCount,
   fetchTodayMeetingCount,
+  fetchOpenTaskCount,
+  fetchRenewalsDueCount,
   markFollowupDone,
   updateFollowup,
   type FollowupTab,
@@ -321,6 +323,14 @@ export function useTodayFollowupCount(staffId: string) {
 
 export function useTodayMeetingCount() {
   return useQuery({ queryKey: ['meetings', 'today-count'], queryFn: fetchTodayMeetingCount })
+}
+
+export function useOpenTaskCount() {
+  return useQuery({ queryKey: ['tasks', 'open-count'], queryFn: fetchOpenTaskCount })
+}
+
+export function useRenewalsDueCount() {
+  return useQuery({ queryKey: ['subscriptions', 'due-count'], queryFn: fetchRenewalsDueCount })
 }
 
 export function useMarkFollowupDone() {

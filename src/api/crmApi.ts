@@ -575,6 +575,16 @@ export async function fetchTodayMeetingCount(): Promise<number> {
   return toPageResult(result.data, result.meta).total
 }
 
+// Open tasks (created or ongoing) the caller can see, tickets left out — same as the Tasks page's default tab.
+export async function fetchOpenTaskCount(): Promise<number> {
+  return (await fetchTasksPage({ page: 1, perPage: 1, status: 'open', excludeTaskType: 'ticket' })).total
+}
+
+// Active subscriptions ending within the next 7 days — same as the Subscriptions page's default "Expiring" tab.
+export async function fetchRenewalsDueCount(): Promise<number> {
+  return (await fetchSubscriptionsPage({ page: 1, perPage: 1, status: 'expiring' })).total
+}
+
 export async function markFollowupDone(id: string): Promise<CrmFollowup> {
   return apiRequest<CrmFollowup>(`/crm/followup/update/${encodeURIComponent(id)}`, {
     method: 'PUT',
