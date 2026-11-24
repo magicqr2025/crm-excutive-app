@@ -70,6 +70,8 @@ export interface CrmLead {
   deal_value: string | null
   deal_details: string | null
   lead_campaigns: { id: string; name: string }[]
+  /** Only list responses include labels; a single-lead response has []. */
+  labels?: { id: string; name: string }[]
   need_attention: boolean
   feature_requirement: boolean
   special_meeting: boolean
@@ -132,18 +134,71 @@ export async function fetchNextQueueLead(campaignId: string, staffId: string, ex
 // pool they may claim). `search` matches name/phone/email server-side;
 // `unassigned` limits to the Unassigned tab. `perPage` 1 is also how the tab
 // counts are read: only meta.total is used.
-export async function fetchLeadsPage(opts: { staffId: string; page: number; search?: string; unassigned?: boolean; perPage?: number }): Promise<PageResult<CrmLead>> {
+/** Server-side Contacts filters (crmbackend leads list); empty = no limit. */
+export interface LeadListFilters {
+  followup?: 'overdue' | 'today' | 'upcoming' | 'none'
+  meeting?: 'today'
+  leadStatusId?: string
+  campaignId?: string
+  labelId?: string
+  /** ISO instants bounding when the lead was added. */
+  createdFrom?: string
+  createdTo?: string
+}
+
+export async function fetchLeadsPage(opts: {
+  staffId: string
+  page: number
+  search?: string
+  unassigned?: boolean
+  perPage?: number
+  filters?: LeadListFilters
+  /** Admins only: every staff member's leads (no assign_to_staff_id), not just the caller's. */
+  allStaff?: boolean
+}): Promise<PageResult<CrmLead>> {
+  const f = opts.filters ?? {}
   const businessId = getActiveBusinessId()
   const params = new URLSearchParams({
     business_id: businessId,
-    assign_to_staff_id: opts.staffId,
+    ...(opts.allStaff ? {} : { assign_to_staff_id: opts.staffId }),
     page: String(opts.page),
     per_page: String(opts.perPage ?? PAGE_SIZE),
     ...(opts.search ? { search: opts.search } : {}),
     ...(opts.unassigned ? { unassigned: '1' } : {}),
+    ...(f.followup ? { followup: f.followup } : {}),
+    ...(f.meeting ? { meeting: f.meeting } : {}),
+    ...(f.leadStatusId ? { lead_status_id: f.leadStatusId } : {}),
+    ...(f.campaignId ? { lead_campaign_id: f.campaignId } : {}),
+    ...(f.labelId ? { label_id: f.labelId } : {}),
+    ...(f.createdFrom ? { created_from: f.createdFrom } : {}),
+    ...(f.createdTo ? { created_to: f.createdTo } : {}),
   })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
   return toPageResult(result.data, result.meta)
+}
+
+export interface CrmLabel {
+  id: string
+  name: string
+}
+
+/** The business's lead labels, for the Contacts label filter. */
+export async function fetchLabels(): Promise<CrmLabel[]> {
+  const params = new URLSearchParams({ business_id: getActiveBusinessId() })
+  return apiRequest<CrmLabel[]>(`/crm/labels/get-list?${params}`, { headers: authHeaders() })
+}
+
+/** The caller's open (pending / scheduled) follow-ups, soonest first — for the follow-up line on contact cards. */
+export async function fetchMyOpenFollowups(staffId: string): Promise<CrmFollowup[]> {
+  const params = new URLSearchParams({
+    business_id: getActiveBusinessId(),
+    assign_to_staff_id: staffId,
+    status: 'active',
+    page: '1',
+    per_page: '500',
+  })
+  const result = await apiRequestWithMeta<CrmFollowup[]>(`/crm/followup/list?${params}`, { headers: authHeaders() })
+  return result.data
 }
 
 // One lead the caller can see (own or unassigned pool); 404 otherwise.

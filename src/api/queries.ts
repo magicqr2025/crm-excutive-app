@@ -61,6 +61,10 @@ import {
   fetchPaymentsPage,
   fetchMyTarget,
   fetchLeadsPage,
+  fetchLabels,
+  fetchMyOpenFollowups,
+  type LeadListFilters,
+  type CrmFollowup,
   fetchLeadById,
   fetchAllLeads,
   createFollowup,
@@ -146,10 +150,10 @@ export function useNextQueueLead(campaignId: string, staffId: string, excludeLea
 
 // Keys all start with 'my-leads' so the existing invalidations (create, claim,
 // update) refresh these too.
-export function useLeadsPage({ staffId, search, unassigned }: { staffId: string; search: string; unassigned: boolean }) {
+export function useLeadsPage({ staffId, search, unassigned, filters, allStaff = false }: { staffId: string; search: string; unassigned: boolean; filters?: LeadListFilters; allStaff?: boolean }) {
   return usePagedList({
-    queryKey: ['my-leads', 'paged', staffId, { search, unassigned }],
-    fetchPage: (page) => fetchLeadsPage({ staffId, page, search, unassigned }),
+    queryKey: ['my-leads', 'paged', staffId, { search, unassigned, filters, allStaff }],
+    fetchPage: (page) => fetchLeadsPage({ staffId, page, search, unassigned, filters, allStaff }),
     enabled: Boolean(staffId),
   })
 }
@@ -159,6 +163,23 @@ export function useLeadCount(staffId: string, unassigned: boolean) {
   return useQuery({
     queryKey: ['my-leads', 'count', staffId, unassigned],
     queryFn: async () => (await fetchLeadsPage({ staffId, page: 1, perPage: 1, unassigned })).total,
+    enabled: Boolean(staffId),
+  })
+}
+
+export function useLabels() {
+  return useQuery({ queryKey: ['labels'], queryFn: fetchLabels, staleTime: 5 * 60_000 })
+}
+
+// The caller's open follow-ups by contact (soonest first), for the follow-up line on contact cards.
+export function useMyOpenFollowupsByContact(staffId: string) {
+  return useQuery({
+    queryKey: ['my-followups', 'open-by-contact', staffId],
+    queryFn: async () => {
+      const byContact = new Map<string, CrmFollowup>()
+      for (const f of await fetchMyOpenFollowups(staffId)) if (!byContact.has(f.contact_id)) byContact.set(f.contact_id, f)
+      return byContact
+    },
     enabled: Boolean(staffId),
   })
 }
