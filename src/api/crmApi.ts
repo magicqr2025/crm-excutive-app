@@ -466,6 +466,7 @@ export interface CrmFollowup {
   followup_date: string
   followup_time: string
   followup_status: '0' | '1' | '2'
+  assign_to_staff_id?: string
   /** What was discussed — set when it's created with a note or completed. */
   note?: string | null
   /** Set while a manager's "raise priority" on this follow-up is still open. */
@@ -511,6 +512,8 @@ export async function fetchMyFollowupsPage(opts: {
   perPage?: number
   dateFrom?: string
   dateTo?: string
+  /** Admins / managers only: everyone's follow-ups (no assign_to_staff_id), not just the caller's. */
+  allStaff?: boolean
 }): Promise<PageResult<CrmFollowup>> {
   // The server's due=today replaces the date range rather than narrowing it, so a range
   // that leaves out today means the Today tab is simply empty.
@@ -530,7 +533,7 @@ export async function fetchMyFollowupsPage(opts: {
   }
   const params = new URLSearchParams({
     business_id: businessId,
-    assign_to_staff_id: opts.staffId,
+    ...(opts.allStaff ? {} : { assign_to_staff_id: opts.staffId }),
     page: String(opts.page),
     per_page: String(opts.perPage ?? PAGE_SIZE),
     ...tabParams[opts.tab],

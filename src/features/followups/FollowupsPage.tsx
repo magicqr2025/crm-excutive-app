@@ -17,7 +17,8 @@ import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useCreateFollowup, useFollowupTabCounts, useMyFollowupsTabPage } from '@/api/queries'
+import { useCreateFollowup, useFollowupTabCounts, useMyFollowupsTabPage, useStaffList } from '@/api/queries'
+import { staffName } from '@/features/meetings/meetingUi'
 import type { CrmContact, CrmFollowup, FollowupTab } from '@/api/crmApi'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 
@@ -65,6 +66,9 @@ export function FollowupsPage() {
   const navigate = useNavigate()
   const { show } = useToast()
   const userId = useAuthStore((s) => s.user?.id ?? '')
+  // Admins and managers see everyone's follow-ups; only admins may complete / reschedule someone else's (server rule).
+  const allStaff = useAuthStore((st) => st.seesAll)
+  const isAdmin = useAuthStore((st) => st.isAdmin)
   // Opens on Today, matching the Home tile's "N today".
   const [tab, setTab] = useState<FollowupTab>('today')
   const [search, setSearch] = useState('')
@@ -72,8 +76,9 @@ export function FollowupsPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const filters = { search: search || undefined, dateFrom: dateRange.from || undefined, dateTo: dateRange.to || undefined }
   const dateActive = Boolean(dateRange.from || dateRange.to)
-  const { items: followups, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyFollowupsTabPage(userId, tab, filters)
-  const { data: counts } = useFollowupTabCounts(userId, filters)
+  const { items: followups, total, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMyFollowupsTabPage(userId, tab, filters, allStaff)
+  const { data: counts } = useFollowupTabCounts(userId, filters, allStaff)
+  const { data: staff = [] } = useStaffList()
   const createFollowup = useCreateFollowup()
   const [formOpen, setFormOpen] = useState(false)
   const [contact, setContact] = useState<CrmContact | null>(null)
@@ -108,7 +113,7 @@ export function FollowupsPage() {
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
         title="Follow-ups"
-        subtitle={SUBTITLES[tab]}
+        subtitle={allStaff ? `Everyone's follow-ups. ${SUBTITLES[tab]}` : SUBTITLES[tab]}
         action={
           <Button size="sm" onClick={() => setFormOpen((v) => !v)} className="gap-1.5">
             {formOpen ? <X size={14} /> : <Plus size={14} />}
@@ -266,6 +271,7 @@ export function FollowupsPage() {
             {followups.map((f) => {
               const overdue = isOverdue(f)
               const isDone = f.followup_status === '2'
+              const canAct = !isDone && (isAdmin || !f.assign_to_staff_id || f.assign_to_staff_id === userId)
               return (
               <div
                 key={f.id}
@@ -282,6 +288,11 @@ export function FollowupsPage() {
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{f.contact_name ?? 'Unknown'}</p>
                     <p className="text-[12px] text-[var(--text-muted)]">{f.contact_phone ?? '—'}</p>
+                    {allStaff && f.assign_to_staff_id && (
+                      <p className="truncate text-[11.5px] text-[var(--text-muted)]">
+                        Assigned to <span className="font-medium text-[var(--text-h)]">{f.assign_to_staff_id === userId ? 'You' : staffName(staff, f.assign_to_staff_id)}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <p
@@ -291,7 +302,7 @@ export function FollowupsPage() {
                 </p>
                 <div className="mt-2 flex items-center justify-between gap-2">
                   {f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
-                  {!isDone && (
+                  {canAct && (
                     <div className="flex shrink-0 items-center gap-1.5">
                       <Button
                         size="sm"

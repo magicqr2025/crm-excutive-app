@@ -284,10 +284,10 @@ export interface FollowupListFilters {
   dateTo?: string
 }
 
-export function useMyFollowupsTabPage(staffId: string, tab: FollowupTab, filters: FollowupListFilters) {
+export function useMyFollowupsTabPage(staffId: string, tab: FollowupTab, filters: FollowupListFilters, allStaff = false) {
   return usePagedList({
-    queryKey: ['my-followups', 'tab', staffId, tab, filters],
-    fetchPage: (page) => fetchMyFollowupsPage({ staffId, tab, page, ...filters }),
+    queryKey: ['my-followups', 'tab', staffId, tab, filters, allStaff],
+    fetchPage: (page) => fetchMyFollowupsPage({ staffId, tab, page, allStaff, ...filters }),
     enabled: Boolean(staffId),
   })
 }
@@ -296,12 +296,12 @@ const FOLLOWUP_TABS: FollowupTab[] = ['all', 'overdue', 'today', 'upcoming', 'do
 
 // The total for every tab under the same filters — one tiny request each, since the list
 // endpoint returns only its own total.
-export function useFollowupTabCounts(staffId: string, filters: FollowupListFilters) {
+export function useFollowupTabCounts(staffId: string, filters: FollowupListFilters, allStaff = false) {
   return useQuery({
-    queryKey: ['my-followups', 'tab-counts', staffId, filters],
+    queryKey: ['my-followups', 'tab-counts', staffId, filters, allStaff],
     queryFn: async () => {
       const totals = await Promise.all(
-        FOLLOWUP_TABS.map(async (tab) => (await fetchMyFollowupsPage({ staffId, tab, page: 1, perPage: 1, ...filters })).total),
+        FOLLOWUP_TABS.map(async (tab) => (await fetchMyFollowupsPage({ staffId, tab, page: 1, perPage: 1, allStaff, ...filters })).total),
       )
       return Object.fromEntries(FOLLOWUP_TABS.map((tab, i) => [tab, totals[i]])) as Record<FollowupTab, number>
     },
