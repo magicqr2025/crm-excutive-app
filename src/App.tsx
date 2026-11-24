@@ -1,38 +1,44 @@
+import { lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RequireAuth } from '@/features/auth/RequireAuth'
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { AppShell } from '@/components/layout/AppShell'
-import { HomePage } from '@/features/home/HomePage'
-import { CampaignsPage } from '@/features/campaigns/CampaignsPage'
-import { CampaignLeadsPage } from '@/features/campaigns/CampaignLeadsPage'
-import { LeadCallingPage } from '@/features/calling/LeadCallingPage'
-import { FollowupsPage } from '@/features/followups/FollowupsPage'
-import { FollowupDetailPage } from '@/features/followups/FollowupDetailPage'
-import { ContactsPage } from '@/features/contacts/ContactsPage'
-import { ContactDetailPage } from '@/features/contacts/ContactDetailPage'
-import { CallLogsPage } from '@/features/callLogs/CallLogsPage'
-import { DealsPage } from '@/features/deals/DealsPage'
-import { MeetingsPage } from '@/features/meetings/MeetingsPage'
-import { MeetingDetailPage } from '@/features/meetings/MeetingDetailPage'
-import { BookingLinksPage } from '@/features/meetings/BookingLinksPage'
-import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage'
-import { LeadBoardPage } from '@/features/leads/LeadBoardPage'
-import { TasksPage } from '@/features/tasks/TasksPage'
-import { TaskDetailPage } from '@/features/tasks/TaskDetailPage'
-import { TaskFormPage } from '@/features/tasks/TaskFormPage'
-import { TicketsPage } from '@/features/tickets/TicketsPage'
-import { TicketCreatePage } from '@/features/tickets/TicketCreatePage'
-import { TicketDetailPage } from '@/features/tickets/TicketDetailPage'
-import { TargetPage } from '@/features/target/TargetPage'
-import { PaymentsPage } from '@/features/payments/PaymentsPage'
-import { CallRecordingSettingsPage } from '@/features/settings/CallRecordingSettingsPage'
-import { InboxPage } from '@/features/inbox/InboxPage'
-import { ConversationPage } from '@/features/inbox/ConversationPage'
-import { TeamChatPage } from '@/features/teamChat/TeamChatPage'
-import { TeamChatThreadPage } from '@/features/teamChat/TeamChatThreadPage'
-import { MyPerformancePage } from '@/features/performance/MyPerformancePage'
-import { NotificationsPage } from '@/features/notifications/NotificationsPage'
+
+// Pages are loaded on demand so each one ships as its own small JS chunk.
+// The <Suspense> boundary lives in AppShell around <Outlet />.
+const HomePage = lazy(() => import('@/features/home/HomePage').then((m) => ({ default: m.HomePage })))
+const CampaignsPage = lazy(() => import('@/features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
+const CampaignLeadsPage = lazy(() => import('@/features/campaigns/CampaignLeadsPage').then((m) => ({ default: m.CampaignLeadsPage })))
+const LeadCallingPage = lazy(() => import('@/features/calling/LeadCallingPage').then((m) => ({ default: m.LeadCallingPage })))
+const FollowupsPage = lazy(() => import('@/features/followups/FollowupsPage').then((m) => ({ default: m.FollowupsPage })))
+const FollowupDetailPage = lazy(() => import('@/features/followups/FollowupDetailPage').then((m) => ({ default: m.FollowupDetailPage })))
+const ContactsPage = lazy(() => import('@/features/contacts/ContactsPage').then((m) => ({ default: m.ContactsPage })))
+const ContactDetailPage = lazy(() => import('@/features/contacts/ContactDetailPage').then((m) => ({ default: m.ContactDetailPage })))
+const CallLogsPage = lazy(() => import('@/features/callLogs/CallLogsPage').then((m) => ({ default: m.CallLogsPage })))
+const DealsPage = lazy(() => import('@/features/deals/DealsPage').then((m) => ({ default: m.DealsPage })))
+const MeetingsPage = lazy(() => import('@/features/meetings/MeetingsPage').then((m) => ({ default: m.MeetingsPage })))
+const MeetingDetailPage = lazy(() => import('@/features/meetings/MeetingDetailPage').then((m) => ({ default: m.MeetingDetailPage })))
+const BookingLinksPage = lazy(() => import('@/features/meetings/BookingLinksPage').then((m) => ({ default: m.BookingLinksPage })))
+const SubscriptionsPage = lazy(() => import('@/features/subscriptions/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
+const LeadBoardPage = lazy(() => import('@/features/leads/LeadBoardPage').then((m) => ({ default: m.LeadBoardPage })))
+const TasksPage = lazy(() => import('@/features/tasks/TasksPage').then((m) => ({ default: m.TasksPage })))
+const TaskDetailPage = lazy(() => import('@/features/tasks/TaskDetailPage').then((m) => ({ default: m.TaskDetailPage })))
+const TaskFormPage = lazy(() => import('@/features/tasks/TaskFormPage').then((m) => ({ default: m.TaskFormPage })))
+const TicketsPage = lazy(() => import('@/features/tickets/TicketsPage').then((m) => ({ default: m.TicketsPage })))
+const TicketCreatePage = lazy(() => import('@/features/tickets/TicketCreatePage').then((m) => ({ default: m.TicketCreatePage })))
+const TicketDetailPage = lazy(() => import('@/features/tickets/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })))
+const TargetPage = lazy(() => import('@/features/target/TargetPage').then((m) => ({ default: m.TargetPage })))
+const PaymentsPage = lazy(() => import('@/features/payments/PaymentsPage').then((m) => ({ default: m.PaymentsPage })))
+const CallRecordingSettingsPage = lazy(() =>
+  import('@/features/settings/CallRecordingSettingsPage').then((m) => ({ default: m.CallRecordingSettingsPage })),
+)
+const InboxPage = lazy(() => import('@/features/inbox/InboxPage').then((m) => ({ default: m.InboxPage })))
+const ConversationPage = lazy(() => import('@/features/inbox/ConversationPage').then((m) => ({ default: m.ConversationPage })))
+const TeamChatPage = lazy(() => import('@/features/teamChat/TeamChatPage').then((m) => ({ default: m.TeamChatPage })))
+const TeamChatThreadPage = lazy(() => import('@/features/teamChat/TeamChatThreadPage').then((m) => ({ default: m.TeamChatThreadPage })))
+const MyPerformancePage = lazy(() => import('@/features/performance/MyPerformancePage').then((m) => ({ default: m.MyPerformancePage })))
+const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 
 export default function App() {
   return (
