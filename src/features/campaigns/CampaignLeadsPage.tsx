@@ -120,7 +120,13 @@ export function CampaignLeadsPage() {
                   <div className="flex items-center gap-2.5">
                     <Avatar name={lead.contact_name ?? 'Unknown'} size={32} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
+                      {/* Name, then the lead's status right after it. */}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
+                        <span className="shrink-0">
+                          <Badge tone={lead.lead_status ? 'accent' : 'warning'}>{lead.lead_status ?? 'Fresh Inquiry'}</Badge>
+                        </span>
+                      </div>
                       <p className="text-[12px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
                     </div>
                     {othersLead ? (
@@ -136,12 +142,13 @@ export function CampaignLeadsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    <Badge tone={lead.lead_status ? 'accent' : 'warning'}>{lead.lead_status ?? 'Fresh Inquiry'}</Badge>
-                    {lead.tag_name && <Badge tone="neutral">{lead.tag_name}</Badge>}
-                    {!lead.assign_to_staff_id && <Badge tone="warning">Unassigned</Badge>}
-                    {othersLead && <Badge tone="neutral">{lead.assign_staff_name || 'Another executive'}</Badge>}
-                  </div>
+                  {(lead.tag_name || !lead.assign_to_staff_id || othersLead) && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      {lead.tag_name && <Badge tone="neutral">{lead.tag_name}</Badge>}
+                      {!lead.assign_to_staff_id && <Badge tone="warning">Unassigned</Badge>}
+                      {othersLead && <Badge tone="neutral">{lead.assign_staff_name || 'Another executive'}</Badge>}
+                    </div>
+                  )}
                 </div>
               )
             })}
