@@ -1,7 +1,8 @@
 import { PageLoader } from '@/components/ui/Spinner'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, Filter, Plus, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, Filter, Phone, Plus, X } from 'lucide-react'
+import { useCallLead } from '@/features/calling/useCallLead'
 import { cn } from '@/lib/utils'
 import { FOLLOWUP_DATE_PRESETS, NO_DATE_RANGE, describeDateRange, presetRange, type FollowupDateRange } from './followupDateFilter'
 import { FollowupWhenPicker, initialWhen, resolveWhen, whenIsValid, type When } from './FollowupWhenPicker'
@@ -64,6 +65,7 @@ function isOverdue(f: { followup_date: string; followup_status: string }): boole
 
 export function FollowupsPage() {
   const navigate = useNavigate()
+  const { startCall, isClaiming } = useCallLead()
   const { show } = useToast()
   const userId = useAuthStore((s) => s.user?.id ?? '')
   // Admins and managers see everyone's follow-ups; only admins may complete / reschedule someone else's (server rule).
@@ -304,6 +306,29 @@ export function FollowupsPage() {
                   {f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
                   {canAct && (
                     <div className="flex shrink-0 items-center gap-1.5">
+                      {f.contact_phone && (
+                        <button
+                          type="button"
+                          aria-label={`Call ${f.contact_name ?? f.contact_phone}`}
+                          title={`Call ${f.contact_phone}`}
+                          disabled={isClaiming}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Dial, and open this follow-up on its call form so it's ready when the call ends.
+                            // The list rows carry no lead id (the details page loads it); a follow-up always
+                            // has an owner, so there is nothing to claim here.
+                            startCall({
+                              leadId: f.lead_id ?? null,
+                              phone: f.contact_phone,
+                              assignToStaffId: f.assign_to_staff_id,
+                              onDial: () => navigate(`/followups/${f.id}?call=1`),
+                            })
+                          }}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
+                        >
+                          <Phone size={14} />
+                        </button>
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"

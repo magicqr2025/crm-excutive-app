@@ -64,6 +64,7 @@ import {
   fetchMyTarget,
   fetchLeadsPage,
   fetchLabels,
+  fetchContactGroups,
   fetchMyOpenFollowups,
   type LeadListFilters,
   type CrmFollowup,
@@ -125,7 +126,7 @@ import {
   type TaskStatusFilter,
   type TaskType,
 } from '@/api/crmApi'
-import { useAuthStore } from '@/store/useAuthStore'
+import { useAuthStore, useCan } from '@/store/useAuthStore'
 import { addTicketComment, createTicket, fetchTicket, fetchTicketPublicLink, fetchTicketMasters, fetchTicketSummary, fetchTicketsPage, setTicketStatus, triageTicket, type CreateTicketInput, type TicketListFilters, type TicketPriority, type TicketStatus } from '@/api/ticketsApi'
 import { createQuickReply, deleteQuickReply, fetchQuickReplies, updateQuickReply, type QuickReplyInput } from '@/api/quickRepliesApi'
 import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
@@ -167,6 +168,12 @@ export function useLeadCount(staffId: string, unassigned: boolean) {
     queryFn: async () => (await fetchLeadsPage({ staffId, page: 1, perPage: 1, unassigned })).total,
     enabled: Boolean(staffId),
   })
+}
+
+/** Contact groups, for roles allowed to see them (the main CRM's role grid); others get an empty, never-sent query. */
+export function useContactGroups() {
+  const canView = useCan('contact_groups', 'view')
+  return useQuery({ queryKey: ['contact-groups'], queryFn: fetchContactGroups, enabled: canView, staleTime: 5 * 60_000 })
 }
 
 export function useLabels() {

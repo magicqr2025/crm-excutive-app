@@ -81,6 +81,8 @@ export interface ContactDetailViewProps {
   lead?: CrmLead
   /** Set on a follow-up's own page: a call made here closes that follow-up. */
   followupId?: string
+  /** Open with the call form already showing (the Call button on a Follow-ups card has just dialled). */
+  openCallForm?: boolean
 }
 
 // Shared body for both "Follow-up Details" (a specific due follow-up) and
@@ -100,6 +102,7 @@ export function ContactDetailView({
   initialTab = 'overview',
   lead,
   followupId,
+  openCallForm = false,
 }: ContactDetailViewProps) {
   const { startCall, assignToMe, isClaiming } = useCallLead()
   const { data: callLogs = [], isLoading: isLoadingLogs } = useCallLogsForLead(leadId)
@@ -121,7 +124,7 @@ export function ContactDetailView({
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   // Call Status form, shown once the dialer opens. Pages that don't pass the
   // full lead (e.g. Follow-up Details) fetch it only when a call starts.
-  const [callStatusLeadId, setCallStatusLeadId] = useState<string | null>(null)
+  const [callStatusLeadId, setCallStatusLeadId] = useState<string | null>(openCallForm ? leadId : null)
   const { data: fetchedLead } = useLead(callStatusLeadId && !lead ? callStatusLeadId : '')
   const callStatusLead = callStatusLeadId ? (lead ?? fetchedLead) : undefined
 
