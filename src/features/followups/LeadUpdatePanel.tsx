@@ -95,9 +95,9 @@ export function useLeadUpdate(leadId: string | null | undefined, findingLead = f
     panel = (
       <section className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
         <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg)] px-3.5 py-2">
-          <p className="text-[13px] font-semibold text-[var(--text-h)]">Update lead</p>
+          <p className="text-[14px] font-semibold text-[var(--text-h)]">Update lead</p>
           {changeCount > 0 ? (
-            <span className="flex items-center gap-2 text-[12px]">
+            <span className="flex items-center gap-2 text-[13px]">
               <span className="rounded-full bg-[var(--accent-bg)] px-2 py-0.5 font-semibold text-[var(--accent-strong)]">
                 {changeCount} {changeCount === 1 ? 'change' : 'changes'}
               </span>
@@ -110,7 +110,7 @@ export function useLeadUpdate(leadId: string | null | undefined, findingLead = f
               </button>
             </span>
           ) : (
-            <span className="text-[12px] text-[var(--text-muted)]">Current values</span>
+            <span className="text-[13px] text-[var(--text-muted)]">Current values</span>
           )}
         </header>
 
@@ -149,7 +149,7 @@ export function useLeadUpdate(leadId: string | null | undefined, findingLead = f
               </SelectBox>
             </Row>
           </div>
-          {invalid && <p className="-mt-1.5 text-[12px] text-[var(--error)]">This stage has no statuses. Pick another stage.</p>}
+          {invalid && <p className="-mt-1.5 text-[13px] text-[var(--error)]">This stage has no statuses. Pick another stage.</p>}
 
           <Row label="Labels" changed={changed.labels}>
             <MultiSelectField
@@ -203,19 +203,19 @@ export function useSaveLeadChanges() {
 }
 
 const SELECT =
-  'h-10 w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--bg)] pr-9 text-sm text-[var(--text-h)] outline-none transition-[border-color,box-shadow] focus:border-[var(--accent-border)] focus:ring-3 focus:ring-[var(--accent-bg)] disabled:cursor-not-allowed disabled:opacity-60'
+  'h-11 w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--bg)] pr-9 text-[15px] text-[var(--text-h)] outline-none transition-[border-color,box-shadow] focus:border-[var(--accent-border)] focus:ring-3 focus:ring-[var(--accent-bg)] disabled:cursor-not-allowed disabled:opacity-60'
 
 function Note({ children }: { children: ReactNode }) {
-  return <p className="rounded-xl border border-[var(--border)] px-3.5 py-3 text-[12.5px] text-[var(--text-muted)]">{children}</p>
+  return <p className="rounded-xl border border-[var(--border)] px-3.5 py-3 text-[13.5px] text-[var(--text-muted)]">{children}</p>
 }
 
 function Row({ label, changed, children }: { label: string; changed: boolean; children: ReactNode }) {
   return (
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium text-[var(--text-h)]">{label}</span>
+        <span className="text-[14px] font-medium text-[var(--text-h)]">{label}</span>
         {changed && (
-          <span className="flex items-center gap-1 text-[11.5px] font-medium text-[var(--accent-strong)]">
+          <span className="flex items-center gap-1 text-[12.5px] font-medium text-[var(--accent-strong)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-strong)]" /> Changed
           </span>
         )}

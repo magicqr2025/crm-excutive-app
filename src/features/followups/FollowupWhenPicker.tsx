@@ -68,7 +68,7 @@ export function FollowupWhenPicker({ value, onChange }: FollowupWhenPickerProps)
                 key={p}
                 type="button"
                 onClick={() => pick(p)}
-                className={`h-8 rounded-full border px-3 text-[13px] font-medium transition-colors ${
+                className={`h-9 rounded-full border px-3.5 text-[14px] font-medium transition-colors ${
                   active
                     ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
                     : 'border-[var(--border)] text-[var(--text-h)] hover:bg-[var(--surface-hover)]'
@@ -96,13 +96,13 @@ export function FollowupWhenPicker({ value, onChange }: FollowupWhenPickerProps)
         </div>
       ) : (
         at && (
-          <p className="text-[13px] text-[var(--text-muted)]">
+          <p className="text-[14px] text-[var(--text-muted)]">
             Follow-up on {at.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
         )
       )}
       {whenIsPast(value) && (
-        <p className="text-[12px] text-red-600">Follow-up can’t be earlier than the current date and time.</p>
+        <p className="text-[13px] text-red-600">Follow-up can’t be earlier than the current date and time.</p>
       )}
     </div>
   )

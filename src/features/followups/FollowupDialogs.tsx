@@ -8,6 +8,7 @@ import { useCreateFollowup, useFollowup, useUpdateFollowup } from '@/api/queries
 import type { CrmFollowup } from '@/api/crmApi'
 import { FollowupWhenPicker, initialWhen, resolveWhen, whenIsValid, type When } from './FollowupWhenPicker'
 import { useLeadUpdate, useSaveLeadChanges } from './LeadUpdatePanel'
+import { FOLLOWUP_FORM_TEXT } from './followupUi'
 
 // Complete + Reschedule for one follow-up (ported from orm-whatsapp). Staff always own the next follow-up,
 // so there is no "who follows up" picker.
@@ -86,12 +87,12 @@ function CompleteForm({ followup, onClose }: { followup: CrmFollowup; onClose: (
         <Dialog.Title>Complete follow-up{followup.contact_name ? ` — ${followup.contact_name}` : ''}</Dialog.Title>
         <Dialog.CloseButton onClose={onClose} />
       </Dialog.Header>
-      <Dialog.Body className="space-y-4">
+      <Dialog.Body className={`space-y-4 ${FOLLOWUP_FORM_TEXT}`}>
         <Field label="What was discussed? *">
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} autoFocus />
         </Field>
         {leadUpdate.panel}
-        <label className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-h)]">
+        <label className="flex items-center gap-2 text-[14px] font-medium text-[var(--text-h)]">
           <input type="checkbox" checked={addNext} onChange={(e) => setAddNext(e.target.checked)} />
           Schedule the next follow-up with this client
         </label>
@@ -147,7 +148,7 @@ function RescheduleForm({ followup, onClose }: { followup: CrmFollowup; onClose:
         <Dialog.Title>Reschedule follow-up{followup.contact_name ? ` — ${followup.contact_name}` : ''}</Dialog.Title>
         <Dialog.CloseButton onClose={onClose} />
       </Dialog.Header>
-      <Dialog.Body>
+      <Dialog.Body className={FOLLOWUP_FORM_TEXT}>
         <FollowupWhenPicker value={when} onChange={setWhen} />
       </Dialog.Body>
       <Dialog.Footer>

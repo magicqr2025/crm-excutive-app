@@ -44,7 +44,7 @@ export function MultiSelectField({ options, value, onChange, allLabel, noneLabel
         <button
           type="button"
           onClick={() => toggle(v)}
-          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-[var(--text-h)] hover:bg-[var(--surface-hover)]"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[var(--text-h)] hover:bg-[var(--surface-hover)]"
         >
           <span
             className={cn(
@@ -67,7 +67,7 @@ export function MultiSelectField({ options, value, onChange, allLabel, noneLabel
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex min-h-10 w-full items-center gap-2 rounded-lg border bg-[var(--bg)] px-3 py-1.5 text-left text-sm outline-none transition-[border-color,box-shadow]',
+          'flex min-h-11 w-full items-center gap-2 rounded-lg border bg-[var(--bg)] px-3 py-1.5 text-left text-[15px] outline-none transition-[border-color,box-shadow]',
           open ? 'border-[var(--accent-border)] ring-3 ring-[var(--accent-bg)]' : 'border-[var(--border)]',
         )}
       >
@@ -76,7 +76,7 @@ export function MultiSelectField({ options, value, onChange, allLabel, noneLabel
             <span className="text-[var(--text-muted)]">{allLabel}</span>
           ) : (
             value.map((v) => (
-              <span key={v} className="inline-flex max-w-full items-center gap-1 rounded-md border border-[var(--accent-border)] bg-[var(--accent-bg)] py-0.5 pl-2 pr-1 text-[12px] font-medium text-[var(--accent-strong)]">
+              <span key={v} className="inline-flex max-w-full items-center gap-1 rounded-md border border-[var(--accent-border)] bg-[var(--accent-bg)] py-0.5 pl-2 pr-1 text-[13px] font-medium text-[var(--accent-strong)]">
                 <span className="truncate">{labelOf(v)}</span>
                 <span
                   role="button"
@@ -106,7 +106,7 @@ export function MultiSelectField({ options, value, onChange, allLabel, noneLabel
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="h-9 w-full bg-transparent pl-8 pr-3 text-[13px] text-[var(--text-h)] outline-none placeholder:text-[var(--text-muted)]"
+                className="h-10 w-full bg-transparent pl-8 pr-3 text-[14px] text-[var(--text-h)] outline-none placeholder:text-[var(--text-muted)]"
               />
             </div>
           )}
@@ -116,7 +116,7 @@ export function MultiSelectField({ options, value, onChange, allLabel, noneLabel
             {!showNone && shown.length === 0 && <li className="px-3 py-2 text-[12.5px] text-[var(--text-muted)]">Nothing matches “{query}”.</li>}
           </ul>
           {value.length > 0 && (
-            <div className="flex items-center justify-between border-t border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--text-muted)]">
+            <div className="flex items-center justify-between border-t border-[var(--border)] px-3 py-1.5 text-[13px] text-[var(--text-muted)]">
               <span>{value.length} selected</span>
               <button type="button" onClick={() => onChange([])} className="font-medium text-[var(--accent-strong)] hover:underline">
                 Clear
