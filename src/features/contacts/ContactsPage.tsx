@@ -188,8 +188,8 @@ export function ContactsPage() {
         onQueued={() => setSelected(new Map())}
       />
       <div className="space-y-4 p-4">
-        {/* Wraps on a phone so every tab stays visible. */}
-        <div role="tablist" className="flex w-fit max-w-full flex-wrap gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
+        {/* One row; on a phone it swipes sideways instead of wrapping into an uneven block. */}
+        <div role="tablist" className="scroll-x-quiet flex w-fit max-w-full gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
           {CONTACT_TABS.map(({ value: v, label }) => {
             const n = counts?.[v]
             // Unassigned and Overdue get a coloured count when there are any; the rest a plain one.
@@ -201,7 +201,7 @@ export function ContactsPage() {
                 role="tab"
                 aria-selected={view === v}
                 onClick={() => switchView(v)}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium sm:px-3 sm:text-[13px] ${
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12.5px] font-medium sm:px-3 sm:text-[13px] ${
                   view === v ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)]'
                 }`}
               >

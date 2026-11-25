@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RequireAuth } from '@/features/auth/RequireAuth'
 import { ToastProvider } from '@/components/ui/ToastProvider'
+import { useAndroidBackButton } from '@/lib/useAndroidBackButton'
 import { AppShell } from '@/components/layout/AppShell'
 
 // Pages are loaded on demand so each one ships as its own small JS chunk.
@@ -41,6 +42,7 @@ const MyPerformancePage = lazy(() => import('@/features/performance/MyPerformanc
 const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 
 export default function App() {
+  useAndroidBackButton()
   return (
     <ToastProvider>
       <Routes>

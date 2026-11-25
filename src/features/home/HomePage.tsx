@@ -86,17 +86,17 @@ export function HomePage() {
                   </span>
                 )}
               </span>
-              <ArrowUpRight size={16} className="text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-strong)]" />
+              {/* The count sits up here beside the icon, so a title like "Follow-ups" keeps the full width below and never breaks. */}
+              {tileCount[to]?.n !== undefined ? (
+                <span className="whitespace-nowrap rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[11.5px] font-semibold text-[var(--accent-strong)]">
+                  <span className="font-mono-num">{tileCount[to].n}</span> {tileCount[to].suffix}
+                </span>
+              ) : (
+                <ArrowUpRight size={16} className="text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-strong)]" />
+              )}
             </div>
             <div>
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="font-display text-[15px] font-semibold text-[var(--text-h)]">{label}</p>
-                {tileCount[to]?.n !== undefined && (
-                  <span className="shrink-0 rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[11.5px] font-semibold text-[var(--accent-strong)]">
-                    <span className="font-mono-num">{tileCount[to].n}</span> {tileCount[to].suffix}
-                  </span>
-                )}
-              </div>
+              <p className="font-display text-[15px] font-semibold leading-tight text-[var(--text-h)]">{label}</p>
               <p className="mt-0.5 text-[12px] leading-snug text-[var(--text-muted)]">{hint}</p>
             </div>
           </Link>
