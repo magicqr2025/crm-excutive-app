@@ -15,6 +15,8 @@ export function CampaignLeadsPage() {
   const { campaignId = '' } = useParams<{ campaignId: string }>()
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id ?? '')
+  // Admins see every lead in the pipeline (no staff filter) and can open any of them.
+  const isAdmin = useAuthStore((s) => s.isAdmin)
   const { data: campaigns = [] } = useMyLeadCampaigns()
   // The search lives in the URL (?q=) so an "Also found in" link can open another
   // pipeline with the same search already applied.
@@ -34,7 +36,7 @@ export function CampaignLeadsPage() {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useCampaignLeadsPage({ campaignId, staffId: userId, scope, search })
+  } = useCampaignLeadsPage({ campaignId, staffId: isAdmin ? '' : userId, anyStaff: isAdmin, scope, search })
   const campaign = campaigns.find((c) => c.id === campaignId)
 
   return (
@@ -86,13 +88,17 @@ export function CampaignLeadsPage() {
           <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">
             {search
               ? `No results for “${search}”.`
-              : 'No leads for you in this pipeline yet.'}
+              : isAdmin
+                ? 'No leads in this pipeline yet.'
+                : 'No leads for you in this pipeline yet.'}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {leads.map((lead) => {
               // Another executive's lead: view-only, can't be called from here.
-              const othersLead = Boolean(lead.assign_to_staff_id) && lead.assign_to_staff_id !== userId
+              const ownedByOther = Boolean(lead.assign_to_staff_id) && lead.assign_to_staff_id !== userId
+              // Admins can still open and call it.
+              const othersLead = !isAdmin && ownedByOther
               // from=list: the executive picked this lead, so saving the call brings
               // them back here (keeping the search) instead of moving to the next queue lead.
               const open = () => {
@@ -142,11 +148,11 @@ export function CampaignLeadsPage() {
                       </div>
                     )}
                   </div>
-                  {(lead.tag_name || !lead.assign_to_staff_id || othersLead) && (
+                  {(lead.tag_name || !lead.assign_to_staff_id || ownedByOther) && (
                     <div className="mt-2.5 flex flex-wrap items-center gap-2">
                       {lead.tag_name && <Badge tone="neutral">{lead.tag_name}</Badge>}
                       {!lead.assign_to_staff_id && <Badge tone="warning">Unassigned</Badge>}
-                      {othersLead && <Badge tone="neutral">{lead.assign_staff_name || 'Another executive'}</Badge>}
+                      {ownedByOther && <Badge tone="neutral">{lead.assign_staff_name || 'Another executive'}</Badge>}
                     </div>
                   )}
                 </div>
