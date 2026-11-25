@@ -83,6 +83,7 @@ import {
   createPayment,
   updatePayment,
   type CampaignLeadScope,
+  type CampaignLeadListFilters,
   type CreateCallLogInput,
   type CreateDealInput,
   type DealPaymentStatus,
@@ -135,10 +136,10 @@ export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
 }
 
-export function useCampaignLeadsPage({ campaignId, staffId, scope, search, anyStaff = false }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string; /** List the campaign's leads whoever owns them (no staff filter). */ anyStaff?: boolean }) {
+export function useCampaignLeadsPage({ campaignId, staffId, scope, search, anyStaff = false, filters }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string; /** List the campaign's leads whoever owns them (no staff filter). */ anyStaff?: boolean; filters?: CampaignLeadListFilters }) {
   return usePagedList({
-    queryKey: ['campaign-leads', campaignId, staffId, scope, { search }],
-    fetchPage: (page) => fetchLeadsForCampaignPage({ campaignId, staffId, scope, page, search }),
+    queryKey: ['campaign-leads', campaignId, staffId, scope, { search, filters }],
+    fetchPage: (page) => fetchLeadsForCampaignPage({ campaignId, staffId, scope, page, search, filters }),
     enabled: Boolean(campaignId && (staffId || anyStaff)),
   })
 }

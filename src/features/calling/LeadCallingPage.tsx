@@ -15,8 +15,11 @@ export function LeadCallingPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const fromList = searchParams.get('from') === 'list'
-  const listSearch = searchParams.get('q') ?? ''
-  const leadsListUrl = `/campaigns/${campaignId}/leads${listSearch ? `?${new URLSearchParams({ q: listSearch })}` : ''}`
+  // Back to the leads list with the same search + filters it was opened from.
+  const listParams = new URLSearchParams(searchParams)
+  listParams.delete('from')
+  const listQuery = listParams.toString()
+  const leadsListUrl = `/campaigns/${campaignId}/leads${listQuery ? `?${listQuery}` : ''}`
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { data: lead, isLoading } = useLead(leadId)
   const { startCall, assignToMe, isClaiming } = useCallLead()

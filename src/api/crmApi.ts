@@ -90,8 +90,26 @@ export interface CrmLead {
 // (read-only team view; backend requires you to be an agent on the campaign).
 export type CampaignLeadScope = 'mine' | 'campaign'
 
-export async function fetchLeadsForCampaignPage(opts: { campaignId: string; staffId: string; scope: CampaignLeadScope; page: number; search?: string }): Promise<PageResult<CrmLead>> {
+/** A pipeline leads list's filters (crmbackend leads list); ids take 'none' = the lead has none. Empty = no limit. */
+export interface CampaignLeadListFilters {
+  stageId?: string
+  leadStatusId?: string
+  labelId?: string
+  groupId?: string
+  productId?: string
+  flagId?: string
+  followup?: string
+  meeting?: string
+  /** ISO instants bounding when the lead was added. */
+  createdFrom?: string
+  createdTo?: string
+  /** Only leads nobody has taken yet. */
+  unassigned?: boolean
+}
+
+export async function fetchLeadsForCampaignPage(opts: { campaignId: string; staffId: string; scope: CampaignLeadScope; page: number; search?: string; filters?: CampaignLeadListFilters }): Promise<PageResult<CrmLead>> {
   const businessId = getActiveBusinessId()
+  const f = opts.filters ?? {}
   const params = new URLSearchParams({
     business_id: businessId,
     lead_campaign_id: opts.campaignId,
@@ -101,6 +119,17 @@ export async function fetchLeadsForCampaignPage(opts: { campaignId: string; staf
     page: String(opts.page),
     per_page: String(PAGE_SIZE),
     ...(opts.search ? { search: opts.search } : {}),
+    ...(f.stageId ? { stage_id: f.stageId } : {}),
+    ...(f.leadStatusId ? { lead_status_id: f.leadStatusId } : {}),
+    ...(f.labelId ? { label_id: f.labelId } : {}),
+    ...(f.groupId ? { group_id: f.groupId } : {}),
+    ...(f.productId ? { product_id: f.productId } : {}),
+    ...(f.flagId ? { flag_id: f.flagId } : {}),
+    ...(f.followup ? { followup: f.followup } : {}),
+    ...(f.meeting ? { meeting: f.meeting } : {}),
+    ...(f.createdFrom ? { created_from: f.createdFrom } : {}),
+    ...(f.createdTo ? { created_to: f.createdTo } : {}),
+    ...(f.unassigned ? { unassigned: '1' } : {}),
   })
   const result = await apiRequestWithMeta<CrmLead[]>(`/crm/cust-res/get-list?${params}`, { headers: authHeaders() })
   return toPageResult(result.data, result.meta)
