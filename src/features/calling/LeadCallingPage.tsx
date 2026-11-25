@@ -20,9 +20,13 @@ export function LeadCallingPage() {
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const { data: lead, isLoading } = useLead(leadId)
   const { startCall, assignToMe, isClaiming } = useCallLead()
-  // Timeline is opt-in; remembering *which* lead opened it means moving on to the
-  // next lead in the queue starts collapsed again.
-  const [timelineLeadId, setTimelineLeadId] = useState<string | null>(null)
+  // Timeline starts open; remembering *which* lead hid it means moving on to the
+  // next lead in the queue starts open again.
+  const [hiddenTimelineLeadId, setHiddenTimelineLeadId] = useState<string | null>(null)
+  // The Call Status form only appears once the executive taps Call (dialer opened)
+  // for this lead — from View Leads and Start Calling alike. Moving on to the next
+  // lead hides it again until that lead is called.
+  const [dialedLeadId, setDialedLeadId] = useState<string | null>(null)
 
   // Fetched fresh here rather than read from a passively-rendered query hook:
   // the disposition can be submitted faster than a background "next lead"
@@ -57,7 +61,7 @@ export function LeadCallingPage() {
     )
   }
 
-  const showTimeline = timelineLeadId === lead.id
+  const showTimeline = hiddenTimelineLeadId !== lead.id
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
@@ -87,7 +91,15 @@ export function LeadCallingPage() {
             {lead.contact_phone && (
               <button
                 type="button"
-                onClick={() => startCall({ leadId: lead.id, phone: lead.contact_phone, countryCode: lead.contact_country_code, assignToStaffId: lead.assign_to_staff_id ?? null })}
+                onClick={() =>
+                  startCall({
+                    leadId: lead.id,
+                    phone: lead.contact_phone,
+                    countryCode: lead.contact_country_code,
+                    assignToStaffId: lead.assign_to_staff_id ?? null,
+                    onDial: () => setDialedLeadId(lead.id),
+                  })
+                }
                 disabled={isClaiming}
                 aria-label={isClaiming ? 'Assigning lead' : `Call ${lead.contact_phone}`}
                 title={`Call ${lead.contact_phone}`}
@@ -115,7 +127,7 @@ export function LeadCallingPage() {
             <button
               type="button"
               aria-expanded={showTimeline}
-              onClick={() => setTimelineLeadId(showTimeline ? null : lead.id)}
+              onClick={() => setHiddenTimelineLeadId(showTimeline ? lead.id : null)}
               className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold ${
                 showTimeline
                   ? 'border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
@@ -129,7 +141,7 @@ export function LeadCallingPage() {
 
         {showTimeline && <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} showAbout={false} />}
 
-        <DispositionForm key={lead.id} lead={lead} onSubmitted={handleSubmitted} />
+        {dialedLeadId === lead.id &&<DispositionForm key={lead.id} lead={lead} onSubmitted={handleSubmitted} />}
       </div>
     </div>
   )
