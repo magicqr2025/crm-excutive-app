@@ -1,69 +1,45 @@
-import { PageLoader } from '@/components/ui/Spinner'
-import { useState } from 'react'
-import { Mail, Phone, Handshake, CalendarCheck, Wallet, Send, LayoutGrid, Plus, X, Pencil, BellRing } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Send, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Input, Field, Textarea } from '@/components/ui/Input'
+import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
-import { useAuthStore } from '@/store/useAuthStore'
-import { MeetingCard } from '@/features/meetings/MeetingCard'
-import { MeetingReminderPicker } from '@/features/meetings/MeetingReminderPicker'
-import { useCallLead } from '@/features/calling/useCallLead'
-import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
+import { useAuthStore, useCan } from '@/store/useAuthStore'
 import { SendLeadEmailDialog } from '@/components/SendLeadEmailDialog'
 import {
   useCallLogsForLead,
-  useLeadStatuses,
-  useLeadStageTypes,
-  useMeetings,
+  useContactActiveFollowups,
+  useContactTasks,
   useDeals,
+  useLead,
+  useLeadActivity,
+  useLeadStageTypes,
+  useLeadStatuses,
+  useMeetings,
   usePayments,
   useUpdateLead,
-  useLeadActivity,
-  useActiveProducts,
-  useCreateDeal,
-  useUpdateDeal,
-  useCreateMeeting,
-  useCreateFollowup,
-  useContactActiveFollowups,
-  useLead,
 } from '@/api/queries'
-import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
+import type { CrmDeal, CrmLead } from '@/api/crmApi'
+import { useCallLead } from '@/features/calling/useCallLead'
 import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
 import { DispositionForm } from '@/features/calling/DispositionForm'
 import { FollowupCallForm } from '@/features/followups/FollowupCallForm'
-import { formatMeetingWhen, isOverdue } from '@/features/meetings/meetingUi'
-import { RecordPaymentForm } from '@/features/payments/RecordPaymentForm'
-import { DealPaymentBadge, DealPaymentSummary } from '@/features/payments/DealPaymentSummary'
-import { formatTalkTime } from '@/lib/utils'
-import type { CrmLead, DealStatus, CrmDeal, MeetingReminder } from '@/api/crmApi'
-import { formatDate as fmtDate } from '@/lib/dateFormat'
+import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
+import { LeadHero } from './lead/LeadHero'
+import { LeadInfoTiles, QuickAddRow, StatTiles } from './lead/LeadQuickBar'
+import { LeadTabBar } from './lead/LeadTabBar'
+import { LEAD_TABS, type LeadFormKind, type LeadTab } from './lead/leadConstants'
+import { CallsTab, DealsTab, FollowupsTab, MeetingsTab, OverviewTab, PaymentsTab } from './lead/LeadTabs'
+import { AddFollowupDialog, AddMeetingDialog, AddPaymentDialog, DealFormDialog, EditLeadDialog } from './lead/LeadForms'
+import { leadTotals } from './lead/leadMath'
+import type { LeadField } from '@/features/followups/LeadUpdatePanel'
+import { TasksTab } from './lead/TasksTab'
+import { AutomationsTab } from './lead/AutomationsTab'
+import { AiCallsTab } from './lead/AiCallsTab'
+import { PaymentLinkDialog } from './lead/PaymentLinkDialog'
 
-
-function todayDateInput() {
-  return new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, in the viewer's local calendar day
-}
-
-const DEAL_STATUS_TONE: Record<DealStatus, 'success' | 'error' | 'accent'> = {
-  accepted: 'success',
-  canceled: 'error',
-  created: 'accent',
-}
-
-function formatMoney(n: number) {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 0 })
-}
-
-function stripDiscussionPrefix(summary: string) {
-  return summary.replace(/^Discussion updated:\s*/, '')
-}
-
-const DEAL_STATUS_OPTIONS: DealStatus[] = ['created', 'accepted', 'canceled']
-
-export type ContactDetailTab = 'overview' | 'followup' | 'deal' | 'meeting' | 'payment'
-type Tab = ContactDetailTab
-export const CONTACT_DETAIL_TABS: ContactDetailTab[] = ['overview', 'followup', 'deal', 'meeting', 'payment']
+export type ContactDetailTab = LeadTab
+export const CONTACT_DETAIL_TABS: ContactDetailTab[] = LEAD_TABS
 
 export interface ContactDetailViewProps {
   contactId: string
@@ -77,19 +53,21 @@ export interface ContactDetailViewProps {
   assignToStaffId?: string | null
   /** Tab to open on, e.g. 'deal' when coming from a Deals card. */
   initialTab?: ContactDetailTab
-  /** Full lead record; when given, the overview shows the About/Timeline history panel. */
+  /** Full lead record, when the page already has it; otherwise it is loaded from `leadId`. */
   lead?: CrmLead
   /** Set on a follow-up's own page: a call made here closes that follow-up. */
   followupId?: string
   /** Open with the call form already showing (the Call button on a Follow-ups card has just dialled). */
   openCallForm?: boolean
+  /** Runs after the Call Status form is saved (the pipeline page moves on to the next lead). */
+  onCallSaved?: () => void
 }
 
-// Shared body for both "Follow-up Details" (a specific due follow-up) and
-// "Contact Details" (any contact/lead, opened from the Contacts list) — the
-// two pages differ only in how they resolve these props and what their back
-// button/header say; everything below (Last Discussion, Discussion, Deal /
-// Meeting / Payment tabs, the discussion composer) is identical.
+/**
+ * One client's page, shared by Contact Details, Follow-up Details and a pipeline's Lead Details.
+ * Phone first: header card (who, how to reach them, Call), then tabs. Overview holds quick add,
+ * the counts and where the lead sits (pipelines, labels, groups, products).
+ */
 export function ContactDetailView({
   contactId,
   leadId,
@@ -100,748 +78,312 @@ export function ContactDetailView({
   followupStatus,
   assignToStaffId,
   initialTab = 'overview',
-  lead,
+  lead: leadProp,
   followupId,
   openCallForm = false,
+  onCallSaved,
 }: ContactDetailViewProps) {
-  const { startCall, assignToMe, isClaiming } = useCallLead()
-  const { data: callLogs = [], isLoading: isLoadingLogs } = useCallLogsForLead(leadId)
-  const { data: leadStatuses = [] } = useLeadStatuses()
-  const { data: stageTypes = [] } = useLeadStageTypes()
-  const { data: allMeetings = [], isLoading: isLoadingMeetings } = useMeetings(contactId)
-  const { data: dealsData, isLoading: isLoadingDeals } = useDeals(contactId)
-  const { data: paymentsData, isLoading: isLoadingPayments } = usePayments(contactId)
-  const { data: leadActivity = [], isLoading: isLoadingActivity } = useLeadActivity(leadId)
-  const updateLead = useUpdateLead()
-  const userId = useAuthStore((s) => s.user?.id ?? '')
-  const createFollowup = useCreateFollowup()
-  const { data: contactFollowups = [] } = useContactActiveFollowups(contactId)
-  const createDeal = useCreateDeal()
-  const updateDeal = useUpdateDeal()
-  const createMeeting = useCreateMeeting()
+  const navigate = useNavigate()
+  const location = useLocation()
   const { show } = useToast()
-  const [discussionDraft, setDiscussionDraft] = useState('')
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
-  // Call Status form, shown once the dialer opens. Pages that don't pass the
-  // full lead (e.g. Follow-up Details) fetch it only when a call starts.
-  const [callStatusLeadId, setCallStatusLeadId] = useState<string | null>(openCallForm ? leadId : null)
-  const { data: fetchedLead } = useLead(callStatusLeadId && !lead ? callStatusLeadId : '')
-  const callStatusLead = callStatusLeadId ? (lead ?? fetchedLead) : undefined
+  const canAiCalls = useCan('voice_calls')
+  const canAddTask = useCan('tasks', 'add')
+  const canPayLink = useCan('payments', 'add')
+  const canEditPipelines = useCan('lead_campaigns', 'edit')
+  const canEditProducts = useCan('products', 'edit')
+  const userId = useAuthStore((s) => s.user?.id ?? '')
+  const isAdmin = useAuthStore((s) => s.isAdmin)
+  const { startCall, assignToMe, isClaiming } = useCallLead()
 
-  const [newFollowupDate, setNewFollowupDate] = useState('')
-  const [followupTimeInput, setFollowupTimeInput] = useState('')
+  const { data: fetchedLead } = useLead(leadProp ? '' : (leadId ?? ''))
+  const lead = leadProp ?? fetchedLead
+  const { data: callLogs = [], isLoading: loadingCalls } = useCallLogsForLead(leadId)
+  const { data: statuses = [] } = useLeadStatuses()
+  const { data: stages = [] } = useLeadStageTypes()
+  const { data: allMeetings = [], isLoading: loadingMeetings } = useMeetings(contactId)
+  const { data: dealsData, isLoading: loadingDeals } = useDeals(contactId)
+  const { data: paymentsData, isLoading: loadingPayments } = usePayments(contactId)
+  const { data: activity = [] } = useLeadActivity(leadId)
+  const { data: followups = [] } = useContactActiveFollowups(contactId)
+  const { data: tasks = [], isLoading: loadingTasks } = useContactTasks(contactId)
+  const updateLead = useUpdateLead()
 
-  const [sendEmailOpen, setSendEmailOpen] = useState(false)
-  const [dealFormOpen, setDealFormOpen] = useState(false)
-  const [dealName, setDealName] = useState('')
-  const [dealAmount, setDealAmount] = useState('')
-  const [dealDetails, setDealDetails] = useState('')
-  const [dealProductId, setDealProductId] = useState('')
-  const { data: products = [] } = useActiveProducts()
+  const tabs = LEAD_TABS.filter((t) => t !== 'ai-calls' || (canAiCalls && Boolean(leadId)))
+  const [tabChoice, setTab] = useState<LeadTab>(initialTab)
+  const tab = tabs.includes(tabChoice) ? tabChoice : 'overview'
+  const [form, setForm] = useState<LeadFormKind | null>(null)
+  const [editingDeal, setEditingDeal] = useState<CrmDeal | null>(null)
+  const [editField, setEditField] = useState<LeadField | null>(null)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  const noteRef = useRef<HTMLInputElement>(null)
+  const callFormRef = useRef<HTMLDivElement>(null)
+  // The Call Status form appears once the dialer opens for this lead.
+  const [dialedLeadId, setDialedLeadId] = useState<string | null>(openCallForm ? leadId : null)
 
-  const [meetingFormOpen, setMeetingFormOpen] = useState(false)
-  const [meetingTime, setMeetingTime] = useState('')
-  const [meetingType, setMeetingType] = useState('')
-  const [meetingLink, setMeetingLink] = useState('')
-  const [meetingSummary, setMeetingSummary] = useState('')
-  const [meetingPricing, setMeetingPricing] = useState('')
-  const [meetingReminder, setMeetingReminder] = useState<MeetingReminder | null>(null)
+  const meetings = useMemo(
+    () => allMeetings.filter((m) => m.contact_id === contactId).sort((a, b) => new Date(b.meeting_time).getTime() - new Date(a.meeting_time).getTime()),
+    [allMeetings, contactId],
+  )
+  const deals = useMemo(
+    () => (dealsData?.deals ?? []).filter((d) => d.contact_id === contactId).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [dealsData, contactId],
+  )
+  const payments = useMemo(
+    () => (paymentsData?.payments ?? []).filter((p) => p.contact_id === contactId).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [paymentsData, contactId],
+  )
+  const discussions = activity.filter((a) => a.kind === 'discussion')
+  const totals = leadTotals({ calls: callLogs, followups, meetings, deals, payments })
 
-  const [paymentFormOpen, setPaymentFormOpen] = useState(false)
+  const status = lead ? (statuses.find((s) => s.id === lead.lead_status_id) ?? statuses.find((s) => s.lead_status === lead.lead_status)) : undefined
+  const stageName = stages.find((s) => s.id === (status?.stage_id ?? lead?.lead_stage_id))?.lead_stage ?? null
+  function statusName(id: string | null) {
+    if (!id) return null
+    const s = statuses.find((x) => x.id === id)
+    if (!s) return null
+    const st = stages.find((x) => x.id === s.stage_id)?.lead_stage
+    return st ? `${st} · ${s.lead_status}` : s.lead_status
+  }
 
-  const [editingDealId, setEditingDealId] = useState<string | null>(null)
-  const [editDealName, setEditDealName] = useState('')
-  const [editDealAmount, setEditDealAmount] = useState('')
-  const [editDealDetails, setEditDealDetails] = useState('')
-  const [editDealStatus, setEditDealStatus] = useState<DealStatus>('created')
+  const owner = lead?.assign_to_staff_id ?? (assignToStaffId === undefined ? userId : assignToStaffId)
+  const phone = lead?.contact_phone ?? contactPhone
+  const name = lead?.contact_name ?? contactName ?? 'Unknown'
+  const openTasks = tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled').length
 
-  const [lastCall, ...earlierCalls] = callLogs
-  const meetings = allMeetings
-    .filter((m) => m.contact_id === contactId)
-    .sort((a, b) => new Date(b.meeting_time).getTime() - new Date(a.meeting_time).getTime())
-  const deals = (dealsData?.deals ?? [])
-    .filter((d) => d.contact_id === contactId)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  const payments = (paymentsData?.payments ?? [])
-    .filter((p) => p.contact_id === contactId)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  const discussionEntries = leadActivity.filter((a) => a.kind === 'discussion')
-  // Meeting badge: the next scheduled meeting still ahead ("upcoming"), else the
-  // latest scheduled one whose time passed without being marked done ("pending").
-  const scheduledMeetings = meetings.filter((m) => m.meeting_status === 'scheduled')
-  const upcomingMeeting = scheduledMeetings.filter((m) => !isOverdue(m)).at(-1)
-  const pendingMeeting = upcomingMeeting ? undefined : scheduledMeetings.find((m) => isOverdue(m))
+  /** A task is written on the full task form, with this client already chosen; saving comes back here. */
+  function addTask() {
+    const params = new URLSearchParams({ contact_id: contactId, contact_name: name, return: location.pathname + location.search })
+    if (phone) params.set('contact_phone', phone)
+    navigate(`/tasks/new?${params}`)
+  }
 
-  function saveDiscussion() {
-    if (!leadId || !discussionDraft.trim()) return
+  function add(kind: LeadFormKind) {
+    if (kind === 'task') return addTask()
+    setForm(kind)
+  }
+
+  function call() {
+    if (!phone) return
+    startCall({
+      leadId,
+      phone,
+      countryCode: lead?.contact_country_code,
+      assignToStaffId,
+      onDial: () => {
+        if (!leadId) return
+        setDialedLeadId(leadId)
+        // Bring the form into view once it has rendered.
+        requestAnimationFrame(() => callFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+      },
+    })
+  }
+
+  function focusNote() {
+    noteRef.current?.focus()
+    noteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  function saveNote() {
+    if (!leadId || !draft.trim()) return
     updateLead.mutate(
-      { id: leadId, patch: { discussion: discussionDraft } },
+      { id: leadId, patch: { discussion: draft } },
       {
         onSuccess: () => {
-          show({ title: 'Discussion saved', tone: 'success' })
-          setDiscussionDraft('')
+          show({ title: 'Note saved', tone: 'success' })
+          setDraft('')
         },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to save discussion', tone: 'error' }),
+        onError: (err) => show({ title: err instanceof Error ? err.message : 'Could not save the note', tone: 'error' }),
       },
     )
   }
 
-  function submitFollowup() {
-    if (!newFollowupDate || !followupTimeInput || !userId) return
-    createFollowup.mutate(
-      { contactId, assignToStaffId: userId, followupDate: newFollowupDate, followupTime: followupTimeInput },
-      {
-        onSuccess: () => {
-          show({ title: 'Follow-up scheduled', tone: 'success' })
-          setNewFollowupDate('')
-          setFollowupTimeInput('')
-        },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to schedule follow-up', tone: 'error' }),
-      },
-    )
-  }
-
-  function submitDeal() {
-    if (!dealName.trim() || !dealAmount) return
-    createDeal.mutate(
-      { contactId, productId: dealProductId || undefined, dealName: dealName.trim(), dealAmount: Number(dealAmount), dealDetails: dealDetails.trim() || undefined },
-      {
-        onSuccess: () => {
-          show({ title: 'Deal added', tone: 'success' })
-          setDealName('')
-          setDealAmount('')
-          setDealDetails('')
-          setDealProductId('')
-          setDealFormOpen(false)
-        },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to add deal', tone: 'error' }),
-      },
-    )
-  }
-
-  function submitMeeting() {
-    if (!meetingTime) return
-    if (meetingReminder && !meetingReminder.remind_24h && !meetingReminder.remind_1h) {
-      show({ title: 'Choose when to send the reminder', tone: 'error' })
-      return
-    }
-    createMeeting.mutate(
-      {
-        contactId,
-        meetingTime,
-        meetingType: meetingType.trim() || undefined,
-        meetingLink: meetingLink.trim() || undefined,
-        meetingSummary: meetingSummary.trim() || undefined,
-        pricing: meetingPricing ? Number(meetingPricing) : undefined,
-        reminder: meetingReminder ?? undefined,
-      },
-      {
-        onSuccess: () => {
-          show({ title: 'Meeting scheduled', tone: 'success' })
-          setMeetingTime('')
-          setMeetingType('')
-          setMeetingLink('')
-          setMeetingSummary('')
-          setMeetingPricing('')
-          setMeetingReminder(null)
-          setMeetingFormOpen(false)
-        },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to schedule meeting', tone: 'error' }),
-      },
-    )
-  }
-
-  function startEditDeal(deal: CrmDeal) {
-    setEditingDealId(deal.id)
-    setEditDealName(deal.deal_name)
-    setEditDealAmount(String(deal.deal_amount))
-    setEditDealDetails(deal.deal_details ?? '')
-    setEditDealStatus(deal.status)
-  }
-
-  function saveEditDeal() {
-    if (!editingDealId || !editDealName.trim() || !editDealAmount) return
-    updateDeal.mutate(
-      {
-        id: editingDealId,
-        patch: { dealName: editDealName.trim(), dealAmount: Number(editDealAmount), dealDetails: editDealDetails.trim(), status: editDealStatus },
-      },
-      {
-        onSuccess: () => {
-          show({ title: 'Deal updated', tone: 'success' })
-          setEditingDealId(null)
-        },
-        onError: (err) => show({ title: err instanceof Error ? err.message : 'Failed to update deal', tone: 'error' }),
-      },
-    )
-  }
-
-  function stageAndStatusFor(leadStatusId: string | null) {
-    if (!leadStatusId) return null
-    const status = leadStatuses.find((s) => s.id === leadStatusId)
-    if (!status) return null
-    const stage = stageTypes.find((s) => s.id === status.stage_id)
-    return { stage: stage?.lead_stage ?? null, status: status.lead_status }
-  }
+  const callLead = dialedLeadId ? lead : undefined
 
   return (
     <>
-      <div className="mx-auto w-full max-w-lg flex-1 space-y-4 overflow-y-auto p-4">
-        <div className="rounded-2xl border border-[var(--border)] p-4">
-          <div className="flex items-center gap-3">
-            <Avatar name={contactName ?? 'Unknown'} size={40} />
-            <div className="flex-1">
-              <p className="text-[15px] font-semibold text-[var(--text-h)]">{contactName ?? 'Unknown'}</p>
-              <p className="text-[13px] text-[var(--text-muted)]">{contactPhone ?? '—'}</p>
-              {assignToStaffId === null && leadId && (
-                <button
-                  type="button"
-                  onClick={() => assignToMe(leadId)}
-                  disabled={isClaiming}
-                  className="mt-0.5 text-[12px] font-semibold text-[var(--accent)] hover:underline disabled:opacity-60"
-                >
-                  Unassigned · Assign to me
-                </button>
-              )}
-            </div>
-            <LeadWhatsAppButtons
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)]">
+        <div className="mx-auto w-full max-w-5xl p-3 sm:p-5">
+
+          <div className="min-w-0 space-y-3 sm:space-y-4">
+            <LeadHero
               contactId={contactId}
-              phone={contactPhone}
+              name={name}
+              phone={phone}
               countryCode={lead?.contact_country_code}
-              // undefined means "known to be yours" (see assignToStaffId above).
-              ownerStaffId={assignToStaffId === undefined ? userId : assignToStaffId}
-            />
-            {leadId && lead?.contact_email && (
-              <button
-                type="button"
-                onClick={() => setSendEmailOpen(true)}
-                aria-label="Send email"
-                title="Send email"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--accent-strong)] hover:bg-[var(--accent-bg)]"
-              >
-                <Mail size={16} />
-              </button>
-            )}
-            {contactPhone && (
-              <button
-                type="button"
-                onClick={() =>
-                  startCall({
-                    leadId,
-                    phone: contactPhone,
-                    countryCode: lead?.contact_country_code,
-                    assignToStaffId,
-                    onDial: () => leadId && setCallStatusLeadId(leadId),
-                  })
-                }
-                disabled={isClaiming}
-                aria-label={`Call ${contactPhone}`}
-                title={`Call ${contactPhone}`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
-              >
-                <Phone size={16} />
-              </button>
-            )}
-          </div>
-          {followupDate && (
-            <p className="mt-3 text-[13px] text-[var(--text)]">
-              Due {formatDate(followupDate)} · {followupTime ? formatTime(followupTime) : '—'}
-            </p>
-          )}
-          {(followupStatus || upcomingMeeting || pendingMeeting) && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {followupStatus && (
-                <Badge tone={STATUS_TONE[followupStatus]}>Follow-up {STATUS_LABEL[followupStatus].toLowerCase()}</Badge>
-              )}
-              {upcomingMeeting && (
-                <Badge tone="accent">Meeting upcoming · {formatMeetingWhen(upcomingMeeting.meeting_time)}</Badge>
-              )}
-              {pendingMeeting && (
-                <Badge tone="warning">Meeting pending · {formatMeetingWhen(pendingMeeting.meeting_time)}</Badge>
-              )}
-            </div>
-          )}
-          <div className="mt-3 grid grid-cols-[2.5rem_2.5rem_repeat(3,minmax(0,1fr))] gap-1.5">
-            <Button
-              variant={activeTab === 'overview' ? 'primary' : 'outline'}
-              size="sm"
-              className="justify-center px-1"
-              onClick={() => setActiveTab('overview')}
+              email={lead?.contact_email}
+              addedAt={lead?.created_at}
+              altPhone={lead?.contact_alt_phone}
+              unsubscribed={Boolean(lead?.contact_opted_out_at)}
+              stage={stageName}
+              status={lead?.lead_status}
+              statusColor={lead?.lead_status_color}
+              ownerName={lead?.assign_staff_name}
+              ownerStaffId={owner}
+              unassigned={assignToStaffId === null && Boolean(leadId)}
+              onAssignToMe={leadId ? () => assignToMe(leadId) : undefined}
+              onCall={call}
+              onEmail={leadId && lead?.contact_email ? () => setEmailOpen(true) : undefined}
+              isClaiming={isClaiming}
             >
-              <LayoutGrid size={14} />
-            </Button>
-            <Button
-              variant={activeTab === 'followup' ? 'primary' : 'outline'}
-              size="sm"
-              className="justify-center px-1"
-              aria-label="Follow-up"
-              title="Follow-up"
-              onClick={() => setActiveTab('followup')}
-            >
-              <BellRing size={14} />
-            </Button>
-            <Button
-              variant={activeTab === 'deal' ? 'primary' : 'outline'}
-              size="sm"
-              className="justify-center px-1"
-              onClick={() => setActiveTab('deal')}
-            >
-              <Handshake size={14} className="max-sm:hidden" /> Deal
-            </Button>
-            <Button
-              variant={activeTab === 'meeting' ? 'primary' : 'outline'}
-              size="sm"
-              className="justify-center px-1"
-              onClick={() => setActiveTab('meeting')}
-            >
-              <CalendarCheck size={14} className="max-sm:hidden" /> Meeting
-            </Button>
-            <Button
-              variant={activeTab === 'payment' ? 'primary' : 'outline'}
-              size="sm"
-              className="justify-center px-1"
-              onClick={() => setActiveTab('payment')}
-            >
-              <Wallet size={14} className="max-sm:hidden" /> Payment
-            </Button>
-          </div>
-        </div>
-
-      {callStatusLead && (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setCallStatusLeadId(null)}
-            aria-label="Close call status"
-            title="Close"
-            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-          >
-            <X size={16} />
-          </button>
-          {/* From a follow-up's own page: the short follow-up call form; everywhere else the full Call Status form. */}
-          {followupId ? (
-            <FollowupCallForm key={callStatusLead.id} lead={callStatusLead} followupId={followupId} contactName={contactName} onSubmitted={() => setCallStatusLeadId(null)} />
-          ) : (
-            <DispositionForm key={callStatusLead.id} lead={callStatusLead} onSubmitted={() => setCallStatusLeadId(null)} />
-          )}
-        </div>
-      )}
-
-      {activeTab === 'overview' && lead && <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} showAbout={false} />}
-
-      {activeTab === 'overview' && !lead && (
-        <>
-        <div className="rounded-2xl border border-[var(--border)] p-4">
-          <p className="text-[13px] font-semibold text-[var(--text-h)]">Last Discussion</p>
-          {isLoadingLogs ? (
-            <PageLoader />
-          ) : !lastCall ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">No previous calls logged for this lead yet.</p>
-          ) : (
-            <div className="mt-2 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Badge tone={lastCall.outcome === 'connected' ? 'success' : 'error'}>
-                  {lastCall.outcome === 'connected' ? 'Connected' : 'Not Connected'}
+              {followupStatus && followupDate && (
+                <Badge tone={STATUS_TONE[followupStatus]}>
+                  Follow-up {STATUS_LABEL[followupStatus].toLowerCase()} · {formatDate(followupDate)}
+                  {followupTime ? ` ${formatTime(followupTime)}` : ''}
                 </Badge>
-                <span className="text-[11.5px] text-[var(--text-muted)]">{new Date(lastCall.occurred_at).toLocaleString()}</span>
-              </div>
-              {lastCall.reason && <p className="text-[12.5px] text-[var(--text-muted)]">Reason: {lastCall.reason}</p>}
-              {lastCall.remark ? (
-                <p className="text-[13px] text-[var(--text)]">{lastCall.remark}</p>
-              ) : (
-                <p className="text-[13px] italic text-[var(--text-muted)]">No remark left.</p>
               )}
-              {lastCall.duration_seconds !== null && (
-                <p className="text-[11.5px] text-[var(--text-muted)]">Talk time: {formatTalkTime(lastCall.duration_seconds)}</p>
-              )}
-              {(() => {
-                const info = stageAndStatusFor(lastCall.lead_status_id)
-                return info ? (
-                  <p className="text-[12.5px] text-[var(--text-muted)]">
-                    Stage: <span className="font-medium text-[var(--text)]">{info.stage ?? '—'}</span> · Status:{' '}
-                    <span className="font-medium text-[var(--text)]">{info.status}</span>
-                  </p>
-                ) : null
-              })()}
-              {lastCall.followup_date && (
-                <p className="text-[12.5px] text-[var(--text-muted)]">
-                  Next follow-up: {formatDate(lastCall.followup_date)}
-                  {lastCall.followup_time ? ` · ${formatTime(lastCall.followup_time)}` : ''}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+            </LeadHero>
 
-        <div className="rounded-2xl border border-[var(--border)] p-4">
-          <p className="text-[13px] font-semibold text-[var(--text-h)]">Discussion</p>
-          {isLoadingActivity ? (
-            <PageLoader />
-          ) : discussionEntries.length === 0 ? (
-            <p className="mt-2 text-[12.5px] text-[var(--text-muted)]">No discussion added yet.</p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              {discussionEntries.map((entry) => (
-                <div key={entry.id} className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2">
-                  <p className="whitespace-pre-wrap text-[13px] text-[var(--text)]">{stripDiscussionPrefix(entry.summary)}</p>
-                  <p className="shrink-0 whitespace-nowrap text-[11px] text-[var(--text-muted)]">{new Date(entry.created_at).toLocaleString()}</p>
+            {callLead && (
+              <div ref={callFormRef} className="scroll-mt-3 rounded-[var(--radius-card)] border-2 border-[var(--accent-border)] bg-[var(--surface)] p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="font-mono-num text-[11px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">Call status</p>
+                  <button
+                    type="button"
+                    onClick={() => setDialedLeadId(null)}
+                    aria-label="Close call status"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {earlierCalls.length > 0 && (
-          <div className="rounded-2xl border border-[var(--border)] p-4">
-            <p className="text-[13px] font-semibold text-[var(--text-h)]">Earlier Calls</p>
-            <div className="mt-2 space-y-2">
-              {earlierCalls.map((log) => (
-                <div key={log.id} className="rounded-lg border border-[var(--border)] p-2.5">
-                  <div className="flex items-center justify-between">
-                    <Badge tone={log.outcome === 'connected' ? 'success' : 'error'}>
-                      {log.outcome === 'connected' ? 'Connected' : 'Not Connected'}
-                    </Badge>
-                    <span className="text-[11px] text-[var(--text-muted)]">{new Date(log.created_at).toLocaleString()}</span>
-                  </div>
-                  {log.remark && <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">{log.remark}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        </>
-      )}
-
-      {activeTab === 'followup' && (
-        <div className="rounded-2xl border border-[var(--border)] p-4">
-          <p className="text-[13px] font-semibold text-[var(--text-h)]">Schedule Follow-up</p>
-          <div className="mt-2 space-y-3 rounded-lg border border-[var(--border)] p-3">
-            <Field label="Date">
-              <Input type="date" value={newFollowupDate} min={todayDateInput()} onChange={(e) => setNewFollowupDate(e.target.value)} />
-            </Field>
-            <Field label="Time">
-              <Input type="time" value={followupTimeInput} onChange={(e) => setFollowupTimeInput(e.target.value)} />
-            </Field>
-            <Button
-              size="sm"
-              className="w-full justify-center"
-              onClick={submitFollowup}
-              disabled={!newFollowupDate || !followupTimeInput || createFollowup.isPending}
-            >
-              {createFollowup.isPending ? 'Saving…' : 'Save Follow-up'}
-            </Button>
-          </div>
-          {contactFollowups.length === 0 ? (
-            <p className="mt-3 text-[13px] text-[var(--text-muted)]">No pending follow-ups for this contact.</p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {contactFollowups.map((f) => (
-                <div key={f.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2">
-                  <p className="text-[13px] text-[var(--text)]">
-                    {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
-                  </p>
-                  <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'deal' && (
-        <div className="rounded-2xl border border-[var(--border)] p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-[var(--text-h)]">Deals</p>
-            <Button size="sm" variant={dealFormOpen ? 'secondary' : 'primary'} onClick={() => setDealFormOpen((v) => !v)}>
-              {dealFormOpen ? <X size={14} /> : <Plus size={14} />}
-              {dealFormOpen ? 'Close' : 'Create Deal'}
-            </Button>
-          </div>
-          {dealFormOpen && (
-            <div className="mt-2 space-y-3 rounded-lg border border-[var(--border)] p-3">
-              <Field label="Product" hint="Optional">
-                <select
-                  value={dealProductId}
-                  onChange={(e) => {
-                    const id = e.target.value
-                    setDealProductId(id)
-                    const product = products.find((p) => p.id === id)
-                    if (!product) return
-                    // Fills the name and amount if still empty — both stay editable.
-                    if (!dealName.trim()) setDealName(product.name)
-                    if (!dealAmount && product.selling_price > 0) setDealAmount(String(product.selling_price))
-                  }}
-                  className="h-10 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
-                >
-                  <option value="">No product</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Deal name">
-                <Input value={dealName} onChange={(e) => setDealName(e.target.value)} placeholder="e.g. Annual plan upgrade" />
-              </Field>
-              <Field label="Amount">
-                <Input type="number" inputMode="decimal" value={dealAmount} onChange={(e) => setDealAmount(e.target.value)} placeholder="0" />
-              </Field>
-              <Field label="Details" hint="Optional">
-                <Textarea value={dealDetails} onChange={(e) => setDealDetails(e.target.value)} rows={2} placeholder="Notes about this deal…" />
-              </Field>
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setDealFormOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 justify-center"
-                  onClick={submitDeal}
-                  disabled={!dealName.trim() || !dealAmount || createDeal.isPending}
-                >
-                  {createDeal.isPending ? 'Saving…' : 'Save Deal'}
-                </Button>
-              </div>
-            </div>
-          )}
-          {isLoadingDeals ? (
-            <PageLoader />
-          ) : deals.length === 0 ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">No deals for this contact yet.</p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              {deals.map((deal) =>
-                editingDealId === deal.id ? (
-                  <div key={deal.id} className="space-y-3 rounded-lg border border-[var(--border)] p-2.5">
-                    <Field label="Deal name">
-                      <Input value={editDealName} onChange={(e) => setEditDealName(e.target.value)} />
-                    </Field>
-                    <Field label="Amount">
-                      <Input type="number" inputMode="decimal" value={editDealAmount} onChange={(e) => setEditDealAmount(e.target.value)} />
-                    </Field>
-                    <Field label="Status">
-                      <select
-                        value={editDealStatus}
-                        onChange={(e) => setEditDealStatus(e.target.value as DealStatus)}
-                        className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-h)]"
-                      >
-                        {DEAL_STATUS_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Details" hint="Optional">
-                      <Textarea value={editDealDetails} onChange={(e) => setEditDealDetails(e.target.value)} rows={2} />
-                    </Field>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setEditingDealId(null)}>
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 justify-center"
-                        onClick={saveEditDeal}
-                        disabled={!editDealName.trim() || !editDealAmount || updateDeal.isPending}
-                      >
-                        {updateDeal.isPending ? 'Saving…' : 'Save Changes'}
-                      </Button>
-                    </div>
-                  </div>
+                {followupId ? (
+                  <FollowupCallForm
+                    key={callLead.id}
+                    lead={callLead}
+                    followupId={followupId}
+                    contactName={name}
+                    onSubmitted={() => {
+                      setDialedLeadId(null)
+                      onCallSaved?.()
+                    }}
+                  />
                 ) : (
-                  <div key={deal.id} className="rounded-lg border border-[var(--border)] p-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-                      <p className="min-w-0 flex-1 basis-32 break-words text-[12.5px] font-semibold text-[var(--text-h)]">
-                        <span className="font-normal text-[var(--text-muted)]">Deal name: </span>
-                        {deal.deal_name}
-                        {deal.product_name && <span className="font-normal text-[var(--text-muted)]"> · {deal.product_name}</span>}
-                      </p>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Badge tone={DEAL_STATUS_TONE[deal.status]}>Status: {deal.status}</Badge>
-                        {deal.status !== 'canceled' && <DealPaymentBadge status={deal.payment_status} />}
-                        <button
-                          onClick={() => startEditDeal(deal)}
-                          title="Edit deal"
-                          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="mt-1 text-[14px] font-semibold text-[var(--accent-strong)]">
-                      <span className="text-[12px] font-normal text-[var(--text-muted)]">Amount: </span>
-                      Rs. <span className="font-mono-num">{formatMoney(deal.deal_amount)}</span>
-                    </p>
-                    <DealPaymentSummary deal={deal} />
-                    {deal.deal_details && (
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        <span className="text-[var(--text-muted)]">Details: </span>
-                        {deal.deal_details}
-                      </p>
-                    )}
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'meeting' && (
-        <div className="rounded-2xl border border-[var(--border)] p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-[var(--text-h)]">Meetings</p>
-            <Button size="sm" variant={meetingFormOpen ? 'secondary' : 'primary'} onClick={() => setMeetingFormOpen((v) => !v)}>
-              {meetingFormOpen ? <X size={14} /> : <Plus size={14} />}
-              {meetingFormOpen ? 'Close' : 'Create Meeting'}
-            </Button>
-          </div>
-          {meetingFormOpen && (
-            <div className="mt-2 space-y-3 rounded-lg border border-[var(--border)] p-3">
-              <Field label="Date & time">
-                <Input type="datetime-local" value={meetingTime} onChange={(e) => setMeetingTime(e.target.value)} />
-              </Field>
-              <Field label="Type" hint="Optional — e.g. Demo, Follow-up call">
-                <Input value={meetingType} onChange={(e) => setMeetingType(e.target.value)} placeholder="Demo" />
-              </Field>
-              <Field label="Meeting link" hint="Optional">
-                <Input value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://meet.google.com/…" />
-              </Field>
-              <Field label="Pricing" hint="Optional">
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  value={meetingPricing}
-                  onChange={(e) => setMeetingPricing(e.target.value)}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="Summary" hint="Optional">
-                <Textarea value={meetingSummary} onChange={(e) => setMeetingSummary(e.target.value)} rows={2} placeholder="Agenda or notes…" />
-              </Field>
-              <MeetingReminderPicker value={meetingReminder} onChange={setMeetingReminder} />
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setMeetingFormOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 justify-center"
-                  onClick={submitMeeting}
-                  disabled={!meetingTime || createMeeting.isPending}
-                >
-                  {createMeeting.isPending ? 'Saving…' : 'Schedule Meeting'}
-                </Button>
+                  <DispositionForm
+                    key={callLead.id}
+                    lead={callLead}
+                    onSubmitted={() => {
+                      setDialedLeadId(null)
+                      onCallSaved?.()
+                    }}
+                  />
+                )}
               </div>
-            </div>
-          )}
-          {isLoadingMeetings ? (
-            <PageLoader />
-          ) : meetings.length === 0 ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">No meetings scheduled for this contact yet.</p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              {meetings.map((meeting) => (
-                <MeetingCard key={meeting.id} meeting={meeting} userId={userId} isAdmin={false} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+            )}
 
-      {activeTab === 'payment' && (
-        <div className="rounded-2xl border border-[var(--border)] p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-[var(--text-h)]">Payments</p>
-            <Button size="sm" variant={paymentFormOpen ? 'secondary' : 'primary'} onClick={() => setPaymentFormOpen((v) => !v)}>
-              {paymentFormOpen ? <X size={14} /> : <Plus size={14} />}
-              {paymentFormOpen ? 'Close' : 'Create Payment'}
-            </Button>
+
+            <LeadTabBar
+              tabs={tabs}
+              value={tab}
+              onChange={setTab}
+              counts={{ calls: totals.calls, followup: totals.openFollowups, tasks: openTasks, meeting: totals.meetings, deal: totals.deals, payment: payments.length }}
+            />
+
+            <div role="tabpanel">
+              {/* Like orm: quick add and the counts belong to Overview only, so no other tab repeats what the tab bar already says. */}
+              {tab === 'overview' && (
+                <div className="mb-3 space-y-3 sm:mb-4 sm:space-y-4">
+                  <QuickAddRow onAdd={add} onNote={focusNote} hidden={[...(canAddTask ? [] : ['task' as const]), ...(canPayLink ? [] : ['paylink' as const])]} />
+                  <StatTiles totals={totals} onOpen={setTab} />
+                  {lead && (
+                    <LeadInfoTiles
+                      stage={stageName}
+                      status={lead.lead_status}
+                      statusColor={lead.lead_status_color}
+                      pipelines={lead.lead_campaigns.map((c) => c.name)}
+                      labels={(lead.labels ?? []).map((l) => l.name)}
+                      groups={(lead.groups ?? []).map((g) => g.name)}
+                      products={(lead.products ?? []).map((pr) => pr.name)}
+                      onEdit={leadId ? setEditField : undefined}
+                      canEditPipelines={canEditPipelines}
+                      canEditProducts={canEditProducts}
+                    />
+                  )}
+                </div>
+              )}
+              {tab === 'overview' && (
+                <OverviewTab
+                  calls={callLogs}
+                  meetings={meetings}
+                  deals={deals}
+                  discussions={discussions}
+                  statusName={statusName}
+                  onCall={phone ? call : undefined}
+                  onOpenTab={setTab}
+                  onScheduleMeeting={() => setForm('meeting')}
+                  onAddDeal={() => setForm('deal')}
+                  onAddPayment={() => setForm('payment')}
+                  onNote={focusNote}
+                  loading={loadingCalls && loadingDeals}
+                />
+              )}
+              {tab === 'timeline' &&
+                (lead ? (
+                  <LeadHistoryPanel key={`history-${lead.id}`} lead={lead} showAbout={false} />
+                ) : (
+                  <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">This contact has no lead, so there is no timeline.</p>
+                ))}
+              {tab === 'calls' && <CallsTab calls={callLogs} loading={loadingCalls} statusName={statusName} />}
+              {tab === 'followup' && <FollowupsTab followups={followups} onAdd={() => setForm('followup')} />}
+              {tab === 'meeting' && (
+                <MeetingsTab meetings={meetings} loading={loadingMeetings} userId={userId} isAdmin={isAdmin} onAdd={() => setForm('meeting')} onOpen={(id) => navigate(`/meetings/${id}`)} />
+              )}
+              {tab === 'deal' && <DealsTab deals={deals} loading={loadingDeals} onAdd={() => setForm('deal')} onEdit={setEditingDeal} onPay={() => setForm('payment')} />}
+              {tab === 'payment' && <PaymentsTab payments={payments} loading={loadingPayments} onAdd={() => setForm('payment')} />}
+              {tab === 'tasks' && <TasksTab tasks={tasks} loading={loadingTasks} userId={userId} isAdmin={isAdmin} onAdd={addTask} />}
+              {tab === 'automations' && <AutomationsTab contactId={contactId} />}
+              {tab === 'ai-calls' && leadId && <AiCallsTab leadId={leadId} contactName={name} phone={phone} />}
+            </div>
+
           </div>
-          {paymentFormOpen && (
-            <div className="mt-2">
-              <RecordPaymentForm contactId={contactId} onDone={() => setPaymentFormOpen(false)} onCancel={() => setPaymentFormOpen(false)} />
-            </div>
-          )}
-          {isLoadingPayments ? (
-            <PageLoader />
-          ) : payments.length === 0 ? (
-            <p className="mt-2 text-[13px] text-[var(--text-muted)]">No payments from this contact yet.</p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              {payments.map((payment) => {
-                const isRefund = payment.kind === 'refund'
-                return (
-                  <div key={payment.id} className="rounded-lg border border-[var(--border)] p-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={`text-[14px] font-semibold ${isRefund ? 'text-[var(--error)]' : 'text-[var(--accent-strong)]'}`}>
-                        <span className="text-[12px] font-normal text-[var(--text-muted)]">{isRefund ? 'Refund: ' : 'Amount: '}</span>
-                        {isRefund ? '−' : ''}
-                        {payment.currency} <span className="font-mono-num">{formatMoney(payment.amount)}</span>
-                      </p>
-                      {isRefund ? (
-                        <Badge tone="error">Refund</Badge>
-                      ) : (
-                        <Badge tone={payment.status === 1 ? 'success' : 'warning'}>{payment.status === 1 ? 'Paid' : 'Voided'}</Badge>
-                      )}
-                    </div>
-                    <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                      <span>Method: </span>
-                      {payment.mop}
-                    </p>
-                    {payment.payment_date && (
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        <span>Payment date: </span>
-                        {fmtDate(payment.payment_date, 'UTC')}
-                      </p>
-                    )}
-                    {payment.notes && (
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        <span>Notes: </span>
-                        {payment.notes}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
         </div>
-      )}
       </div>
 
-      {leadId && lead?.contact_email && (
-        <SendLeadEmailDialog open={sendEmailOpen} onClose={() => setSendEmailOpen(false)} leadId={leadId} toEmail={lead.contact_email} />
-      )}
-
       {leadId && (
-        <div className="mx-auto w-full max-w-lg shrink-0 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-          <div className="flex items-center gap-2">
+        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 sm:px-5">
+          <div className="mx-auto flex w-full max-w-5xl items-center gap-2">
             <Input
-              value={discussionDraft}
-              onChange={(e) => setDiscussionDraft(e.target.value)}
+              ref={noteRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  saveDiscussion()
+                  saveNote()
                 }
               }}
-              placeholder="Add a discussion…"
-              className="h-10"
+              placeholder="Add a note about this client…"
+              aria-label="Add a note"
+              className="h-11"
             />
             <button
-              onClick={saveDiscussion}
-              disabled={!discussionDraft.trim() || updateLead.isPending}
-              title="Save"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-50"
+              type="button"
+              onClick={saveNote}
+              disabled={!draft.trim() || updateLead.isPending}
+              aria-label="Save note"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--ink)] hover:bg-[var(--accent-strong)] disabled:opacity-50"
             >
-              <Send size={16} />
+              <Send size={17} />
             </button>
           </div>
         </div>
       )}
+
+      <AddFollowupDialog open={form === 'followup'} onClose={() => setForm(null)} contactId={contactId} />
+      <AddMeetingDialog open={form === 'meeting'} onClose={() => setForm(null)} contactId={contactId} />
+      <AddPaymentDialog open={form === 'payment'} onClose={() => setForm(null)} contactId={contactId} />
+      <PaymentLinkDialog open={form === 'paylink'} onClose={() => setForm(null)} contactId={contactId} contactName={name} phone={phone} countryCode={lead?.contact_country_code} />
+      <DealFormDialog
+        open={form === 'deal' || editingDeal !== null}
+        onClose={() => {
+          setForm(null)
+          setEditingDeal(null)
+        }}
+        contactId={contactId}
+        deal={editingDeal}
+      />
+      {leadId && <EditLeadDialog field={editField} onClose={() => setEditField(null)} leadId={leadId} />}
+      {leadId && lead?.contact_email && <SendLeadEmailDialog open={emailOpen} onClose={() => setEmailOpen(false)} leadId={leadId} toEmail={lead.contact_email} />}
     </>
   )
 }

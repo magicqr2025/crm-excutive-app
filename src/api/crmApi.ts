@@ -57,6 +57,12 @@ export interface CrmLead {
   contact_email: string | null
   contact_phone: string | null
   contact_country_code?: string | null
+  /** Second number for the contact, when one was saved. */
+  contact_alt_phone?: string | null
+  /** Set (ISO time) once the contact unsubscribed from WhatsApp messages. */
+  contact_opted_out_at?: string | null
+  /** Products the lead is interested in. */
+  products?: { id: string; name: string }[]
   /** Absent from a backend that predates it; match on lead_status (name + colour) then. */
   lead_status_id?: string | null
   lead_stage_id?: string | null
@@ -171,10 +177,15 @@ export async function fetchNextQueueLead(campaignId: string, staffId: string, ex
 /** Server-side Contacts filters (crmbackend leads list); empty = no limit. */
 export interface LeadListFilters {
   followup?: 'overdue' | 'today' | 'upcoming' | 'none'
-  meeting?: 'today'
+  meeting?: 'upcoming' | 'today' | 'missed' | 'completed' | 'none'
+  stageId?: string
   leadStatusId?: string
   campaignId?: string
+  /** Ids below take 'none' = the lead has none. */
   labelId?: string
+  groupId?: string
+  productId?: string
+  flagId?: string
   /** ISO instants bounding when the lead was added. */
   createdFrom?: string
   createdTo?: string
@@ -204,6 +215,10 @@ export async function fetchLeadsPage(opts: {
     ...(f.leadStatusId ? { lead_status_id: f.leadStatusId } : {}),
     ...(f.campaignId ? { lead_campaign_id: f.campaignId } : {}),
     ...(f.labelId ? { label_id: f.labelId } : {}),
+    ...(f.stageId ? { stage_id: f.stageId } : {}),
+    ...(f.groupId ? { group_id: f.groupId } : {}),
+    ...(f.productId ? { product_id: f.productId } : {}),
+    ...(f.flagId ? { flag_id: f.flagId } : {}),
     ...(f.createdFrom ? { created_from: f.createdFrom } : {}),
     ...(f.createdTo ? { created_to: f.createdTo } : {}),
   })
@@ -767,6 +782,24 @@ export interface CrmProduct {
   selling_price: number
 }
 
+/** Replaces the lead's whole list of pipelines (needs "edit" on pipelines). */
+export async function setLeadCampaignsForLead(leadId: string, leadCampaignIds: string[]): Promise<{ id: string; name: string }[]> {
+  return apiRequest<{ id: string; name: string }[]>('/crm/lead-campaigns/lead-set', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: leadId, lead_campaign_ids: leadCampaignIds }),
+  })
+}
+
+/** Replaces the lead's whole list of products it is interested in (needs "edit" on products). */
+export async function setProductsForLead(leadId: string, productIds: string[]): Promise<{ id: string; name: string }[]> {
+  return apiRequest<{ id: string; name: string }[]>('/crm/products/lead-set', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: leadId, product_ids: productIds }),
+  })
+}
+
 export async function fetchActiveProducts(): Promise<CrmProduct[]> {
   const params = new URLSearchParams({ business_id: getActiveBusinessId(), status: 'active', per_page: '100' })
   return apiRequest<CrmProduct[]>(`/crm/products/list?${params}`, { headers: authHeaders() })
@@ -801,6 +834,8 @@ export interface UpdateDealInput {
   dealAmount?: number
   dealDetails?: string
   status?: DealStatus
+  /** null clears the product. */
+  productId?: string | null
 }
 
 export async function updateDeal(id: string, patch: UpdateDealInput): Promise<CrmDeal> {
@@ -812,6 +847,7 @@ export async function updateDeal(id: string, patch: UpdateDealInput): Promise<Cr
       ...(patch.dealAmount !== undefined ? { deal_amount: patch.dealAmount } : {}),
       ...(patch.dealDetails !== undefined ? { deal_details: patch.dealDetails } : {}),
       ...(patch.status !== undefined ? { status: patch.status } : {}),
+      ...(patch.productId !== undefined ? { product_id: patch.productId } : {}),
     }),
   })
 }
@@ -929,6 +965,33 @@ export async function fetchMeetingsPage(opts: MeetingsPageOpts): Promise<PageRes
   return toPageResult(result.data, result.meta, result.meta?.counts)
 }
 
+export interface MeetingFreeTimes {
+  date: string
+  timezone: string
+  /** Where the working hours came from: their booking link, the business default, or none (9 AM–9 PM). */
+  hours_source: 'booking_link' | 'default' | 'none'
+  hours_name: string | null
+  duration_minutes: number
+  slots: { start: string; end: string }[]
+  busy: { start: string; end: string; with: string | null }[]
+}
+
+/** Free start times for one staff member on one day; the server already leaves out busy times. */
+export async function fetchMeetingFreeTimes(params: {
+  staffId?: string
+  date: string
+  durationMinutes: number
+  excludeMeetingId?: string
+}): Promise<MeetingFreeTimes> {
+  const query = new URLSearchParams({
+    date: params.date,
+    duration_minutes: String(params.durationMinutes),
+    ...(params.staffId ? { staff_id: params.staffId } : {}),
+    ...(params.excludeMeetingId ? { exclude_meeting_id: params.excludeMeetingId } : {}),
+  })
+  return apiRequest<MeetingFreeTimes>(`/crm/meetings/free-times?${query}`, { headers: authHeaders() })
+}
+
 export async function fetchMeetingById(id: string): Promise<CrmMeeting> {
   return apiRequest<CrmMeeting>(`/crm/meetings/get/${encodeURIComponent(id)}`, { headers: authHeaders() })
 }
@@ -943,11 +1006,13 @@ export interface CreateMeetingInput {
   meetingSummary?: string
   pricing?: number
   reminder?: MeetingReminder
+  /** Who holds the meeting; the signed-in user when left out. */
+  assignToStaffId?: string
 }
 
 export async function createMeeting(input: CreateMeetingInput): Promise<CrmMeeting> {
   const businessId = getActiveBusinessId()
-  const staffId = useAuthStore.getState().user?.id
+  const staffId = input.assignToStaffId || useAuthStore.getState().user?.id
   return apiRequest<CrmMeeting>('/crm/meetings/add', {
     method: 'POST',
     headers: authHeaders(),

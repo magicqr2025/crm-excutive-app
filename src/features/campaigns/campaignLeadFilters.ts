@@ -18,6 +18,8 @@ export interface CampaignLeadFilters {
   to: string
   /** Admins only. */
   staffId: string
+  /** Contacts page only (a pipeline's own list is already one pipeline). */
+  campaignId: string
   stageId: string
   statusId: string
   labelId: string
@@ -33,6 +35,7 @@ export const NO_LEAD_FILTERS: CampaignLeadFilters = {
   from: '',
   to: '',
   staffId: '',
+  campaignId: '',
   stageId: '',
   statusId: '',
   labelId: '',
@@ -71,7 +74,7 @@ export const MEETING_OPTIONS: { value: '' | MeetingFilter; label: string }[] = [
 
 /** How many filters are on (Date counts once) — the Filter button's badge. */
 export function activeFilterCount(f: CampaignLeadFilters): number {
-  const keys = ['datePreset', 'staffId', 'stageId', 'statusId', 'labelId', 'groupId', 'productId', 'flagId', 'followup', 'meeting'] as const
+  const keys = ['datePreset', 'staffId', 'campaignId', 'stageId', 'statusId', 'labelId', 'groupId', 'productId', 'flagId', 'followup', 'meeting'] as const
   return keys.filter((k) => f[k]).length
 }
 
@@ -81,6 +84,7 @@ const URL_KEYS: Record<keyof CampaignLeadFilters, string> = {
   from: 'from',
   to: 'to',
   staffId: 'staff',
+  campaignId: 'pipeline',
   stageId: 'stage',
   statusId: 'status',
   labelId: 'label',

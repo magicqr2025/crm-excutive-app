@@ -8,7 +8,7 @@ import { Field, Input, Textarea } from '@/components/ui/Input'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/useToast'
 import { useCreateTask, useStaffList, useTask, useTaskTypes, useUpdateTask } from '@/api/queries'
-import type { CrmTask, StaffMember, TaskPriority, TaskType } from '@/api/crmApi'
+import type { CrmContact, CrmTask, StaffMember, TaskPriority, TaskType } from '@/api/crmApi'
 import { useAuthStore } from '@/store/useAuthStore'
 import { TaskContactField } from './TaskContactField'
 import { ActionButton, FactCell } from './TaskCardParts'
@@ -17,7 +17,10 @@ import { DEFAULT_TASK_TYPE, TASK_PRIORITY_OPTIONS, TASK_STATUS_LABEL, TASK_STATU
 
 const MAX_TASK_IMAGES = 5
 
-/** New task, a copy of one (?copy=<id>), or an edit (/tasks/:id/edit). */
+/**
+ * New task, a copy of one (?copy=<id>), or an edit (/tasks/:id/edit). A new task opened from a lead's page
+ * carries ?contact_id=&contact_name=&contact_phone= (client already chosen) and ?return=<path> (where to go back to).
+ */
 export function TaskFormPage() {
   const { taskId } = useParams()
   const [params] = useSearchParams()
@@ -52,7 +55,12 @@ export function TaskFormPage() {
       </div>
     )
   }
-  return <TaskForm key={sourceId ?? 'new'} source={source ?? null} editing={editing} staff={staff} userId={userId} />
+  const contactId = params.get('contact_id')
+  const presetContact = !editing && contactId ? { id: contactId, name: params.get('contact_name') || 'This client', email: null, phone: params.get('contact_phone') } : null
+  // Only an in-app path, never another site.
+  const returnParam = params.get('return')
+  const returnTo = returnParam && returnParam.startsWith('/') && !returnParam.startsWith('//') ? returnParam : null
+  return <TaskForm key={sourceId ?? 'new'} source={source ?? null} editing={editing} staff={staff} userId={userId} presetContact={presetContact} returnTo={returnTo} />
 }
 
 // How urgent a task is: four choices side by side, each with its own colour once picked.
@@ -87,7 +95,21 @@ function PrioritySelect({ value, onChange }: { value: TaskPriority; onChange: (v
   )
 }
 
-function TaskForm({ source, editing, staff, userId }: { source: CrmTask | null; editing: boolean; staff: StaffMember[]; userId: string }) {
+function TaskForm({
+  source,
+  editing,
+  staff,
+  userId,
+  presetContact,
+  returnTo,
+}: {
+  source: CrmTask | null
+  editing: boolean
+  staff: StaffMember[]
+  userId: string
+  presetContact: CrmContact | null
+  returnTo: string | null
+}) {
   const navigate = useNavigate()
   const { show } = useToast()
   const { data: types = [] } = useTaskTypes()
@@ -100,7 +122,7 @@ function TaskForm({ source, editing, staff, userId }: { source: CrmTask | null; 
   // A copy starts without a deadline: the old one is usually in the past.
   const [deadline, setDeadline] = useState(editing && source?.deadline ? toDatetimeLocalValue(source.deadline) : '')
   const [assignee, setAssignee] = useState(editing ? (source?.assign_to_staff_id ?? userId) : userId)
-  const [contactId, setContactId] = useState('')
+  const [contactId, setContactId] = useState(presetContact?.id ?? '')
   const [remark, setRemark] = useState(source?.remark ?? '')
   const [images, setImages] = useState<string[]>(source?.image_urls ?? [])
   const [subtasks, setSubtasks] = useState<string[]>(!editing ? (source?.subtasks ?? []).map((s) => s.title) : [])
@@ -126,7 +148,7 @@ function TaskForm({ source, editing, staff, userId }: { source: CrmTask | null; 
     const done = {
       onSuccess: (task: CrmTask) => {
         show({ title: editing ? 'Task updated' : 'Task created', tone: 'success' })
-        navigate(`/tasks/${task.id}`, { replace: true })
+        navigate(returnTo ?? `/tasks/${task.id}`, { replace: true })
       },
       onError: (err: unknown) => show({ title: err instanceof Error ? err.message : 'Could not save the task', tone: 'error' }),
     }
@@ -164,7 +186,7 @@ function TaskForm({ source, editing, staff, userId }: { source: CrmTask | null; 
     }
   }
 
-  const backTo = editing && source ? `/tasks/${source.id}` : '/tasks'
+  const backTo = returnTo ?? (editing && source ? `/tasks/${source.id}` : '/tasks')
   const cell = 'h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[13.5px] text-[var(--text-h)]'
 
   return (
@@ -228,7 +250,7 @@ function TaskForm({ source, editing, staff, userId }: { source: CrmTask | null; 
 
             {!editing ? (
               <Field label="Client" hint="Optional — leave empty for an internal task.">
-                <TaskContactField onChange={setContactId} />
+                <TaskContactField onChange={setContactId} initial={presetContact} />
               </Field>
             ) : (
               source?.contact_name && (
