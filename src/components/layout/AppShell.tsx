@@ -227,7 +227,11 @@ export function AppShell() {
         </nav>
         <button
           type="button"
-          onClick={() => setConfirmLogoutOpen(true)}
+          onClick={() => {
+            // Close the side menu first so the question shows on a clean page.
+            setDrawerOpen(false)
+            setConfirmLogoutOpen(true)
+          }}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--error)]"
         >
           <LogOut size={17} />
@@ -239,20 +243,21 @@ export function AppShell() {
       <Dialog
         open={confirmLogoutOpen}
         onClose={() => setConfirmLogoutOpen(false)}
-        className="max-w-sm self-center !h-auto rounded-[var(--radius-card)] border border-[var(--border)]"
+        // A small centred card with space around it on a phone, not a strip touching both edges.
+        className="!w-[calc(100%-2.5rem)] max-w-sm self-center sm:!w-full !h-auto rounded-[var(--radius-card)] border border-[var(--border)]"
       >
-        <Dialog.Header>
-          <Dialog.Title>Log out</Dialog.Title>
+        <Dialog.Header className="border-b-0 pb-1">
+          <Dialog.Title>Log out?</Dialog.Title>
           <Dialog.CloseButton onClose={() => setConfirmLogoutOpen(false)} />
         </Dialog.Header>
         <Dialog.Body>
-          <p className="text-[13.5px] text-[var(--text)]">Are you sure you want to log out?</p>
+          <p className="text-[14px] text-[var(--text)]">You’ll need to sign in again to use the app.</p>
         </Dialog.Body>
-        <Dialog.Footer>
-          <Button variant="outline" onClick={() => setConfirmLogoutOpen(false)}>
+        <Dialog.Footer className="border-t-0 pt-1">
+          <Button variant="secondary" className="flex-1 justify-center sm:flex-none" onClick={() => setConfirmLogoutOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={confirmLogout} disabled={loggingOut}>
+          <Button variant="danger" className="flex-1 justify-center sm:flex-none" onClick={confirmLogout} disabled={loggingOut}>
             {loggingOut ? 'Logging out…' : 'Yes, log out'}
           </Button>
         </Dialog.Footer>
