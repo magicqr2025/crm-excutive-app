@@ -183,6 +183,15 @@
     font-variant-numeric: tabular-nums;
     font-weight: 500;
   }
+  /* A row that scrolls sideways by swipe (tab bars, chip rows) with no visible bar. */
+  .scroll-x-quiet {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-x-quiet::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes route-fetch-slide {

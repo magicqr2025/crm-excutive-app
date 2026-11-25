@@ -59,6 +59,7 @@ import {
   fetchMyTargets,
   fetchMeetingsPage,
   fetchMeetingById,
+  fetchMeetingFreeTimes,
   type MeetingsPageOpts,
   fetchPaymentsPage,
   fetchMyTarget,
@@ -442,6 +443,14 @@ export function useMeeting(id: string | undefined) {
   return useQuery({ queryKey: ['meetings', 'one', id], queryFn: () => fetchMeetingById(id as string), enabled: Boolean(id), retry: false })
 }
 
+export function useMeetingFreeTimes(params: Parameters<typeof fetchMeetingFreeTimes>[0], enabled = true) {
+  return useQuery({
+    queryKey: ['meeting-free-times', params],
+    queryFn: () => fetchMeetingFreeTimes(params),
+    enabled: enabled && Boolean(params.date),
+  })
+}
+
 export function useUnclaimedBookings() {
   return useQuery({ queryKey: ['unclaimed-bookings'], queryFn: () => fetchUnclaimedBookings(), refetchInterval: 60_000 })
 }
@@ -465,6 +474,7 @@ export function useCreateMeeting() {
     mutationFn: (input: CreateMeetingInput) => createMeeting(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['meeting-free-times'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })
