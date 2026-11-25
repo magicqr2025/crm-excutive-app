@@ -30,7 +30,7 @@ export interface LeadChanges {
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
 
 /** Loads the lead and keeps the edit; `panel` renders the box, `changes()` is what to save. */
-export function useLeadUpdate(leadId: string | null | undefined) {
+export function useLeadUpdate(leadId: string | null | undefined, findingLead = false) {
   const { data: lead, isLoading: leadLoading } = useLead(leadId ?? '')
   const { data: stages = [] } = useLeadStageTypes()
   const { data: allStatuses, isSuccess: statusesLoaded } = useLeadStatuses()
@@ -77,7 +77,8 @@ export function useLeadUpdate(leadId: string | null | undefined) {
   }
 
   let panel: ReactNode
-  if (!leadId) panel = <Note>This contact has no lead you can update.</Note>
+  if (!leadId && findingLead) panel = <Note>Loading lead…</Note>
+  else if (!leadId) panel = <Note>This contact has no lead you can update.</Note>
   else if (leadLoading || (lead && !edit)) panel = <Note>Loading lead…</Note>
   else if (!lead || !edit || !initial) panel = <Note>This contact has no lead you can update.</Note>
   else {
