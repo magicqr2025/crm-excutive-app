@@ -1,22 +1,12 @@
 import { cn } from '@/lib/utils'
-import { LEAD_TABS, type LeadTab } from './leadConstants'
-
-const LABEL: Record<LeadTab, string> = {
-  overview: 'Overview',
-  timeline: 'Timeline',
-  calls: 'Calls',
-  followup: 'Follow-ups',
-  meeting: 'Meetings',
-  deal: 'Deals',
-  payment: 'Payments',
-}
+import { LEAD_TAB_LABEL as LABEL, type LeadTab } from './leadConstants'
 
 /** Underlined tabs with counts. Swipes sideways on a phone or tablet in portrait; sticks under the header while scrolling. */
-export function LeadTabBar({ value, onChange, counts }: { value: LeadTab; onChange: (tab: LeadTab) => void; counts: Partial<Record<LeadTab, number>> }) {
+export function LeadTabBar({ tabs, value, onChange, counts }: { tabs: LeadTab[]; value: LeadTab; onChange: (tab: LeadTab) => void; counts: Partial<Record<LeadTab, number>> }) {
   return (
     <div className="sticky top-0 z-10 -mx-3 border-b border-[var(--border)] bg-[var(--bg)]/95 px-3 backdrop-blur sm:-mx-5 sm:px-5 lg:mx-0 lg:px-0">
       <div role="tablist" aria-label="Lead sections" className="scroll-x-quiet flex gap-1">
-        {LEAD_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const active = tab === value
           const count = counts[tab]
           return (

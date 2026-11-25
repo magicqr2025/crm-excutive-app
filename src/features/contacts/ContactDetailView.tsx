@@ -1,14 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Send, X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Send, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
-import { useAuthStore } from '@/store/useAuthStore'
+import { useAuthStore, useCan } from '@/store/useAuthStore'
 import { SendLeadEmailDialog } from '@/components/SendLeadEmailDialog'
 import {
   useCallLogsForLead,
   useContactActiveFollowups,
+  useContactTasks,
   useDeals,
   useLead,
   useLeadActivity,
@@ -24,16 +25,18 @@ import { LeadHistoryPanel } from '@/features/calling/LeadHistoryPanel'
 import { DispositionForm } from '@/features/calling/DispositionForm'
 import { FollowupCallForm } from '@/features/followups/FollowupCallForm'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
-import { cn } from '@/lib/utils'
 import { LeadHero } from './lead/LeadHero'
-import { NextStepCard } from './lead/NextStepCard'
-import { QuickAddRow, StatTiles } from './lead/LeadQuickBar'
+import { LeadInfoTiles, QuickAddRow, StatTiles } from './lead/LeadQuickBar'
 import { LeadTabBar } from './lead/LeadTabBar'
 import { LEAD_TABS, type LeadFormKind, type LeadTab } from './lead/leadConstants'
-import { LeadDetailsPanel } from './lead/LeadDetailsPanel'
 import { CallsTab, DealsTab, FollowupsTab, MeetingsTab, OverviewTab, PaymentsTab } from './lead/LeadTabs'
 import { AddFollowupDialog, AddMeetingDialog, AddPaymentDialog, DealFormDialog, EditLeadDialog } from './lead/LeadForms'
-import { leadTotals, nextStep } from './lead/leadMath'
+import { leadTotals } from './lead/leadMath'
+import type { LeadField } from '@/features/followups/LeadUpdatePanel'
+import { TasksTab } from './lead/TasksTab'
+import { AutomationsTab } from './lead/AutomationsTab'
+import { AiCallsTab } from './lead/AiCallsTab'
+import { PaymentLinkDialog } from './lead/PaymentLinkDialog'
 
 export type ContactDetailTab = LeadTab
 export const CONTACT_DETAIL_TABS: ContactDetailTab[] = LEAD_TABS
@@ -62,8 +65,8 @@ export interface ContactDetailViewProps {
 
 /**
  * One client's page, shared by Contact Details, Follow-up Details and a pipeline's Lead Details.
- * Phone first: hero with Call, the next step, quick-add chips, five counts, then tabs; the details fold out
- * at the bottom. From a wide tablet (lg) up the details move into a left column.
+ * Phone first: header card (who, how to reach them, Call), then tabs. Overview holds quick add,
+ * the counts and where the lead sits (pipelines, labels, groups, products).
  */
 export function ContactDetailView({
   contactId,
@@ -81,7 +84,13 @@ export function ContactDetailView({
   onCallSaved,
 }: ContactDetailViewProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { show } = useToast()
+  const canAiCalls = useCan('voice_calls')
+  const canAddTask = useCan('tasks', 'add')
+  const canPayLink = useCan('payments', 'add')
+  const canEditPipelines = useCan('lead_campaigns', 'edit')
+  const canEditProducts = useCan('products', 'edit')
   const userId = useAuthStore((s) => s.user?.id ?? '')
   const isAdmin = useAuthStore((s) => s.isAdmin)
   const { startCall, assignToMe, isClaiming } = useCallLead()
@@ -96,14 +105,16 @@ export function ContactDetailView({
   const { data: paymentsData, isLoading: loadingPayments } = usePayments(contactId)
   const { data: activity = [] } = useLeadActivity(leadId)
   const { data: followups = [] } = useContactActiveFollowups(contactId)
+  const { data: tasks = [], isLoading: loadingTasks } = useContactTasks(contactId)
   const updateLead = useUpdateLead()
 
-  const [tab, setTab] = useState<LeadTab>(initialTab)
+  const tabs = LEAD_TABS.filter((t) => t !== 'ai-calls' || (canAiCalls && Boolean(leadId)))
+  const [tabChoice, setTab] = useState<LeadTab>(initialTab)
+  const tab = tabs.includes(tabChoice) ? tabChoice : 'overview'
   const [form, setForm] = useState<LeadFormKind | null>(null)
   const [editingDeal, setEditingDeal] = useState<CrmDeal | null>(null)
-  const [editLeadOpen, setEditLeadOpen] = useState(false)
+  const [editField, setEditField] = useState<LeadField | null>(null)
   const [emailOpen, setEmailOpen] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const noteRef = useRef<HTMLInputElement>(null)
   const callFormRef = useRef<HTMLDivElement>(null)
@@ -124,7 +135,6 @@ export function ContactDetailView({
   )
   const discussions = activity.filter((a) => a.kind === 'discussion')
   const totals = leadTotals({ calls: callLogs, followups, meetings, deals, payments })
-  const step = nextStep({ followups, meetings, deals })
 
   const status = lead ? (statuses.find((s) => s.id === lead.lead_status_id) ?? statuses.find((s) => s.lead_status === lead.lead_status)) : undefined
   const stageName = stages.find((s) => s.id === (status?.stage_id ?? lead?.lead_stage_id))?.lead_stage ?? null
@@ -139,6 +149,19 @@ export function ContactDetailView({
   const owner = lead?.assign_to_staff_id ?? (assignToStaffId === undefined ? userId : assignToStaffId)
   const phone = lead?.contact_phone ?? contactPhone
   const name = lead?.contact_name ?? contactName ?? 'Unknown'
+  const openTasks = tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled').length
+
+  /** A task is written on the full task form, with this client already chosen; saving comes back here. */
+  function addTask() {
+    const params = new URLSearchParams({ contact_id: contactId, contact_name: name, return: location.pathname + location.search })
+    if (phone) params.set('contact_phone', phone)
+    navigate(`/tasks/new?${params}`)
+  }
+
+  function add(kind: LeadFormKind) {
+    if (kind === 'task') return addTask()
+    setForm(kind)
+  }
 
   function call() {
     if (!phone) return
@@ -175,21 +198,12 @@ export function ContactDetailView({
     )
   }
 
-  function runStep() {
-    if (step.action === 'call') return call()
-    if (step.action === 'meeting' && step.meetingId) return navigate(`/meetings/${step.meetingId}`)
-    if (step.action === 'payment') return setForm('payment')
-    setForm('followup')
-  }
-
   const callLead = dialedLeadId ? lead : undefined
-  const details = lead ? <LeadDetailsPanel lead={lead} stage={stageName} onEdit={leadId ? () => setEditLeadOpen(true) : undefined} /> : null
 
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)]">
-        <div className="mx-auto w-full max-w-6xl p-3 sm:p-5 lg:grid lg:grid-cols-[17.5rem_minmax(0,1fr)] lg:items-start lg:gap-5">
-          {details && <aside className="sticky top-5 hidden lg:block">{details}</aside>}
+        <div className="mx-auto w-full max-w-5xl p-3 sm:p-5">
 
           <div className="min-w-0 space-y-3 sm:space-y-4">
             <LeadHero
@@ -197,6 +211,10 @@ export function ContactDetailView({
               name={name}
               phone={phone}
               countryCode={lead?.contact_country_code}
+              email={lead?.contact_email}
+              addedAt={lead?.created_at}
+              altPhone={lead?.contact_alt_phone}
+              unsubscribed={Boolean(lead?.contact_opted_out_at)}
               stage={stageName}
               status={lead?.lead_status}
               statusColor={lead?.lead_status_color}
@@ -207,6 +225,7 @@ export function ContactDetailView({
               onCall={call}
               onEmail={leadId && lead?.contact_email ? () => setEmailOpen(true) : undefined}
               isClaiming={isClaiming}
+              onEditStatus={leadId ? () => setEditField('status') : undefined}
             >
               {followupStatus && followupDate && (
                 <Badge tone={STATUS_TONE[followupStatus]}>
@@ -253,17 +272,33 @@ export function ContactDetailView({
               </div>
             )}
 
-            <NextStepCard step={step} onAction={runStep} />
-            <QuickAddRow onAdd={setForm} onNote={focusNote} />
-            <StatTiles totals={totals} onOpen={setTab} />
 
             <LeadTabBar
+              tabs={tabs}
               value={tab}
               onChange={setTab}
-              counts={{ calls: totals.calls, followup: totals.openFollowups, meeting: totals.meetings, deal: totals.deals, payment: payments.length }}
+              counts={{ calls: totals.calls, followup: totals.openFollowups, tasks: openTasks, meeting: totals.meetings, deal: totals.deals, payment: payments.length }}
             />
 
             <div role="tabpanel">
+              {/* Like orm: quick add and the counts belong to Overview only, so no other tab repeats what the tab bar already says. */}
+              {tab === 'overview' && (
+                <div className="mb-3 space-y-3 sm:mb-4 sm:space-y-4">
+                  <QuickAddRow onAdd={add} onNote={focusNote} hidden={[...(canAddTask ? [] : ['task' as const]), ...(canPayLink ? [] : ['paylink' as const])]} />
+                  <StatTiles totals={totals} onOpen={setTab} />
+                  {lead && (
+                    <LeadInfoTiles
+                      pipelines={lead.lead_campaigns.map((c) => c.name)}
+                      labels={(lead.labels ?? []).map((l) => l.name)}
+                      groups={(lead.groups ?? []).map((g) => g.name)}
+                      products={(lead.products ?? []).map((pr) => pr.name)}
+                      onEdit={leadId ? setEditField : undefined}
+                      canEditPipelines={canEditPipelines}
+                      canEditProducts={canEditProducts}
+                    />
+                  )}
+                </div>
+              )}
               {tab === 'overview' && (
                 <OverviewTab
                   calls={callLogs}
@@ -293,32 +328,18 @@ export function ContactDetailView({
               )}
               {tab === 'deal' && <DealsTab deals={deals} loading={loadingDeals} onAdd={() => setForm('deal')} onEdit={setEditingDeal} onPay={() => setForm('payment')} />}
               {tab === 'payment' && <PaymentsTab payments={payments} loading={loadingPayments} onAdd={() => setForm('payment')} />}
+              {tab === 'tasks' && <TasksTab tasks={tasks} loading={loadingTasks} userId={userId} isAdmin={isAdmin} onAdd={addTask} />}
+              {tab === 'automations' && <AutomationsTab contactId={contactId} />}
+              {tab === 'ai-calls' && leadId && <AiCallsTab leadId={leadId} contactName={name} phone={phone} />}
             </div>
 
-            {details && (
-              <div className="lg:hidden">
-                <button
-                  type="button"
-                  aria-expanded={detailsOpen}
-                  onClick={() => setDetailsOpen((v) => !v)}
-                  className="flex h-12 w-full items-center justify-between rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 text-[14px] font-semibold text-[var(--text-h)]"
-                >
-                  Details
-                  <span className="flex items-center gap-2 text-[12px] font-normal text-[var(--text-muted)]">
-                    Phone, email, labels, groups
-                    <ChevronDown size={16} className={cn('transition-transform', detailsOpen && 'rotate-180')} />
-                  </span>
-                </button>
-                {detailsOpen && <div className="mt-3">{details}</div>}
-              </div>
-            )}
           </div>
         </div>
       </div>
 
       {leadId && (
         <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 sm:px-5">
-          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 lg:pl-[calc(17.5rem+1.25rem)]">
+          <div className="mx-auto flex w-full max-w-5xl items-center gap-2">
             <Input
               ref={noteRef}
               value={draft}
@@ -349,6 +370,7 @@ export function ContactDetailView({
       <AddFollowupDialog open={form === 'followup'} onClose={() => setForm(null)} contactId={contactId} />
       <AddMeetingDialog open={form === 'meeting'} onClose={() => setForm(null)} contactId={contactId} />
       <AddPaymentDialog open={form === 'payment'} onClose={() => setForm(null)} contactId={contactId} />
+      <PaymentLinkDialog open={form === 'paylink'} onClose={() => setForm(null)} contactId={contactId} contactName={name} phone={phone} countryCode={lead?.contact_country_code} />
       <DealFormDialog
         open={form === 'deal' || editingDeal !== null}
         onClose={() => {
@@ -358,7 +380,7 @@ export function ContactDetailView({
         contactId={contactId}
         deal={editingDeal}
       />
-      {leadId && <EditLeadDialog open={editLeadOpen} onClose={() => setEditLeadOpen(false)} leadId={leadId} />}
+      {leadId && <EditLeadDialog field={editField} onClose={() => setEditField(null)} leadId={leadId} />}
       {leadId && lead?.contact_email && <SendLeadEmailDialog open={emailOpen} onClose={() => setEmailOpen(false)} leadId={leadId} toEmail={lead.contact_email} />}
     </>
   )

@@ -773,6 +773,24 @@ export interface CrmProduct {
   selling_price: number
 }
 
+/** Replaces the lead's whole list of pipelines (needs "edit" on pipelines). */
+export async function setLeadCampaignsForLead(leadId: string, leadCampaignIds: string[]): Promise<{ id: string; name: string }[]> {
+  return apiRequest<{ id: string; name: string }[]>('/crm/lead-campaigns/lead-set', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: leadId, lead_campaign_ids: leadCampaignIds }),
+  })
+}
+
+/** Replaces the lead's whole list of products it is interested in (needs "edit" on products). */
+export async function setProductsForLead(leadId: string, productIds: string[]): Promise<{ id: string; name: string }[]> {
+  return apiRequest<{ id: string; name: string }[]>('/crm/products/lead-set', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: leadId, product_ids: productIds }),
+  })
+}
+
 export async function fetchActiveProducts(): Promise<CrmProduct[]> {
   const params = new URLSearchParams({ business_id: getActiveBusinessId(), status: 'active', per_page: '100' })
   return apiRequest<CrmProduct[]>(`/crm/products/list?${params}`, { headers: authHeaders() })

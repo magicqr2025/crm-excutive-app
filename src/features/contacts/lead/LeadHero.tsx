@@ -1,14 +1,24 @@
-import { Mail, Phone } from 'lucide-react'
+import { BellOff, CalendarPlus, Copy, Mail, Pencil, Phone, PhoneForwarded } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Spinner } from '@/components/ui/Spinner'
+import { useToast } from '@/components/ui/useToast'
+import { copyText } from '@/lib/share'
 import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/dateFormat'
 
 interface LeadHeroProps {
   contactId: string
   name: string
   phone: string | null
   countryCode?: string | null
+  email?: string | null
+  /** When the lead was added (ISO). */
+  addedAt?: string | null
+  /** The contact's second number, when one was saved. */
+  altPhone?: string | null
+  /** The client unsubscribed from WhatsApp messages. */
+  unsubscribed?: boolean
   /** Stage and status, e.g. "Opportunity" + "Meeting Schedule". */
   stage?: string | null
   status?: string | null
@@ -20,6 +30,8 @@ interface LeadHeroProps {
   onAssignToMe?: () => void
   onCall?: () => void
   onEmail?: () => void
+  /** Opens the stage & status editor from the status chip. */
+  onEditStatus?: () => void
   isClaiming: boolean
   /** Extra badges (follow-up due, meeting pending…). */
   children?: React.ReactNode
@@ -31,6 +43,10 @@ export function LeadHero({
   name,
   phone,
   countryCode,
+  email,
+  addedAt,
+  altPhone,
+  unsubscribed = false,
   stage,
   status,
   statusColor,
@@ -40,9 +56,16 @@ export function LeadHero({
   onAssignToMe,
   onCall,
   onEmail,
+  onEditStatus,
   isClaiming,
   children,
 }: LeadHeroProps) {
+  const { show } = useToast()
+  async function copyPhone() {
+    if (!phone) return
+    show(await copyText(phone) ? { title: 'Number copied', tone: 'success' } : { title: 'Could not copy the number', tone: 'error' })
+  }
+
   return (
     <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -51,7 +74,14 @@ export function LeadHero({
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[20px] font-semibold leading-tight text-[var(--text-h)] sm:text-[22px]">{name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[var(--text-muted)]">
-              {phone && <span className="font-mono-num text-[var(--text)]">{phone}</span>}
+              {phone && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-mono-num text-[var(--text)]">{phone}</span>
+                  <button type="button" onClick={copyPhone} aria-label="Copy number" className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]">
+                    <Copy size={13} />
+                  </button>
+                </span>
+              )}
               {ownerName && (
                 <>
                   <span aria-hidden>·</span>
@@ -59,15 +89,47 @@ export function LeadHero({
                 </>
               )}
             </div>
-            {(status || stage) && (
-              <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1 text-[12px] font-medium text-[var(--text-h)]">
+            {(email || addedAt || altPhone || unsubscribed) && (
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-[var(--text-muted)]">
+                {email && (
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                    <Mail size={13} className="shrink-0" />
+                    <span className="truncate text-[var(--text)]">{email}</span>
+                  </span>
+                )}
+                {altPhone && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <PhoneForwarded size={13} className="shrink-0" /> Alt. <span className="font-mono-num text-[var(--text)]">{altPhone}</span>
+                  </span>
+                )}
+                {addedAt && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarPlus size={13} className="shrink-0" /> Added {formatDate(addedAt)}
+                  </span>
+                )}
+                {unsubscribed && (
+                  <span className="inline-flex items-center gap-1.5 text-[var(--error)]">
+                    <BellOff size={13} className="shrink-0" /> Unsubscribed from WhatsApp
+                  </span>
+                )}
+              </div>
+            )}
+            {(status || stage || onEditStatus) && (
+              <button
+                type="button"
+                onClick={onEditStatus}
+                disabled={!onEditStatus}
+                aria-label="Edit stage and status"
+                className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg)] py-1 pl-2.5 pr-2 text-[12px] font-medium text-[var(--text-h)] transition-colors enabled:hover:border-[var(--accent-border)] disabled:cursor-default"
+              >
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: statusColor || 'var(--accent)' }} />
                 <span className="truncate">
                   {stage && <span className="text-[var(--text-muted)]">{stage}</span>}
                   {stage && status && <span className="text-[var(--text-muted)]"> · </span>}
-                  {status}
+                  {status ?? 'No status'}
                 </span>
-              </span>
+                {onEditStatus && <Pencil size={11} className="shrink-0 text-[var(--text-muted)]" />}
+              </button>
             )}
             {unassigned && (
               <p className="mt-2 text-[12.5px] text-[var(--text-muted)]">

@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useActiveProducts, useCreateDeal, useCreateFollowup, useStaffList, useUpdateDeal } from '@/api/queries'
 import type { CrmDeal, DealStatus } from '@/api/crmApi'
 import { FollowupWhenPicker, initialWhen, resolveWhen, whenIsValid, type When } from '@/features/followups/FollowupWhenPicker'
-import { useLeadUpdate, useSaveLeadChanges } from '@/features/followups/LeadUpdatePanel'
+import { useLeadUpdate, useSaveLeadChanges, type LeadField } from '@/features/followups/LeadUpdatePanel'
 import { MeetingCreateForm } from '@/features/meetings/MeetingCreateForm'
 import { SELECT_CLASS } from '@/features/meetings/meetingUi'
 import { RecordPaymentForm } from '@/features/payments/RecordPaymentForm'
@@ -262,19 +262,36 @@ export function AddPaymentDialog({ open, onClose, contactId }: { open: boolean; 
   )
 }
 
-/* ---------------- Status, labels, groups ---------------- */
+/* ---------------- One part of the lead: status, labels, groups, pipelines or products ---------------- */
 
-export function EditLeadDialog({ open, onClose, leadId }: { open: boolean; onClose: () => void; leadId: string }) {
+const FIELD_TITLE: Record<LeadField, string> = {
+  status: 'Edit stage & status',
+  labels: 'Edit labels',
+  groups: 'Edit groups',
+  pipelines: 'Edit pipelines',
+  products: 'Edit products',
+}
+
+const FIELD_SAVED: Record<LeadField, string> = {
+  status: 'Status updated',
+  labels: 'Labels updated',
+  groups: 'Groups updated',
+  pipelines: 'Pipelines updated',
+  products: 'Products updated',
+}
+
+/** Opened from one tile's pencil (or the status chip): shows and saves only that part. `field` null = closed. */
+export function EditLeadDialog({ field, onClose, leadId }: { field: LeadField | null; onClose: () => void; leadId: string }) {
   return (
-    <Dialog open={open} onClose={onClose}>
-      {open && <EditLeadForm leadId={leadId} onClose={onClose} />}
+    <Dialog open={field !== null} onClose={onClose}>
+      {field && <EditLeadForm key={field} field={field} leadId={leadId} onClose={onClose} />}
     </Dialog>
   )
 }
 
-function EditLeadForm({ leadId, onClose }: { leadId: string; onClose: () => void }) {
+function EditLeadForm({ field, leadId, onClose }: { field: LeadField; leadId: string; onClose: () => void }) {
   const { show } = useToast()
-  const { panel, changes, invalid } = useLeadUpdate(leadId)
+  const { panel, changes, invalid } = useLeadUpdate(leadId, false, { only: field })
   const save = useSaveLeadChanges()
   const [saving, setSaving] = useState(false)
 
@@ -288,14 +305,14 @@ function EditLeadForm({ leadId, onClose }: { leadId: string; onClose: () => void
       show({ title: `Could not save ${failed.join(', ')}`, tone: 'error' })
       return
     }
-    show({ title: 'Lead updated', tone: 'success' })
+    show({ title: FIELD_SAVED[field], tone: 'success' })
     onClose()
   }
 
   return (
     <>
       <Dialog.Header>
-        <Dialog.Title>Edit lead</Dialog.Title>
+        <Dialog.Title>{FIELD_TITLE[field]}</Dialog.Title>
         <Dialog.CloseButton onClose={onClose} />
       </Dialog.Header>
       <Dialog.Body>{panel}</Dialog.Body>
