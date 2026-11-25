@@ -7,11 +7,13 @@ import { useCreateCallLog } from '@/api/queries'
 import { updateFollowup, type CallOutcome, type CrmLead } from '@/api/crmApi'
 import { cn } from '@/lib/utils'
 import { FollowupWhenPicker, initialWhen, resolveWhen, whenIsValid, type When } from './FollowupWhenPicker'
+import { useLeadUpdate, useSaveLeadChanges } from './LeadUpdatePanel'
+import { FOLLOWUP_FORM_TEXT } from './followupUi'
 
 // The short form after calling from a follow-up's own page: did they pick up, the reason or what was
 // discussed, and when to follow up next. Submitting logs the call (so call logs and performance count it),
-// marks this follow-up done with that note, and books the next one. The full Call Status form (stage,
-// status, flags) stays for Pipeline / Contacts calls.
+// marks this follow-up done with that note, and books the next one. A connected call can also update the
+// lead's stage, status, labels and groups ("Update lead"); flags stay on the full Call Status form.
 
 const NOT_CONNECTED_REASONS = ['Did not pick', 'Busy', 'Switched off', 'Network issue', 'Other']
 
@@ -37,6 +39,8 @@ export function FollowupCallForm({ lead, followupId, contactName, onSubmitted }:
   const [addNext, setAddNext] = useState(false)
   const [when, setWhen] = useState<When>(initialWhen)
   const [saving, setSaving] = useState(false)
+  const leadUpdate = useLeadUpdate(lead.id)
+  const saveLeadChanges = useSaveLeadChanges()
 
   // Counts from when the form opens (right after dialling) until submit.
   useEffect(() => {
@@ -52,13 +56,15 @@ export function FollowupCallForm({ lead, followupId, contactName, onSubmitted }:
     outcome === 'not_connected'
       ? reason !== '' && whenIsValid(when)
       : outcome === 'connected'
-        ? discussed.trim() !== '' && (!addNext || whenIsValid(when))
+        ? discussed.trim() !== '' && (!addNext || whenIsValid(when)) && !leadUpdate.invalid
         : false
 
   function submit() {
     if (!outcome || !valid) return
     setSaving(true)
     const next = wantsNext ? resolveWhen(when) : null
+    // Lead changes only count for a connected call (the box isn't shown otherwise).
+    const leadChanges = outcome === 'connected' ? leadUpdate.changes() : undefined
     const note = (outcome === 'connected' ? `Connected: ${discussed.trim()}` : `Not connected — ${reason}`).slice(0, 2000)
     createCallLog.mutate(
       {
@@ -77,6 +83,10 @@ export function FollowupCallForm({ lead, followupId, contactName, onSubmitted }:
           } catch {
             show({ title: 'Call saved, but the follow-up was not closed', description: 'Complete it from the Follow-ups page.', tone: 'error' })
           }
+          if (leadChanges) {
+            const failed = await saveLeadChanges(leadChanges)
+            if (failed.length) show({ title: 'Call saved, but the lead was not fully updated', description: `Could not save: ${failed.join(', ')}.`, tone: 'error' })
+          }
           queryClient.invalidateQueries({ queryKey: ['my-followups'] })
           queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
           setSaving(false)
@@ -91,7 +101,7 @@ export function FollowupCallForm({ lead, followupId, contactName, onSubmitted }:
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-[var(--border)] p-5">
+    <div className={cn('space-y-4 rounded-2xl border border-[var(--border)] p-5', FOLLOWUP_FORM_TEXT)}>
       <div>
         <p className="pr-8 text-[15px] font-semibold text-[var(--text-h)]">Follow-up call{contactName ? ` — ${contactName}` : ''}</p>
         <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1">
@@ -147,7 +157,9 @@ export function FollowupCallForm({ lead, followupId, contactName, onSubmitted }:
             </div>
           </Field>
           <div className="rounded-lg border border-[var(--border)] p-3">
-            <p className="mb-2 text-[12px] font-medium text-[var(--text-muted)]">Call again *</p>
+            <p className="mb-2 text-[14px] font-semibold text-[var(--text-h)]">
+              Call again<span className="text-[var(--error)]"> *</span>
+            </p>
             <FollowupWhenPicker value={when} onChange={setWhen} />
           </div>
         </>
@@ -158,7 +170,8 @@ export function FollowupCallForm({ lead, followupId, contactName, onSubmitted }:
           <Field label="What was discussed? *">
             <Textarea value={discussed} onChange={(e) => setDiscussed(e.target.value.slice(0, 1500))} rows={4} />
           </Field>
-          <label className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-h)]">
+          {leadUpdate.panel}
+          <label className="flex items-center gap-2 text-[14px] font-medium text-[var(--text-h)]">
             <input type="checkbox" checked={addNext} onChange={(e) => setAddNext(e.target.checked)} className="accent-[var(--accent)]" />
             Schedule the next follow-up with this client
           </label>

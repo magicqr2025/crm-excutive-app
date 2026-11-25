@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/Button'
 import { Field, Textarea } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useCreateFollowup, useUpdateFollowup } from '@/api/queries'
+import { useCreateFollowup, useFollowup, useUpdateFollowup } from '@/api/queries'
 import type { CrmFollowup } from '@/api/crmApi'
 import { FollowupWhenPicker, initialWhen, resolveWhen, whenIsValid, type When } from './FollowupWhenPicker'
+import { useLeadUpdate, useSaveLeadChanges } from './LeadUpdatePanel'
+import { FOLLOWUP_FORM_TEXT } from './followupUi'
 
 // Complete + Reschedule for one follow-up (ported from orm-whatsapp). Staff always own the next follow-up,
 // so there is no "who follows up" picker.
@@ -32,17 +34,30 @@ function CompleteForm({ followup, onClose }: { followup: CrmFollowup; onClose: (
   const [note, setNote] = useState('')
   const [addNext, setAddNext] = useState(false)
   const [when, setWhen] = useState<When>(initialWhen)
-  const saving = update.isPending || create.isPending
-  const valid = note.trim() !== '' && (!addNext || whenIsValid(when))
+  // List rows don't carry the lead id; the single follow-up does, so look it up when it's missing.
+  const { data: full, isLoading: loadingFull } = useFollowup(followup.lead_id ? '' : followup.id)
+  const leadUpdate = useLeadUpdate(followup.lead_id ?? full?.lead_id, loadingFull)
+  const saveLeadChanges = useSaveLeadChanges()
+  const [savingLead, setSavingLead] = useState(false)
+  const saving = update.isPending || create.isPending || savingLead
+  const valid = note.trim() !== '' && (!addNext || whenIsValid(when)) && !leadUpdate.invalid
 
   function submit() {
     if (!valid) return
     const next = addNext ? resolveWhen(when) : null
+    const leadChanges = leadUpdate.changes()
     update.mutate(
       { id: followup.id, patch: { status: '2', note: note.trim() } },
       {
         onError: (err) => show({ title: err instanceof Error ? err.message : 'Could not complete follow-up', tone: 'error' }),
-        onSuccess: () => {
+        onSuccess: async () => {
+          // The follow-up is done either way; a lead change that is refused is reported on its own.
+          if (leadChanges) {
+            setSavingLead(true)
+            const failed = await saveLeadChanges(leadChanges)
+            setSavingLead(false)
+            if (failed.length) show({ title: 'Follow-up completed, but the lead was not fully updated', description: `Could not save: ${failed.join(', ')}.`, tone: 'error' })
+          }
           if (!next) {
             show({ title: 'Follow-up completed', tone: 'success' })
             return onClose()
@@ -72,11 +87,12 @@ function CompleteForm({ followup, onClose }: { followup: CrmFollowup; onClose: (
         <Dialog.Title>Complete follow-up{followup.contact_name ? ` — ${followup.contact_name}` : ''}</Dialog.Title>
         <Dialog.CloseButton onClose={onClose} />
       </Dialog.Header>
-      <Dialog.Body className="space-y-4">
+      <Dialog.Body className={`space-y-4 ${FOLLOWUP_FORM_TEXT}`}>
         <Field label="What was discussed? *">
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} autoFocus />
         </Field>
-        <label className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-h)]">
+        {leadUpdate.panel}
+        <label className="flex items-center gap-2 text-[14px] font-medium text-[var(--text-h)]">
           <input type="checkbox" checked={addNext} onChange={(e) => setAddNext(e.target.checked)} />
           Schedule the next follow-up with this client
         </label>
@@ -132,7 +148,7 @@ function RescheduleForm({ followup, onClose }: { followup: CrmFollowup; onClose:
         <Dialog.Title>Reschedule follow-up{followup.contact_name ? ` — ${followup.contact_name}` : ''}</Dialog.Title>
         <Dialog.CloseButton onClose={onClose} />
       </Dialog.Header>
-      <Dialog.Body>
+      <Dialog.Body className={FOLLOWUP_FORM_TEXT}>
         <FollowupWhenPicker value={when} onChange={setWhen} />
       </Dialog.Body>
       <Dialog.Footer>

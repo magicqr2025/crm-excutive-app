@@ -1,5 +1,6 @@
 import { PageLoader } from '@/components/ui/Spinner'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useFollowup } from '@/api/queries'
 import { ContactDetailView } from '@/features/contacts/ContactDetailView'
@@ -8,6 +9,10 @@ export function FollowupDetailPage() {
   const { followupId = '' } = useParams<{ followupId: string }>()
   const navigate = useNavigate()
   const { data: followup, isLoading } = useFollowup(followupId)
+  // ?call=1: the Call button on a Follow-ups card dialled already, so open on the call form. Read once,
+  // so a later refresh of the same address doesn't reopen it after the call was saved.
+  const [searchParams] = useSearchParams()
+  const [openCallForm] = useState(() => searchParams.get('call') === '1')
 
   if (isLoading) {
     return <PageLoader fullPage />
@@ -45,6 +50,7 @@ export function FollowupDetailPage() {
         followupTime={followup.followup_time}
         followupStatus={followup.followup_status}
         followupId={followup.followup_status === '2' ? undefined : followup.id}
+        openCallForm={openCallForm && followup.followup_status !== '2' && Boolean(followup.lead_id)}
       />
     </div>
   )

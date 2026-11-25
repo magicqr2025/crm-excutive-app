@@ -1,7 +1,8 @@
 import { PageLoader } from '@/components/ui/Spinner'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, Filter, Plus, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Check, CheckCircle2, Clock, Filter, Phone, Plus, X } from 'lucide-react'
+import { useCallLead } from '@/features/calling/useCallLead'
 import { cn } from '@/lib/utils'
 import { FOLLOWUP_DATE_PRESETS, NO_DATE_RANGE, describeDateRange, presetRange, type FollowupDateRange } from './followupDateFilter'
 import { FollowupWhenPicker, initialWhen, resolveWhen, whenIsValid, type When } from './FollowupWhenPicker'
@@ -64,6 +65,7 @@ function isOverdue(f: { followup_date: string; followup_status: string }): boole
 
 export function FollowupsPage() {
   const navigate = useNavigate()
+  const { startCall, isClaiming } = useCallLead()
   const { show } = useToast()
   const userId = useAuthStore((s) => s.user?.id ?? '')
   // Admins and managers see everyone's follow-ups; only admins may complete / reschedule someone else's (server rule).
@@ -283,10 +285,15 @@ export function FollowupsPage() {
                 }}
                 className={`cursor-pointer rounded-xl border p-3.5 text-left hover:bg-[var(--surface-hover)] ${overdue ? 'border-[var(--error)]' : 'border-[var(--border)]'}`}
               >
-                <div className="flex items-center gap-2.5">
+                {/* Top: who (with the status after the name), and the Call button on the right. */}
+                <div className="flex items-start gap-2.5">
                   <Avatar name={f.contact_name ?? 'Unknown'} size={32} />
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{f.contact_name ?? 'Unknown'}</p>
+                  <div className="min-w-0 flex-1">
+                    {/* Name, then the status right after it. */}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{f.contact_name ?? 'Unknown'}</p>
+                      <span className="shrink-0">{f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}</span>
+                    </div>
                     <p className="text-[12px] text-[var(--text-muted)]">{f.contact_phone ?? '—'}</p>
                     {allStaff && f.assign_to_staff_id && (
                       <p className="truncate text-[11.5px] text-[var(--text-muted)]">
@@ -294,14 +301,37 @@ export function FollowupsPage() {
                       </p>
                     )}
                   </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {canAct && f.contact_phone && (
+                      <button
+                        type="button"
+                        aria-label={`Call ${f.contact_name ?? f.contact_phone}`}
+                        title={`Call ${f.contact_phone}`}
+                        disabled={isClaiming}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Dial, and open this follow-up on its call form so it's ready when the call ends.
+                          // The list rows carry no lead id (the details page loads it); a follow-up always
+                          // has an owner, so there is nothing to claim here.
+                          startCall({
+                            leadId: f.lead_id ?? null,
+                            phone: f.contact_phone,
+                            assignToStaffId: f.assign_to_staff_id,
+                            onDial: () => navigate(`/followups/${f.id}?call=1`),
+                          })
+                        }}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
+                      >
+                        <Phone size={17} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p
-                  className={`mt-2.5 font-mono-num text-[12px] ${overdue ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]'}`}
-                >
-                  Due {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
-                </p>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  {f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
+                {/* Bottom: when it's due, and Reschedule / Complete. */}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className={`font-mono-num text-[12px] ${overdue ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
+                    Due {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
+                  </p>
                   {canAct && (
                     <div className="flex shrink-0 items-center gap-1.5">
                       <Button

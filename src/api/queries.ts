@@ -59,11 +59,13 @@ import {
   fetchMyTargets,
   fetchMeetingsPage,
   fetchMeetingById,
+  fetchMeetingFreeTimes,
   type MeetingsPageOpts,
   fetchPaymentsPage,
   fetchMyTarget,
   fetchLeadsPage,
   fetchLabels,
+  fetchContactGroups,
   fetchMyOpenFollowups,
   type LeadListFilters,
   type CrmFollowup,
@@ -82,6 +84,7 @@ import {
   createPayment,
   updatePayment,
   type CampaignLeadScope,
+  type CampaignLeadListFilters,
   type CreateCallLogInput,
   type CreateDealInput,
   type DealPaymentStatus,
@@ -125,7 +128,7 @@ import {
   type TaskStatusFilter,
   type TaskType,
 } from '@/api/crmApi'
-import { useAuthStore } from '@/store/useAuthStore'
+import { useAuthStore, useCan } from '@/store/useAuthStore'
 import { addTicketComment, createTicket, fetchTicket, fetchTicketPublicLink, fetchTicketMasters, fetchTicketSummary, fetchTicketsPage, setTicketStatus, triageTicket, type CreateTicketInput, type TicketListFilters, type TicketPriority, type TicketStatus } from '@/api/ticketsApi'
 import { createQuickReply, deleteQuickReply, fetchQuickReplies, updateQuickReply, type QuickReplyInput } from '@/api/quickRepliesApi'
 import { bookForContact, fetchEventTypes, fetchLinkDays, fetchLinkSlots, fetchSchedulingProfile, setEventTypeActive } from '@/api/schedulingApi'
@@ -134,10 +137,10 @@ export function useMyLeadCampaigns() {
   return useQuery({ queryKey: ['my-lead-campaigns'], queryFn: fetchMyLeadCampaigns })
 }
 
-export function useCampaignLeadsPage({ campaignId, staffId, scope, search, anyStaff = false }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string; /** List the campaign's leads whoever owns them (no staff filter). */ anyStaff?: boolean }) {
+export function useCampaignLeadsPage({ campaignId, staffId, scope, search, anyStaff = false, filters }: { campaignId: string; staffId: string; scope: CampaignLeadScope; search: string; /** List the campaign's leads whoever owns them (no staff filter). */ anyStaff?: boolean; filters?: CampaignLeadListFilters }) {
   return usePagedList({
-    queryKey: ['campaign-leads', campaignId, staffId, scope, { search }],
-    fetchPage: (page) => fetchLeadsForCampaignPage({ campaignId, staffId, scope, page, search }),
+    queryKey: ['campaign-leads', campaignId, staffId, scope, { search, filters }],
+    fetchPage: (page) => fetchLeadsForCampaignPage({ campaignId, staffId, scope, page, search, filters }),
     enabled: Boolean(campaignId && (staffId || anyStaff)),
   })
 }
@@ -167,6 +170,12 @@ export function useLeadCount(staffId: string, unassigned: boolean) {
     queryFn: async () => (await fetchLeadsPage({ staffId, page: 1, perPage: 1, unassigned })).total,
     enabled: Boolean(staffId),
   })
+}
+
+/** Contact groups, for roles allowed to see them (the main CRM's role grid); others get an empty, never-sent query. */
+export function useContactGroups() {
+  const canView = useCan('contact_groups', 'view')
+  return useQuery({ queryKey: ['contact-groups'], queryFn: fetchContactGroups, enabled: canView, staleTime: 5 * 60_000 })
 }
 
 export function useLabels() {
@@ -434,6 +443,14 @@ export function useMeeting(id: string | undefined) {
   return useQuery({ queryKey: ['meetings', 'one', id], queryFn: () => fetchMeetingById(id as string), enabled: Boolean(id), retry: false })
 }
 
+export function useMeetingFreeTimes(params: Parameters<typeof fetchMeetingFreeTimes>[0], enabled = true) {
+  return useQuery({
+    queryKey: ['meeting-free-times', params],
+    queryFn: () => fetchMeetingFreeTimes(params),
+    enabled: enabled && Boolean(params.date),
+  })
+}
+
 export function useUnclaimedBookings() {
   return useQuery({ queryKey: ['unclaimed-bookings'], queryFn: () => fetchUnclaimedBookings(), refetchInterval: 60_000 })
 }
@@ -457,6 +474,7 @@ export function useCreateMeeting() {
     mutationFn: (input: CreateMeetingInput) => createMeeting(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['meeting-free-times'] })
       queryClient.invalidateQueries({ queryKey: ['lead-activity'] })
     },
   })

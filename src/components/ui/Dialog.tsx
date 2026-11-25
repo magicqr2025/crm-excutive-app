@@ -8,9 +8,11 @@ interface DialogProps {
   onClose: () => void
   children: ReactNode
   className?: string
+  /** 'sheet': a short form that slides up from the bottom on a phone (only as tall as it needs) instead of filling the screen. */
+  variant?: 'full' | 'sheet'
 }
 
-function DialogRoot({ open, onClose, children, className }: DialogProps) {
+function DialogRoot({ open, onClose, children, className, variant = 'full' }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
 
@@ -51,7 +53,7 @@ function DialogRoot({ open, onClose, children, className }: DialogProps) {
   if (!open) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-4">
+    <div className={cn('fixed inset-0 z-50 flex justify-center sm:items-center sm:p-4', variant === 'sheet' ? 'items-end' : 'items-stretch')}>
       <div
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
@@ -64,7 +66,8 @@ function DialogRoot({ open, onClose, children, className }: DialogProps) {
         data-slot="dialog"
         className={cn(
           // Full screen on a phone (this app also ships as an Android wrapper), centred card from sm up.
-          'relative flex h-full w-full flex-col overflow-hidden bg-[var(--surface)] shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-lg sm:rounded-[var(--radius-card)] sm:border sm:border-[var(--border)]',
+          'relative flex w-full flex-col overflow-hidden bg-[var(--surface)] shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-lg sm:rounded-[var(--radius-card)] sm:border sm:border-[var(--border)]',
+          variant === 'sheet' ? 'max-h-[88vh] rounded-t-[var(--radius-card)] border-t border-[var(--border)] pb-[env(safe-area-inset-bottom)]' : 'h-full',
           className,
         )}
       >
