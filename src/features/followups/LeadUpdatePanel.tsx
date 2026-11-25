@@ -134,7 +134,34 @@ export function useLeadUpdate(
 
     const fields = (
       <>
-        {showStatus && (
+        {showStatus && only === 'status' && (
+          // On its own (the status chip's editor) every choice is a chip to tap: easier than two dropdowns on a phone.
+          <div className="space-y-4">
+            <Row label="Stage" changed={changed.stage}>
+              <div role="radiogroup" aria-label="Stage" className="flex flex-wrap gap-2">
+                {stages.map((st) => (
+                  <ChoiceChip key={st.id} selected={edit.stageId === st.id} onClick={() => pickStage(st.id)}>
+                    {st.lead_stage}
+                  </ChoiceChip>
+                ))}
+              </div>
+            </Row>
+            <Row label="Status" changed={changed.status}>
+              {stageStatuses.length === 0 ? (
+                <p className="text-[13px] text-[var(--text-muted)]">{edit.stageId ? 'This stage has no statuses.' : 'Pick a stage first.'}</p>
+              ) : (
+                <div role="radiogroup" aria-label="Status" className="flex flex-wrap gap-2">
+                  {stageStatuses.map((st) => (
+                    <ChoiceChip key={st.id} selected={edit.statusId === st.id} dot={st.color ?? undefined} onClick={() => setDraft({ ...edit, statusId: st.id })}>
+                      {st.lead_status}
+                    </ChoiceChip>
+                  ))}
+                </div>
+              )}
+            </Row>
+          </div>
+        )}
+        {showStatus && only !== 'status' && (
           <div className="grid gap-3 sm:grid-cols-2">
           <Row label="Stage" changed={changed.stage}>
             <SelectBox>
@@ -290,6 +317,26 @@ const SELECT =
 
 function Note({ children }: { children: ReactNode }) {
   return <p className="rounded-xl border border-[var(--border)] px-3.5 py-3 text-[13.5px] text-[var(--text-muted)]">{children}</p>
+}
+
+function ChoiceChip({ selected, dot, onClick, children }: { selected: boolean; dot?: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      className={cn(
+        'inline-flex min-h-10 items-center gap-2 rounded-full border px-3.5 text-[14px] font-medium transition-colors',
+        selected
+          ? 'border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
+          : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-h)] hover:bg-[var(--surface-hover)]',
+      )}
+    >
+      {dot && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />}
+      {children}
+    </button>
+  )
 }
 
 function Row({ label, changed, children }: { label: string; changed: boolean; children: ReactNode }) {

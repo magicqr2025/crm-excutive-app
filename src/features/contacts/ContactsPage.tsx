@@ -11,23 +11,20 @@ import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
 import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
-import { useLabels, useLeadStatuses, useLeadsPage, useMyLeadCampaigns, useMyOpenFollowupsByContact } from '@/api/queries'
+import { useActiveProducts, useContactGroups, useLabels, useLeadFlags, useLeadStageTypes, useLeadStatuses, useLeadsPage, useMyLeadCampaigns, useMyOpenFollowupsByContact, useStaffList } from '@/api/queries'
 import { fetchLeadsPage, type CrmFollowup, type CrmLead } from '@/api/crmApi'
 import { formatDate, formatTime } from '@/lib/followupFormat'
-import { NO_DATE_RANGE } from '@/features/followups/followupDateFilter'
-import { ContactFilterPanel } from './ContactFilterPanel'
+import { CampaignLeadFilterDialog } from '@/features/campaigns/CampaignLeadFilterDialog'
 import {
-  CONTACT_TABS,
-  FOLLOWUP_CHOICES,
-  NO_CONTACT_FILTERS,
+  DATE_OPTIONS,
+  FOLLOWUP_OPTIONS,
+  MEETING_OPTIONS,
+  NO_LEAD_FILTERS,
+  UNASSIGNED,
   activeFilterCount,
-  describeAdded,
-  hasFollowupTab,
-  tabQuery,
-  toLeadFilters,
-  type ContactPanelFilters,
-  type ContactsTab,
-} from './contactFilters'
+  type CampaignLeadFilters,
+} from '@/features/campaigns/campaignLeadFilters'
+import { CONTACT_TABS, contactsQuery, type ContactsTab } from './contactFilters'
 import { useToast } from '@/components/ui/useToast'
 import { BulkEmailDialog } from './BulkEmailDialog'
 import { AddNewLeadDialog } from './AddNewLeadDialog'
@@ -71,18 +68,18 @@ export function ContactsPage() {
   // "Unassigned" = leads nobody has taken yet (e.g. new Facebook/WhatsApp leads); first to call or assign gets it.
   const [view, setView] = useState<ContactsTab>('all')
   // Staff with admin power see every contact in the business on every tab, not just their own.
-  const allStaff = useAuthStore((st) => st.isAdmin)
-  const [panel, setPanel] = useState<ContactPanelFilters>(NO_CONTACT_FILTERS)
+  const isAdmin = useAuthStore((st) => st.isAdmin)
+  // The same Filters popup as a pipeline's leads list, plus Pipeline.
+  const [panel, setPanel] = useState<CampaignLeadFilters>(NO_LEAD_FILTERS)
   const [filterOpen, setFilterOpen] = useState(false)
-  const filters = toLeadFilters(panel, view)
-  const unassigned = tabQuery(view).unassigned
+  const { staffId, allStaff, unassigned, filters } = contactsQuery(panel, view, userId, isAdmin)
   const filterCount = activeFilterCount(panel)
   // Every tab's total under the current search + filters: one tiny request each.
   const { data: counts } = useQuery({
-    queryKey: ['my-leads', 'tab-counts', userId, allStaff, search, panel],
+    queryKey: ['my-leads', 'tab-counts', userId, isAdmin, search, panel],
     queryFn: async () => {
       const totals = await Promise.all(
-        CONTACT_TABS.map(async (t) => (await fetchLeadsPage({ staffId: userId, allStaff, page: 1, perPage: 1, search, unassigned: tabQuery(t.value).unassigned, filters: toLeadFilters(panel, t.value) })).total),
+        CONTACT_TABS.map(async (t) => (await fetchLeadsPage({ ...contactsQuery(panel, t.value, userId, isAdmin), page: 1, perPage: 1, search })).total),
       )
       return Object.fromEntries(CONTACT_TABS.map((t, i) => [t.value, totals[i]])) as Record<ContactsTab, number>
     },
@@ -96,7 +93,7 @@ export function ContactsPage() {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useLeadsPage({ staffId: userId, search, unassigned, filters, allStaff })
+  } = useLeadsPage({ staffId, search, unassigned, filters, allStaff })
 
   // Switching tabs returns to that tab's normal first page, not a leftover search.
   function switchView(next: ContactsTab) {
@@ -105,18 +102,35 @@ export function ContactsPage() {
   }
 
   const { data: statuses = [] } = useLeadStatuses()
+  const { data: stageTypes = [] } = useLeadStageTypes()
   const { data: pipelines = [] } = useMyLeadCampaigns()
   const { data: labels = [] } = useLabels()
+  const { data: groups = [] } = useContactGroups()
+  const { data: products = [] } = useActiveProducts()
+  const { data: flags = [] } = useLeadFlags()
+  const { data: staff = [] } = useStaffList()
   const nameOf = (list: { id: string }[], id: string, key: string) =>
     id === 'none' ? 'None' : ((list.find((x) => x.id === id) as Record<string, string> | undefined)?.[key] ?? '…')
-  const chips: { key: string; label: string; clear: Partial<ContactPanelFilters> }[] = [
-    ...(panel.followup && !hasFollowupTab(view)
-      ? [{ key: 'followup', label: `Follow-up: ${FOLLOWUP_CHOICES.find((c) => c.value === panel.followup)?.label}`, clear: { followup: '' as const } }]
-      : []),
-    ...(panel.leadStatusId ? [{ key: 'status', label: `Status: ${nameOf(statuses, panel.leadStatusId, 'lead_status')}`, clear: { leadStatusId: '' } }] : []),
+  const dmy = (v: string) => v.split('-').reverse().join('/')
+  const addedText =
+    panel.datePreset === 'custom'
+      ? [panel.from && dmy(panel.from), panel.to && dmy(panel.to)].filter(Boolean).join(' – ')
+      : DATE_OPTIONS.find((o) => o.value === panel.datePreset)?.label
+  const staffMember = staff.find((x) => x.user_id === panel.staffId)
+  const userText = panel.staffId === UNASSIGNED ? 'Unassigned' : staffMember ? [staffMember.first_name, staffMember.last_name].filter(Boolean).join(' ') || 'Staff' : '…'
+  // One chip per filter that is on; its ✕ clears just that filter.
+  const chips: { key: string; label: string; clear: Partial<CampaignLeadFilters> }[] = [
+    ...(panel.datePreset ? [{ key: 'date', label: `Added: ${addedText}`, clear: { datePreset: '' as const, from: '', to: '' } }] : []),
+    ...(panel.staffId ? [{ key: 'user', label: `User: ${userText}`, clear: { staffId: '' } }] : []),
     ...(panel.campaignId ? [{ key: 'pipeline', label: `Pipeline: ${nameOf(pipelines, panel.campaignId, 'name')}`, clear: { campaignId: '' } }] : []),
+    ...(panel.stageId ? [{ key: 'stage', label: `Stage: ${nameOf(stageTypes, panel.stageId, 'lead_stage')}`, clear: { stageId: '', statusId: '' } }] : []),
+    ...(panel.statusId ? [{ key: 'status', label: `Status: ${nameOf(statuses, panel.statusId, 'lead_status')}`, clear: { statusId: '' } }] : []),
     ...(panel.labelId ? [{ key: 'label', label: `Label: ${nameOf(labels, panel.labelId, 'name')}`, clear: { labelId: '' } }] : []),
-    ...(panel.added.from || panel.added.to ? [{ key: 'added', label: describeAdded(panel.added), clear: { added: NO_DATE_RANGE } }] : []),
+    ...(panel.groupId ? [{ key: 'group', label: `Group: ${nameOf(groups, panel.groupId, 'name')}`, clear: { groupId: '' } }] : []),
+    ...(panel.productId ? [{ key: 'product', label: `Product: ${nameOf(products, panel.productId, 'name')}`, clear: { productId: '' } }] : []),
+    ...(panel.flagId ? [{ key: 'flag', label: `Call flag: ${nameOf(flags, panel.flagId, 'name')}`, clear: { flagId: '' } }] : []),
+    ...(panel.followup ? [{ key: 'followup', label: `Follow-up: ${FOLLOWUP_OPTIONS.find((o) => o.value === panel.followup)?.label}`, clear: { followup: '' as const } }] : []),
+    ...(panel.meeting ? [{ key: 'meeting', label: `Meeting: ${MEETING_OPTIONS.find((o) => o.value === panel.meeting)?.label}`, clear: { meeting: '' as const } }] : []),
   ]
 
   // Selects every contact on the current tab/search, not just the ones scrolled into view, up to the bulk-email cap.
@@ -125,7 +139,7 @@ export function ContactsPage() {
     try {
       const all: CrmLead[] = []
       for (let page = 1; all.length < MAX_BULK_SELECT; page++) {
-        const result = await fetchLeadsPage({ staffId: userId, allStaff, page, search, unassigned, filters, perPage: 100 })
+        const result = await fetchLeadsPage({ staffId, allStaff, page, search, unassigned, filters, perPage: 100 })
         all.push(...result.items)
         if (page >= result.totalPages) break
       }
@@ -152,7 +166,7 @@ export function ContactsPage() {
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
       <PageHeader
         title="Contacts"
-        subtitle={allStaff ? "Every contact in the business — tap one to see its history." : "Your contacts plus unassigned ones — tap one to see its history."}
+        subtitle={isAdmin ? "Every contact in the business — tap one to see its history." : "Your contacts plus unassigned ones — tap one to see its history."}
         action={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="secondary" onClick={() => setBulkEmailOpen(true)}>
@@ -211,15 +225,14 @@ export function ContactsPage() {
             )
           })}
         </div>
-        <p className="text-[12px] text-[var(--text-muted)]">{allStaff && view === 'all' ? 'All contacts in the business (you have admin access).' : TAB_HINTS[view]}</p>
+        <p className="text-[12px] text-[var(--text-muted)]">{isAdmin && view === 'all' ? 'All contacts in the business (you have admin access).' : TAB_HINTS[view]}</p>
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
           </div>
           <Button
             variant="outline"
-            onClick={() => setFilterOpen((o) => !o)}
-            aria-expanded={filterOpen}
+            onClick={() => setFilterOpen(true)}
             aria-label="Filter contacts"
             className="relative h-10 shrink-0 gap-1.5"
           >
@@ -232,7 +245,15 @@ export function ContactsPage() {
             )}
           </Button>
         </div>
-        {filterOpen && <ContactFilterPanel value={panel} onChange={setPanel} showFollowup={!hasFollowupTab(view)} />}
+        <CampaignLeadFilterDialog
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          value={panel}
+          onApply={setPanel}
+          showStaff={isAdmin}
+          pipelines={pipelines}
+          applyLabel="Show contacts"
+        />
         {chips.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {chips.map((c) => (
@@ -247,7 +268,7 @@ export function ContactsPage() {
               </span>
             ))}
             {chips.length > 1 && (
-              <button type="button" onClick={() => setPanel(NO_CONTACT_FILTERS)} className="px-1.5 text-[12px] font-medium text-[var(--text-muted)] hover:text-[var(--text-h)]">
+              <button type="button" onClick={() => setPanel(NO_LEAD_FILTERS)} className="px-1.5 text-[12px] font-medium text-[var(--text-muted)] hover:text-[var(--text-h)]">
                 Clear all
               </button>
             )}
@@ -331,7 +352,7 @@ export function ContactsPage() {
                 </div>
                 {(() => {
                   // Built from your own follow-ups, so it would be misleading on other staff's contacts: hidden for admins.
-                  const fu = allStaff ? undefined : openFollowups?.get(lead.contact_id)
+                  const fu = isAdmin ? undefined : openFollowups?.get(lead.contact_id)
                   if (!fu) return null
                   const line = followupLine(fu)
                   return (

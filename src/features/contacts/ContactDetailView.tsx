@@ -225,7 +225,6 @@ export function ContactDetailView({
               onCall={call}
               onEmail={leadId && lead?.contact_email ? () => setEmailOpen(true) : undefined}
               isClaiming={isClaiming}
-              onEditStatus={leadId ? () => setEditField('status') : undefined}
             >
               {followupStatus && followupDate && (
                 <Badge tone={STATUS_TONE[followupStatus]}>
@@ -288,6 +287,9 @@ export function ContactDetailView({
                   <StatTiles totals={totals} onOpen={setTab} />
                   {lead && (
                     <LeadInfoTiles
+                      stage={stageName}
+                      status={lead.lead_status}
+                      statusColor={lead.lead_status_color}
                       pipelines={lead.lead_campaigns.map((c) => c.name)}
                       labels={(lead.labels ?? []).map((l) => l.name)}
                       groups={(lead.groups ?? []).map((g) => g.name)}

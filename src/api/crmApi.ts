@@ -177,10 +177,15 @@ export async function fetchNextQueueLead(campaignId: string, staffId: string, ex
 /** Server-side Contacts filters (crmbackend leads list); empty = no limit. */
 export interface LeadListFilters {
   followup?: 'overdue' | 'today' | 'upcoming' | 'none'
-  meeting?: 'today'
+  meeting?: 'upcoming' | 'today' | 'missed' | 'completed' | 'none'
+  stageId?: string
   leadStatusId?: string
   campaignId?: string
+  /** Ids below take 'none' = the lead has none. */
   labelId?: string
+  groupId?: string
+  productId?: string
+  flagId?: string
   /** ISO instants bounding when the lead was added. */
   createdFrom?: string
   createdTo?: string
@@ -210,6 +215,10 @@ export async function fetchLeadsPage(opts: {
     ...(f.leadStatusId ? { lead_status_id: f.leadStatusId } : {}),
     ...(f.campaignId ? { lead_campaign_id: f.campaignId } : {}),
     ...(f.labelId ? { label_id: f.labelId } : {}),
+    ...(f.stageId ? { stage_id: f.stageId } : {}),
+    ...(f.groupId ? { group_id: f.groupId } : {}),
+    ...(f.productId ? { product_id: f.productId } : {}),
+    ...(f.flagId ? { flag_id: f.flagId } : {}),
     ...(f.createdFrom ? { created_from: f.createdFrom } : {}),
     ...(f.createdTo ? { created_to: f.createdTo } : {}),
   })

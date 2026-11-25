@@ -1,6 +1,7 @@
-// Contacts tabs + the Filter panel's values, turned into the server's lead-list filters.
+// Contacts tabs + the Filters popup's values (the same popup as a pipeline's leads list), turned into the server's
+// lead-list query.
 import type { LeadListFilters } from '@/api/crmApi'
-import { FOLLOWUP_DATE_PRESETS, NO_DATE_RANGE, type FollowupDateRange } from '@/features/followups/followupDateFilter'
+import { UNASSIGNED, createdRangeFor, type CampaignLeadFilters } from '@/features/campaigns/campaignLeadFilters'
 
 export type ContactsTab = 'all' | 'unassigned' | 'followup_today' | 'overdue' | 'meeting_today'
 
@@ -12,7 +13,7 @@ export const CONTACT_TABS: { value: ContactsTab; label: string }[] = [
   { value: 'meeting_today', label: 'Meeting today' },
 ]
 
-/** What each tab adds on top of the Filter panel. The follow-up tabs win over the panel's Follow-up choice. */
+/** What each tab adds on top of the Filters popup. A tab's follow-up / meeting choice wins over the popup's. */
 export function tabQuery(tab: ContactsTab): { unassigned: boolean; filters: LeadListFilters } {
   switch (tab) {
     case 'unassigned':
@@ -28,56 +29,37 @@ export function tabQuery(tab: ContactsTab): { unassigned: boolean; filters: Lead
   }
 }
 
-export type FollowupChoice = '' | 'overdue' | 'today' | 'upcoming' | 'none'
-
-export const FOLLOWUP_CHOICES: { value: Exclude<FollowupChoice, ''>; label: string }[] = [
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'today', label: 'Due today' },
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'none', label: 'No follow-up' },
-]
-
-export interface ContactPanelFilters {
-  followup: FollowupChoice
-  leadStatusId: string
-  campaignId: string
-  labelId: string
-  added: FollowupDateRange
+export interface ContactsQuery {
+  /** Whose leads; ignored when `allStaff`. */
+  staffId: string
+  allStaff: boolean
+  unassigned: boolean
+  filters: LeadListFilters
 }
 
-export const NO_CONTACT_FILTERS: ContactPanelFilters = { followup: '', leadStatusId: '', campaignId: '', labelId: '', added: NO_DATE_RANGE }
-
-export function hasFollowupTab(tab: ContactsTab): boolean {
-  return tab === 'followup_today' || tab === 'overdue'
-}
-
-/** Panel values + tab → the server filters (YYYY-MM-DD "Added" days become local-day ISO bounds). */
-export function toLeadFilters(panel: ContactPanelFilters, tab: ContactsTab): LeadListFilters {
-  const { from, to } = panel.added
+/**
+ * Popup values + tab → the list request. An admin sees everyone's contacts unless they pick a user (or
+ * Unassigned) in the popup; everyone else always sees their own plus the unassigned pool.
+ */
+export function contactsQuery(f: CampaignLeadFilters, tab: ContactsTab, userId: string, isAdmin: boolean): ContactsQuery {
+  const tabPart = tabQuery(tab)
+  const pickedStaff = isAdmin && f.staffId && f.staffId !== UNASSIGNED ? f.staffId : ''
   return {
-    ...(panel.followup && !hasFollowupTab(tab) ? { followup: panel.followup } : {}),
-    ...(panel.leadStatusId ? { leadStatusId: panel.leadStatusId } : {}),
-    ...(panel.campaignId ? { campaignId: panel.campaignId } : {}),
-    ...(panel.labelId ? { labelId: panel.labelId } : {}),
-    ...(from ? { createdFrom: new Date(`${from}T00:00:00`).toISOString() } : {}),
-    ...(to ? { createdTo: new Date(`${to}T23:59:59.999`).toISOString() } : {}),
-    ...tabQuery(tab).filters,
+    staffId: pickedStaff || userId,
+    allStaff: isAdmin && !pickedStaff,
+    unassigned: tabPart.unassigned || (isAdmin && f.staffId === UNASSIGNED),
+    filters: {
+      ...(f.campaignId ? { campaignId: f.campaignId } : {}),
+      ...(f.stageId ? { stageId: f.stageId } : {}),
+      ...(f.statusId ? { leadStatusId: f.statusId } : {}),
+      ...(f.labelId ? { labelId: f.labelId } : {}),
+      ...(f.groupId ? { groupId: f.groupId } : {}),
+      ...(f.productId ? { productId: f.productId } : {}),
+      ...(f.flagId ? { flagId: f.flagId } : {}),
+      ...(f.followup ? { followup: f.followup } : {}),
+      ...(f.meeting ? { meeting: f.meeting } : {}),
+      ...createdRangeFor(f),
+      ...tabPart.filters,
+    },
   }
-}
-
-export function activeFilterCount(panel: ContactPanelFilters): number {
-  return [panel.followup, panel.leadStatusId, panel.campaignId, panel.labelId, panel.added.from || panel.added.to].filter(Boolean).length
-}
-
-function dmy(value: string): string {
-  const [y, m, d] = value.split('-')
-  return `${d}/${m}/${y}`
-}
-
-/** Chip text for the "Added" range, e.g. "Added: This week". */
-export function describeAdded(range: FollowupDateRange): string {
-  const preset = FOLLOWUP_DATE_PRESETS.find((p) => p.value === range.preset)
-  if (preset && range.preset !== 'custom') return `Added: ${preset.label}`
-  if (range.from && range.to) return range.from === range.to ? `Added: ${dmy(range.from)}` : `Added: ${dmy(range.from)} – ${dmy(range.to)}`
-  return range.from ? `Added: from ${dmy(range.from)}` : `Added: up to ${dmy(range.to)}`
 }

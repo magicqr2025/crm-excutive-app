@@ -1,4 +1,4 @@
-import { BellOff, CalendarPlus, Copy, Mail, Pencil, Phone, PhoneForwarded } from 'lucide-react'
+import { BellOff, CalendarPlus, Copy, Mail, Phone, PhoneForwarded } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/useToast'
@@ -30,8 +30,6 @@ interface LeadHeroProps {
   onAssignToMe?: () => void
   onCall?: () => void
   onEmail?: () => void
-  /** Opens the stage & status editor from the status chip. */
-  onEditStatus?: () => void
   isClaiming: boolean
   /** Extra badges (follow-up due, meeting pending…). */
   children?: React.ReactNode
@@ -56,7 +54,6 @@ export function LeadHero({
   onAssignToMe,
   onCall,
   onEmail,
-  onEditStatus,
   isClaiming,
   children,
 }: LeadHeroProps) {
@@ -114,22 +111,16 @@ export function LeadHero({
                 )}
               </div>
             )}
-            {(status || stage || onEditStatus) && (
-              <button
-                type="button"
-                onClick={onEditStatus}
-                disabled={!onEditStatus}
-                aria-label="Edit stage and status"
-                className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg)] py-1 pl-2.5 pr-2 text-[12px] font-medium text-[var(--text-h)] transition-colors enabled:hover:border-[var(--accent-border)] disabled:cursor-default"
-              >
+            {/* Display only: stage & status are changed from the Stage & Status card in Overview. */}
+            {(status || stage) && (
+              <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1 text-[12px] font-medium text-[var(--text-h)]">
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: statusColor || 'var(--accent)' }} />
                 <span className="truncate">
                   {stage && <span className="text-[var(--text-muted)]">{stage}</span>}
                   {stage && status && <span className="text-[var(--text-muted)]"> · </span>}
-                  {status ?? 'No status'}
+                  {status}
                 </span>
-                {onEditStatus && <Pencil size={11} className="shrink-0 text-[var(--text-muted)]" />}
-              </button>
+              </span>
             )}
             {unassigned && (
               <p className="mt-2 text-[12.5px] text-[var(--text-muted)]">

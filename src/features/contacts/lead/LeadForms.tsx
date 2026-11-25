@@ -283,7 +283,7 @@ const FIELD_SAVED: Record<LeadField, string> = {
 /** Opened from one tile's pencil (or the status chip): shows and saves only that part. `field` null = closed. */
 export function EditLeadDialog({ field, onClose, leadId }: { field: LeadField | null; onClose: () => void; leadId: string }) {
   return (
-    <Dialog open={field !== null} onClose={onClose}>
+    <Dialog open={field !== null} onClose={onClose} variant="sheet">
       {field && <EditLeadForm key={field} field={field} leadId={leadId} onClose={onClose} />}
     </Dialog>
   )

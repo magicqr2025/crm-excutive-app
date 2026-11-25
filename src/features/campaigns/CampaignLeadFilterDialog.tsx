@@ -29,19 +29,23 @@ interface CampaignLeadFilterDialogProps {
   onApply: (next: CampaignLeadFilters) => void
   /** Admins also pick a staff member; everyone else only sees their own leads. */
   showStaff: boolean
+  /** Given on the Contacts page: also filter by pipeline. */
+  pipelines?: Option[]
+  /** What the Apply button says, e.g. "Show contacts". */
+  applyLabel?: string
 }
 
 /** The pipeline leads Filters popup: edits a draft, the list changes only on "Show leads". */
-export function CampaignLeadFilterDialog({ open, onClose, value, onApply, showStaff }: CampaignLeadFilterDialogProps) {
+export function CampaignLeadFilterDialog({ open, onClose, value, onApply, showStaff, pipelines, applyLabel }: CampaignLeadFilterDialogProps) {
   return (
     <Dialog open={open} onClose={onClose}>
       {/* Remounted on every open, so the draft starts from what the list shows. */}
-      {open && <FilterForm value={value} onApply={onApply} onClose={onClose} showStaff={showStaff} />}
+      {open && <FilterForm value={value} onApply={onApply} onClose={onClose} showStaff={showStaff} pipelines={pipelines} applyLabel={applyLabel} />}
     </Dialog>
   )
 }
 
-function FilterForm({ value, onApply, onClose, showStaff }: Omit<CampaignLeadFilterDialogProps, 'open'>) {
+function FilterForm({ value, onApply, onClose, showStaff, pipelines, applyLabel = 'Show leads' }: Omit<CampaignLeadFilterDialogProps, 'open'>) {
   const [draft, setDraft] = useState<CampaignLeadFilters>(value)
   const patch = (next: Partial<CampaignLeadFilters>) => setDraft((d) => ({ ...d, ...next }))
   const on = activeFilterCount(draft)
@@ -126,6 +130,9 @@ function FilterForm({ value, onApply, onClose, showStaff }: Omit<CampaignLeadFil
                 </select>
               </SelectField>
             )}
+            {pipelines && (
+              <IdSelect label="Pipeline" anyText="All pipelines" noneText={null} value={draft.campaignId} options={pipelines} onChange={(v) => patch({ campaignId: v })} />
+            )}
             <SelectField label="Stage" value={draft.stageId} onClear={() => pickStage('')}>
               <select aria-label="Stage" value={draft.stageId} onChange={(e) => pickStage(e.target.value)} className={selectClass(draft.stageId)}>
                 <option value="">All stages</option>
@@ -185,7 +192,7 @@ function FilterForm({ value, onApply, onClose, showStaff }: Omit<CampaignLeadFil
             onClose()
           }}
         >
-          {incomplete ? 'Pick a date' : 'Show leads'}
+          {incomplete ? 'Pick a date' : applyLabel}
         </Button>
       </Dialog.Footer>
     </>
