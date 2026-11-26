@@ -149,7 +149,7 @@ export function LeadWhatsAppButtons({ contactId, phone, countryCode, ownerStaffI
             disabled={companyDisabled}
             aria-label="Open chat in Inbox"
             className={cn(
-              'flex shrink-0 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] font-semibold text-[var(--accent-strong)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white disabled:pointer-events-none disabled:border-[var(--border)] disabled:bg-[var(--surface-hover)] disabled:text-[var(--text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
+              'flex shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent)] hover:text-white disabled:pointer-events-none disabled:bg-[var(--surface-hover)] disabled:text-[var(--text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
               sm ? 'h-8 gap-1.5 px-3 text-[12px]' : 'h-10 gap-2 px-4 text-[13px]',
             )}
           >

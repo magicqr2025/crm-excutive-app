@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/useToast'
 import { copyText } from '@/lib/share'
 import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/useAuthStore'
 import { formatDate } from '@/lib/dateFormat'
 
 interface LeadHeroProps {
@@ -56,6 +57,7 @@ export function LeadHero({
   children,
 }: LeadHeroProps) {
   const { show } = useToast()
+  const userId = useAuthStore((st) => st.user?.id ?? '')
   async function copyPhone() {
     if (!phone) return
     show(await copyText(phone) ? { title: 'Number copied', tone: 'success' } : { title: 'Could not copy the number', tone: 'error' })
@@ -67,21 +69,24 @@ export function LeadHero({
         <div className="flex min-w-0 items-start gap-3">
           <Avatar name={name} size={48} />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[20px] font-semibold leading-tight text-[var(--text-h)] sm:text-[22px]">{name}</h1>
+            <h1 className="truncate text-[20px] font-semibold leading-tight tracking-[-0.01em] text-[var(--text-h)] sm:text-[22px]">{name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[var(--text-muted)]">
               {phone && (
                 <span className="inline-flex items-center gap-1">
-                  <span className="font-mono-num text-[var(--text)]">{phone}</span>
+                  <span className="font-mono-num text-[var(--text-muted)]">{phone}</span>
                   <button type="button" onClick={copyPhone} aria-label="Copy number" className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-hover)]">
                     <Copy size={13} />
                   </button>
                 </span>
               )}
               {ownerName && (
-                <>
-                  <span aria-hidden>·</span>
-                  <span>{ownerName}</span>
-                </>
+                <span
+                  title={`Assigned to ${ownerName}`}
+                  className="inline-flex max-w-[160px] items-center gap-1.5 rounded-full bg-[var(--surface-hover)] py-0.5 pl-0.5 pr-2.5 text-[11.5px] font-medium text-[var(--text-h)]"
+                >
+                  <Avatar name={ownerName} size={20} />
+                  <span className="truncate">{ownerStaffId && ownerStaffId === userId ? 'You' : ownerName}</span>
+                </span>
               )}
             </div>
             {(email || addedAt || altPhone || unsubscribed) && (
@@ -111,11 +116,14 @@ export function LeadHero({
             )}
             {/* Display only: stage & status are changed from the Stage & Status card in Overview. */}
             {(status || stage) && (
-              <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1 text-[12px] font-medium text-[var(--text-h)]">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: statusColor || 'var(--accent)' }} />
+              <span
+                className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold text-[var(--text-h)]"
+                style={{ background: `color-mix(in srgb, ${statusColor || 'var(--accent)'} 16%, transparent)` }}
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: statusColor || 'var(--accent)' }} />
                 <span className="truncate">
-                  {stage && <span className="text-[var(--text-muted)]">{stage}</span>}
-                  {stage && status && <span className="text-[var(--text-muted)]"> · </span>}
+                  {stage && <span className="font-medium text-[var(--text-muted)]">{stage}</span>}
+                  {stage && status && <span className="font-medium text-[var(--text-muted)]"> · </span>}
                   {status}
                 </span>
               </span>
@@ -148,7 +156,7 @@ export function LeadHero({
               disabled={isClaiming}
               aria-label={`Call ${phone}`}
               className={cn(
-                'ml-auto inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-semibold text-[var(--ink)] shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-60 md:ml-0 md:flex-none',
+                'ml-auto inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-60 md:ml-0 md:flex-none',
               )}
             >
               {isClaiming ? <Spinner size={16} /> : <Phone size={17} />}

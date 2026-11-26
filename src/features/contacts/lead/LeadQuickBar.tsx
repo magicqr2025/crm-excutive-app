@@ -1,7 +1,6 @@
-import { BellRing, CalendarClock, Handshake, Layers, IndianRupee, Link2, ListChecks, Megaphone, Package, Pencil, PhoneCall, Plus, StickyNote, Tag, Users, type LucideIcon } from 'lucide-react'
+import { BellRing, CalendarClock, Handshake, Layers, IndianRupee, Link2, ListChecks, Megaphone, Package, Pencil, Plus, StickyNote, Tag, Users, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { KIND_COLOR, type LeadFormKind, type LeadTab } from './leadConstants'
-import { formatRupees, type LeadTotals } from './leadMath'
+import { KIND_COLOR, type LeadFormKind } from './leadConstants'
 import type { LeadField } from '@/features/followups/LeadUpdatePanel'
 
 // Same chips, order and names as orm-whatsapp's Quick add.
@@ -46,50 +45,6 @@ export function QuickAddRow({ onAdd, onNote, hidden = [] }: { onAdd: (kind: Lead
           </button>
         ))}
       </div>
-    </div>
-  )
-}
-
-interface Tile {
-  tab: LeadTab
-  color: string
-  icon: LucideIcon
-  value: string
-  label: string
-  sub: string
-}
-
-/** Five counts; tapping one opens its tab. 3 + 2 on a phone, one row from a tablet up. */
-export function StatTiles({ totals, onOpen }: { totals: LeadTotals; onOpen: (tab: LeadTab) => void }) {
-  const tiles: Tile[] = [
-    { tab: 'calls', color: KIND_COLOR.call, icon: PhoneCall, value: String(totals.calls), label: totals.calls === 1 ? 'Call' : 'Calls', sub: `${totals.connected} connected` },
-    { tab: 'followup', color: KIND_COLOR.followup, icon: BellRing, value: String(totals.openFollowups), label: 'Follow-ups', sub: 'open' },
-    { tab: 'meeting', color: KIND_COLOR.meeting, icon: CalendarClock, value: String(totals.meetings), label: totals.meetings === 1 ? 'Meeting' : 'Meetings', sub: `${totals.scheduledMeetings} scheduled` },
-    { tab: 'deal', color: KIND_COLOR.deal, icon: Handshake, value: String(totals.deals), label: totals.deals === 1 ? 'Deal' : 'Deals', sub: formatRupees(totals.dealValue) },
-    { tab: 'payment', color: KIND_COLOR.payment, icon: IndianRupee, value: formatRupees(totals.received), label: 'Received', sub: totals.balance > 0 ? `${formatRupees(totals.balance)} due` : `${totals.payments} payment${totals.payments === 1 ? '' : 's'}` },
-  ]
-  return (
-    <div className="grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-3">
-      {tiles.map((t, i) => (
-        <button
-          key={t.tab}
-          type="button"
-          onClick={() => onOpen(t.tab)}
-          className={cn(
-            'flex min-w-0 flex-col items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--accent-border)] md:flex-row md:items-center md:gap-3',
-            // The last two share the second row on a phone: let them stretch to fill it.
-            i === 3 && 'max-md:col-span-1',
-            i === 4 && 'max-md:col-span-2',
-          )}
-        >
-          <Dot color={t.color} icon={t.icon} size={32} />
-          <span className="min-w-0">
-            <span className="block truncate font-mono-num text-[17px] font-semibold leading-tight text-[var(--text-h)]">{t.value}</span>
-            <span className="block truncate text-[12px] font-medium text-[var(--text)]">{t.label}</span>
-            <span className="block truncate text-[11px] text-[var(--text-muted)]">{t.sub}</span>
-          </span>
-        </button>
-      ))}
     </div>
   )
 }

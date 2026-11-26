@@ -25,12 +25,12 @@ import { DispositionForm } from '@/features/calling/DispositionForm'
 import { FollowupCallForm } from '@/features/followups/FollowupCallForm'
 import { STATUS_LABEL, STATUS_TONE, formatDate, formatTime } from '@/lib/followupFormat'
 import { LeadHero } from './lead/LeadHero'
-import { LeadInfoTiles, QuickAddRow, StatTiles } from './lead/LeadQuickBar'
+import { LeadInfoTiles, QuickAddRow } from './lead/LeadQuickBar'
 import { LeadTabBar } from './lead/LeadTabBar'
 import { LEAD_TABS, type LeadFormKind, type LeadTab } from './lead/leadConstants'
 import { CallsTab, DealsTab, FollowupsTab, MeetingsTab, OverviewTab, PaymentsTab } from './lead/LeadTabs'
 import { AddFollowupDialog, AddMeetingDialog, AddPaymentDialog, DealFormDialog, EditLeadDialog } from './lead/LeadForms'
-import { leadTotals } from './lead/leadMath'
+import { formatRupees, leadTotals } from './lead/leadMath'
 import type { LeadField } from '@/features/followups/LeadUpdatePanel'
 import { TasksTab } from './lead/TasksTab'
 import { AutomationsTab } from './lead/AutomationsTab'
@@ -274,6 +274,8 @@ export function ContactDetailView({
               value={tab}
               onChange={setTab}
               counts={{ calls: totals.calls, followup: totals.openFollowups, tasks: openTasks, meeting: totals.meetings, deal: totals.deals, payment: payments.length }}
+              // Money still owed: the one thing the old stat tiles showed that a count can't.
+              alerts={totals.balance > 0 ? { payment: `${formatRupees(totals.balance)} due` } : undefined}
             />
 
             <div role="tabpanel">
@@ -281,7 +283,6 @@ export function ContactDetailView({
               {tab === 'overview' && (
                 <div className="mb-3 space-y-3 sm:mb-4 sm:space-y-4">
                   <QuickAddRow onAdd={add} onNote={focusNote} hidden={[...(canAddTask ? [] : ['task' as const]), ...(canPayLink ? [] : ['paylink' as const])]} />
-                  <StatTiles totals={totals} onOpen={setTab} />
                   {lead && (
                     <LeadInfoTiles
                       stage={stageName}
