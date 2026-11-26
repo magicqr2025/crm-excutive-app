@@ -24,12 +24,11 @@ interface LeadHeroProps {
   status?: string | null
   statusColor?: string | null
   ownerName?: string | null
-  /** For the Company WhatsApp button: only the owner gets it. */
+  /** For the Inbox button: the owner (and any admin) gets it. */
   ownerStaffId?: string | null
   unassigned: boolean
   onAssignToMe?: () => void
   onCall?: () => void
-  onEmail?: () => void
   isClaiming: boolean
   /** Extra badges (follow-up due, meeting pending…). */
   children?: React.ReactNode
@@ -53,7 +52,6 @@ export function LeadHero({
   unassigned,
   onAssignToMe,
   onCall,
-  onEmail,
   isClaiming,
   children,
 }: LeadHeroProps) {
@@ -143,17 +141,6 @@ export function LeadHero({
 
         <div className="flex items-center gap-2">
           <LeadWhatsAppButtons contactId={contactId} phone={phone} countryCode={countryCode} ownerStaffId={ownerStaffId} />
-          {onEmail && (
-            <button
-              type="button"
-              onClick={onEmail}
-              aria-label="Send email"
-              title="Send email"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--accent-strong)] hover:bg-[var(--accent-bg)]"
-            >
-              <Mail size={17} />
-            </button>
-          )}
           {phone && onCall && (
             <button
               type="button"

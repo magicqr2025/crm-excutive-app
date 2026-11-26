@@ -269,11 +269,15 @@ export function FollowupsPage() {
             {search ? `No results for “${search}”.` : dateActive ? 'No follow-ups in this date range.' : EMPTY[tab]}
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {followups.map((f) => {
               const overdue = isOverdue(f)
               const isDone = f.followup_status === '2'
               const canAct = !isDone && (isAdmin || !f.assign_to_staff_id || f.assign_to_staff_id === userId)
+              const ownerName = f.assign_to_staff_id ? (f.assign_to_staff_id === userId ? 'You' : staffName(staff, f.assign_to_staff_id)) : null
+              const barBtn =
+                'flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl text-[12.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60'
+              // Same card language as Contacts (LeadCard): who + owner → status + due → full-width action bar.
               return (
               <div
                 key={f.id}
@@ -283,26 +287,41 @@ export function FollowupsPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') navigate(`/followups/${f.id}`)
                 }}
-                className={`cursor-pointer rounded-xl border p-3.5 text-left hover:bg-[var(--surface-hover)] ${overdue ? 'border-[var(--error)]' : 'border-[var(--border)]'}`}
+                className={cn(
+                  'flex h-full cursor-pointer flex-col gap-3 rounded-2xl bg-[var(--surface)] p-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-12px_rgba(0,0,0,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] motion-reduce:transition-none motion-reduce:hover:translate-y-0',
+                  overdue ? 'ring-1 ring-[var(--error-border)]' : 'ring-1 ring-[var(--border)]',
+                )}
               >
-                {/* Top: who (with the status after the name), and the Call button on the right. */}
-                <div className="flex items-start gap-2.5">
-                  <Avatar name={f.contact_name ?? 'Unknown'} size={32} />
-                  <div className="min-w-0 flex-1">
-                    {/* Name, then the status right after it. */}
-                    <div className="flex min-w-0 items-center gap-2">
-                      <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{f.contact_name ?? 'Unknown'}</p>
-                      <span className="shrink-0">{f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}</span>
-                    </div>
-                    <p className="text-[12px] text-[var(--text-muted)]">{f.contact_phone ?? '—'}</p>
-                    {allStaff && f.assign_to_staff_id && (
-                      <p className="truncate text-[11.5px] text-[var(--text-muted)]">
-                        Assigned to <span className="font-medium text-[var(--text-h)]">{f.assign_to_staff_id === userId ? 'You' : staffName(staff, f.assign_to_staff_id)}</span>
-                      </p>
-                    )}
+                <div className="flex items-start gap-3">
+                  <Avatar name={f.contact_name ?? 'Unknown'} size={42} />
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <p className="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[var(--text-h)]">{f.contact_name ?? 'Unknown'}</p>
+                    <p className="mt-1 font-mono-num text-[12.5px] text-[var(--text-muted)]">{f.contact_phone ?? '—'}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {canAct && f.contact_phone && (
+                  {/* Owner pill: only when the list shows everyone's follow-ups. */}
+                  {allStaff && ownerName && (
+                    <span
+                      title={`Assigned to ${ownerName}`}
+                      className="inline-flex max-w-[110px] shrink-0 items-center gap-1.5 rounded-full bg-[var(--surface-hover)] py-0.5 pl-0.5 pr-2.5 text-[11.5px] font-medium text-[var(--text-h)]"
+                    >
+                      <Avatar name={ownerName} size={20} />
+                      <span className="truncate">{ownerName === 'You' ? 'You' : ownerName.split(' ')[0]}</span>
+                    </span>
+                  )}
+                </div>
+                {/* Status and when it's due. */}
+                <div className="flex flex-wrap items-center gap-2 text-[12px]">
+                  {f.raised ? <RaisedBadge raised={f.raised} /> : overdue ? <Badge tone="error">Overdue</Badge> : <Badge tone={STATUS_TONE[f.followup_status]}>{STATUS_LABEL[f.followup_status]}</Badge>}
+                  <span className={cn('inline-flex items-center gap-1 font-mono-num', overdue ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]')}>
+                    <Clock size={12} className="shrink-0" />
+                    {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
+                  </span>
+                </div>
+                {isDone && f.note && <p className="rounded-xl bg-[var(--surface-hover)] px-3 py-2 text-[12px] text-[var(--text-h)]">{f.note}</p>}
+                {/* Action bar pinned to the bottom so every card's buttons line up. */}
+                {canAct && (
+                  <div className="mt-auto flex items-center gap-2">
+                    {f.contact_phone && (
                       <button
                         type="button"
                         aria-label={`Call ${f.contact_name ?? f.contact_phone}`}
@@ -320,46 +339,33 @@ export function FollowupsPage() {
                             onDial: () => navigate(`/followups/${f.id}?call=1`),
                           })
                         }}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
+                        className={cn(barBtn, 'bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] focus-visible:outline-[var(--accent)]')}
                       >
-                        <Phone size={17} />
+                        <Phone size={14} /> Call
                       </button>
                     )}
+                    <button
+                      type="button"
+                      aria-label="Reschedule"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setRescheduling(f)
+                      }}
+                      className={cn(barBtn, 'bg-[var(--surface-hover)] text-[var(--text-h)] hover:bg-[var(--border)] focus-visible:outline-[var(--accent)]')}
+                    >
+                      <CalendarClock size={14} className="shrink-0" /> <span className="truncate max-[380px]:hidden">Reschedule</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCompleting(f)
+                      }}
+                      className={cn(barBtn, 'bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success)] hover:text-white focus-visible:outline-[var(--success)]')}
+                    >
+                      <Check size={14} className="shrink-0" /> <span className="truncate">Complete</span>
+                    </button>
                   </div>
-                </div>
-                {/* Bottom: when it's due, and Reschedule / Complete. */}
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className={`font-mono-num text-[12px] ${overdue ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
-                    Due {formatDate(f.followup_date)} · {formatTime(f.followup_time)}
-                  </p>
-                  {canAct && (
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        aria-label="Reschedule"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setRescheduling(f)
-                        }}
-                      >
-                        <CalendarClock size={13} /> <span className="max-[380px]:hidden">Reschedule</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setCompleting(f)
-                        }}
-                      >
-                        <Check size={13} /> Complete
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                {isDone && f.note && (
-                  <p className="mt-2 rounded-lg bg-[var(--surface-hover)] px-2.5 py-1.5 text-[12px] text-[var(--text-h)]">{f.note}</p>
                 )}
               </div>
               )

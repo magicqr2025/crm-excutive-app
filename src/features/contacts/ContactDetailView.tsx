@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/useToast'
 import { useAuthStore, useCan } from '@/store/useAuthStore'
-import { SendLeadEmailDialog } from '@/components/SendLeadEmailDialog'
 import {
   useCallLogsForLead,
   useContactActiveFollowups,
@@ -114,7 +113,6 @@ export function ContactDetailView({
   const [form, setForm] = useState<LeadFormKind | null>(null)
   const [editingDeal, setEditingDeal] = useState<CrmDeal | null>(null)
   const [editField, setEditField] = useState<LeadField | null>(null)
-  const [emailOpen, setEmailOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const noteRef = useRef<HTMLInputElement>(null)
   const callFormRef = useRef<HTMLDivElement>(null)
@@ -223,7 +221,6 @@ export function ContactDetailView({
               unassigned={assignToStaffId === null && Boolean(leadId)}
               onAssignToMe={leadId ? () => assignToMe(leadId) : undefined}
               onCall={call}
-              onEmail={leadId && lead?.contact_email ? () => setEmailOpen(true) : undefined}
               isClaiming={isClaiming}
             >
               {followupStatus && followupDate && (
@@ -383,7 +380,6 @@ export function ContactDetailView({
         deal={editingDeal}
       />
       {leadId && <EditLeadDialog field={editField} onClose={() => setEditField(null)} leadId={leadId} />}
-      {leadId && lead?.contact_email && <SendLeadEmailDialog open={emailOpen} onClose={() => setEmailOpen(false)} leadId={leadId} toEmail={lead.contact_email} />}
     </>
   )
 }

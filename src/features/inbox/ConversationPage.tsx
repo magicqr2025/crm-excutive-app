@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Info } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
@@ -25,7 +25,12 @@ import {
 export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { show } = useToast()
+  // Opened from a contact's Inbox button: Back returns to that page (history back keeps its tab, search and scroll).
+  const backTo = (location.state as { backTo?: string } | null)?.backTo
+  const goBack = () => (backTo ? navigate(-1) : navigate('/inbox'))
+  const backLabel = backTo ? 'Back' : 'Back to Inbox'
   const scrollRef = useRef<HTMLDivElement>(null)
   const [infoOpen, setInfoOpen] = useState(false)
 
@@ -70,8 +75,8 @@ export function ConversationPage() {
       <div className="mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-[14px] font-medium text-[var(--text-h)]">This chat isn't available</p>
         <p className="text-[13px] text-[var(--text-muted)]">It may belong to a lead assigned to someone else.</p>
-        <button type="button" onClick={() => navigate('/inbox')} className="text-[13px] font-semibold text-[var(--accent)] hover:underline">
-          Back to Inbox
+        <button type="button" onClick={goBack} className="text-[13px] font-semibold text-[var(--accent)] hover:underline">
+          {backLabel}
         </button>
       </div>
     )
@@ -84,8 +89,8 @@ export function ConversationPage() {
       <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
         <button
           type="button"
-          onClick={() => navigate('/inbox')}
-          aria-label="Back to Inbox"
+          onClick={goBack}
+          aria-label={backLabel}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
         >
           <ArrowLeft size={17} />
