@@ -60,7 +60,7 @@ export function TargetView({ target, month, year, monthLabel, name }: Props) {
       )}
 
       <section className="relative overflow-hidden rounded-3xl bg-[#17140f] p-5 text-white shadow-[0_20px_50px_-24px_rgba(23,20,15,0.9)] sm:p-8">
-        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(244,169,59,0.3),transparent_65%)]" />
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(109,76,255,0.28),transparent_65%)]" />
         <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(53,208,140,0.14),transparent_65%)]" />
 
         <div className="relative grid items-center gap-6 md:grid-cols-[minmax(0,300px)_1fr] md:gap-8">
@@ -104,7 +104,7 @@ export function TargetView({ target, month, year, monthLabel, name }: Props) {
           <Operator>+</Operator>
           <PayPart label="Incentive" value={inr(incentive)} accent />
           <Operator>=</Operator>
-          <div className="rounded-2xl bg-[linear-gradient(135deg,var(--accent),#c97a1a)] px-5 py-4 text-[var(--ink)] shadow-[0_12px_30px_-14px_var(--accent)]">
+          <div className="rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--accent-strong))] px-5 py-4 text-[var(--ink)] shadow-[0_12px_30px_-14px_var(--accent)]">
             <p className="text-[12px] opacity-75">Final salary</p>
             <p className="font-mono-num mt-0.5 text-[28px] font-semibold leading-tight">{inr(finalSalary)}</p>
           </div>

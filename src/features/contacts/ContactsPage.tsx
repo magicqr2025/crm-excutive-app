@@ -6,6 +6,7 @@ import { CalendarClock, CheckSquare, Filter, MailPlus, Plus, X } from 'lucide-re
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { SearchBox } from '@/components/ui/SearchBox'
+import { SwipeRow } from '@/components/ui/SwipeRow'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useActiveProducts, useContactGroups, useLabels, useLeadFlags, useLeadStageTypes, useLeadStatuses, useLeadsPage, useMyLeadCampaigns, useMyOpenFollowupsByContact, useStaffList } from '@/api/queries'
@@ -186,8 +187,8 @@ export function ContactsPage() {
         onQueued={() => setSelected(new Map())}
       />
       <div className="space-y-4 p-4">
-        {/* One row; on a phone it swipes sideways instead of wrapping into an uneven block. */}
-        <div role="tablist" className="scroll-x-quiet flex w-fit max-w-full gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
+        {/* One row; on a phone it swipes sideways — fade + arrows show there's more. */}
+        <SwipeRow activeKey={view} ariaLabel="Contact views" className="flex w-fit max-w-full gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
           {CONTACT_TABS.map(({ value: v, label }) => {
             const n = counts?.[v]
             // Unassigned and Overdue get a coloured count when there are any; the rest a plain one.
@@ -199,14 +200,14 @@ export function ContactsPage() {
                 role="tab"
                 aria-selected={view === v}
                 onClick={() => switchView(v)}
-                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12.5px] font-medium sm:px-3 sm:text-[13px] ${
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[11.5px] font-medium sm:px-2.5 sm:text-[12px] ${
                   view === v ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)]'
                 }`}
               >
                 {label}
                 {n !== undefined && (
                   <span
-                    className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
+                    className={`rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${
                       loud
                         ? v === 'overdue'
                           ? 'bg-[var(--error)] text-white'
@@ -222,8 +223,8 @@ export function ContactsPage() {
               </button>
             )
           })}
-        </div>
-        <p className="text-[12px] text-[var(--text-muted)]">{isAdmin && view === 'all' ? 'All contacts in the business (you have admin access).' : TAB_HINTS[view]}</p>
+        </SwipeRow>
+        <p className="text-[11px] text-[var(--text-muted)]">{isAdmin && view === 'all' ? 'All contacts in the business (you have admin access).' : TAB_HINTS[view]}</p>
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />

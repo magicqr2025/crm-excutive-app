@@ -14,7 +14,7 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
         <div className="min-w-0">
           <h1 className="text-[19px] font-semibold leading-tight text-[var(--text-h)]">{title}</h1>
           {/* Two lines on a phone rather than cut off mid-sentence; one line from a tablet up. */}
-          {subtitle && <p className="mt-0.5 line-clamp-2 text-[13px] text-[var(--text-muted)] sm:line-clamp-1">{subtitle}</p>}
+          {subtitle && <p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--text-muted)] sm:line-clamp-1">{subtitle}</p>}
         </div>
       </div>
       {action && <div className="shrink-0">{action}</div>}

@@ -1,4 +1,4 @@
-import { BellRing, CalendarClock, Handshake, Layers, IndianRupee, Link2, ListChecks, Megaphone, Package, Pencil, Plus, StickyNote, Tag, Users, type LucideIcon } from 'lucide-react'
+import { BellRing, CalendarClock, Handshake, Layers, IndianRupee, Link2, ListChecks, Megaphone, Package, Pencil, StickyNote, Tag, Users, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KIND_COLOR, type LeadFormKind } from './leadConstants'
 import type { LeadField } from '@/features/followups/LeadUpdatePanel'
@@ -30,9 +30,6 @@ export function QuickAddRow({ onAdd, onNote, hidden = [] }: { onAdd: (kind: Lead
   return (
     <div className="scroll-x-quiet -mx-3 px-3 sm:-mx-5 sm:px-5 lg:mx-0 lg:px-0">
       <div className="flex w-max items-center gap-2">
-        <span className="mr-0.5 flex items-center gap-1 font-mono-num text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          <Plus size={12} /> Add
-        </span>
         {QUICK.filter((q) => q.kind === 'note' || !hidden.includes(q.kind)).map(({ kind, label, icon }) => (
           <button
             key={kind}
