@@ -137,6 +137,19 @@ export function useCan(feature: string, action: keyof FeaturePermission = 'view'
   return useAuthStore((s) => s.isAdmin || s.permissions[feature]?.[action] === true)
 }
 
+/** True when the role is allowed anything (view, add, edit or delete) on at least one of these features. Same rule as orm-whatsapp's `grantsAny`. */
+export function grantsAny(permissions: Record<string, FeaturePermission>, feature: string | string[]): boolean {
+  return (Array.isArray(feature) ? feature : [feature]).some((f) => {
+    const p = permissions[f]
+    return !!p && (p.view === true || p.add === true || p.edit === true || p.delete === true)
+  })
+}
+
+/** Whether a tile / menu item for these features should show: admins always, otherwise the role must be allowed something on one of them. */
+export function useCanAccess(feature: string | string[]): boolean {
+  return useAuthStore((s) => s.isAdmin || grantsAny(s.permissions, feature))
+}
+
 /** Admins and managers read everyone's records; everyone else only their own. */
 export function useIsAdminOrManager(): boolean {
   return useAuthStore((s) => s.isAdmin || s.seesAll)
