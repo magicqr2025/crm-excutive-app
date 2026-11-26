@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Info } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/useToast'
 import { Composer } from './Composer'
 import { ConversationInfoSheet } from './ConversationInfoSheet'
-import { isSessionOpen } from './inboxFormat'
+import { formatDayLabel, isSessionOpen } from './inboxFormat'
 import { MessageBubble } from './MessageBubble'
 import {
   useConversations,
@@ -86,50 +85,61 @@ export function ConversationPage() {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-lg flex-col bg-[var(--bg)]">
-      <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
+      {/* Header: back, who, whether the 24-hour window is open, chat info. */}
+      <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border)] bg-[var(--surface)]/95 px-2 py-2 backdrop-blur">
         <button
           type="button"
           onClick={goBack}
           aria-label={backLabel}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-h)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
         >
-          <ArrowLeft size={17} />
+          <ArrowLeft size={19} />
         </button>
-        <Avatar name={conversation.contactName} size={36} />
+        <span className="relative shrink-0">
+          <Avatar name={conversation.contactName} size={40} />
+          <span
+            aria-hidden
+            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-[var(--surface)] ${sessionOpen ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'}`}
+          />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold text-[var(--text-h)]">{conversation.contactName}</p>
-          <p className="truncate text-[12px] text-[var(--text-muted)]">{conversation.contactPhone}</p>
+          <p className="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[var(--text-h)]">{conversation.contactName}</p>
+          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px]">
+            <span className={`shrink-0 font-semibold ${sessionOpen ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>
+              {sessionOpen ? 'Session open' : 'Session closed'}
+            </span>
+            <span aria-hidden className="text-[var(--text-muted)]">·</span>
+            <span className="truncate font-mono-num text-[var(--text-muted)]">{conversation.contactPhone}</span>
+          </p>
         </div>
-        {/* A dot on a phone keeps the name readable; the full words show from sm up. */}
-        <Badge tone={sessionOpen ? 'success' : 'warning'} className="max-sm:hidden">
-          {sessionOpen ? 'Session open' : 'Session closed'}
-        </Badge>
-        <span
-          role="img"
-          aria-label={sessionOpen ? 'Session open' : 'Session closed'}
-          title={sessionOpen ? 'Session open' : 'Session closed'}
-          className={`h-2.5 w-2.5 shrink-0 rounded-full sm:hidden ${sessionOpen ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'}`}
-        />
         <button
           type="button"
           onClick={() => setInfoOpen(true)}
           aria-label="Chat info"
           title="Chat info"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-[var(--accent-strong)] hover:bg-[var(--accent)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
         >
           <Info size={18} />
         </button>
       </div>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
+      <div ref={scrollRef} className="chat-wall min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-3">
         {isLoadingMessages ? (
           <PageLoader />
         ) : messages.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No messages yet. Send a template to start the chat.</p>
+          <p className="mx-auto my-8 w-fit rounded-full bg-[var(--surface)] px-4 py-2 text-center text-[12.5px] text-[var(--text-muted)] ring-1 ring-[var(--border)]">No messages yet. Send a template to start the chat.</p>
         ) : (
-          messages.map((m) => (
+          messages.map((m, i) => (
+            <Fragment key={m.id}>
+            {/* A day divider wherever the date changes. */}
+            {(i === 0 || new Date(messages[i - 1].timestamp).toDateString() !== new Date(m.timestamp).toDateString()) && (
+              <div className="sticky top-0 z-[1] flex justify-center py-2">
+                <span className="rounded-full bg-[var(--surface)]/90 px-3 py-1 text-[11px] font-semibold text-[var(--text-muted)] shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-[var(--border)] backdrop-blur">
+                  {formatDayLabel(m.timestamp)}
+                </span>
+              </div>
+            )}
             <MessageBubble
-              key={m.id}
               message={m}
               // Reacting to a customer's message is only allowed while the 24-hour window is open (WhatsApp's rule).
               onReact={
@@ -142,6 +152,7 @@ export function ConversationPage() {
                   : undefined
               }
             />
+            </Fragment>
           ))
         )}
       </div>

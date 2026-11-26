@@ -6,11 +6,11 @@ import type { ConversationMessage } from '@/api/inboxApi'
 import { formatClock } from './inboxFormat'
 import { useMessageMediaUrl, type MessageMediaState } from './useInbox'
 
-function StatusTick({ status }: { status: ConversationMessage['status'] }) {
-  if (status === 'failed') return <span className="text-[11px] font-medium text-[var(--error)]">Failed</span>
-  if (status === 'read') return <CheckCheck size={14} className="text-[var(--info)]" />
-  if (status === 'delivered') return <CheckCheck size={14} className="text-[var(--text-muted)]" />
-  return <Check size={14} className="text-[var(--text-muted)]" />
+function StatusTick({ status, onFill = false }: { status: ConversationMessage['status']; onFill?: boolean }) {
+  if (status === 'failed') return <span className={cn('text-[11px] font-semibold', onFill ? 'rounded bg-white/90 px-1 text-[var(--error)]' : 'text-[var(--error)]')}>Failed</span>
+  if (status === 'read') return <CheckCheck size={14} className={onFill ? 'text-[#7dd3fc]' : 'text-[var(--info)]'} />
+  if (status === 'delivered') return <CheckCheck size={14} className={onFill ? 'text-white/75' : 'text-[var(--text-muted)]'} />
+  return <Check size={14} className={onFill ? 'text-white/75' : 'text-[var(--text-muted)]'} />
 }
 
 /** Grey box in place of an image / video while it loads, or when the file can't be shown. */
@@ -181,12 +181,13 @@ export function MessageBubble({ message, onReact }: { message: ConversationMessa
   // 4px frame around it; text sits close to the edge and the time tucks in at the end of the last line.
   const isMedia = message.kind === 'image' || message.kind === 'video' || message.kind === 'audio' || message.kind === 'document'
   const showBody = Boolean(message.body) && !isCard
+  const filled = out && !isMedia && !isCard
   // An image with nothing under it carries its time on the picture itself.
   const timeOnImage = message.kind === 'image' && !!mediaUrl && !showBody
   const meta = (className?: string) => (
     <span className={cn('inline-flex items-center gap-1 whitespace-nowrap text-[10.5px] leading-none', className)}>
       {formatClock(message.timestamp)}
-      {out && <StatusTick status={message.status} />}
+      {out && <StatusTick status={message.status} onFill={filled} />}
     </span>
   )
 
@@ -194,14 +195,18 @@ export function MessageBubble({ message, onReact }: { message: ConversationMessa
     <div className={cn('flex items-center gap-1', out ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'relative rounded-2xl text-[14px] text-[var(--text-h)]',
-          isMedia ? 'w-[280px] max-w-[82%] p-1' : 'max-w-[82%] px-2.5 py-1.5',
+          'relative rounded-[20px] text-[14.5px] shadow-[0_1px_2px_rgba(29,22,56,0.08)]',
+          isMedia ? 'w-[280px] max-w-[82%] p-1' : 'max-w-[82%] px-3 py-2',
           hasReaction && 'mb-3',
-          out ? 'rounded-tr-sm bg-[var(--accent-bg)]' : 'rounded-tl-sm border border-[var(--border)] bg-[var(--surface)]',
+          filled
+            ? 'rounded-br-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] text-white dark:from-[#6d4cff] dark:to-[#4c32d9]'
+            : out
+              ? 'rounded-br-md bg-[var(--accent-bg)] text-[var(--text-h)] ring-1 ring-[var(--accent-border)]'
+              : 'rounded-bl-md bg-[var(--surface)] text-[var(--text-h)] ring-1 ring-[var(--border)]',
         )}
       >
         {message.kind === 'template' && (
-          <div className="mb-1 flex items-center gap-1 text-[11px] font-medium text-[var(--accent-strong)]">
+          <div className={cn('mb-1 flex items-center gap-1 text-[11px] font-semibold', filled ? 'text-white/80' : 'text-[var(--accent-strong)]')}>
             <LayoutTemplate size={12} />
             Template
           </div>
@@ -259,25 +264,33 @@ export function MessageBubble({ message, onReact }: { message: ConversationMessa
         {message.kind === 'contact' && <ContactCards body={message.body} />}
 
         {message.kind === 'unsupported' && (
-          <div className="flex items-start gap-2 text-[13px] italic text-[var(--text-muted)]">
-            <EyeOff size={15} className="mt-0.5 shrink-0" />
-            <span>This message type isn't supported in WhatsApp Business (e.g. view-once photo, poll or event). Open WhatsApp on the phone to see it.</span>
+          <div
+            className="flex items-center gap-2.5 pr-12"
+            title="WhatsApp Business can't show this kind of message (for example a view-once photo, poll or event). Open WhatsApp on the phone to see it."
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-hover)] text-[var(--text-muted)]">
+              <EyeOff size={15} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-semibold text-[var(--text-h)]">Can't show this message</span>
+              <span className="block text-[11.5px] text-[var(--text-muted)]">View-once, poll or event — open WhatsApp on the phone</span>
+            </span>
           </div>
         )}
 
         {!timeOnImage && (
           <div className={cn(isMedia && 'px-1.5 pb-0.5 pt-1')}>
             {showBody && (
-              <p className="whitespace-pre-wrap break-words leading-snug">
+              <p className="whitespace-pre-wrap break-words leading-[1.4]">
                 {message.body}
                 {/* Hidden copy of the time reserves room at the end of the last line for the real one. */}
                 {meta('invisible ml-2 align-bottom')}
               </p>
             )}
             {showBody ? (
-              meta('absolute bottom-1.5 right-2.5 text-[var(--text-muted)]')
+              meta(cn('absolute bottom-1.5 right-3', filled ? 'text-white/75' : 'text-[var(--text-muted)]'))
             ) : (
-              <div className="mt-0.5 flex justify-end text-[var(--text-muted)]">{meta()}</div>
+              <div className={cn('mt-0.5 flex justify-end', filled ? 'text-white/75' : 'text-[var(--text-muted)]', message.kind === 'unsupported' && '-mt-3')}>{meta()}</div>
             )}
           </div>
         )}

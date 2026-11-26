@@ -233,3 +233,10 @@
   pointer-events: none;
   color: var(--text-muted);
 }
+
+/* Chat background: the page colour with a faint violet dot grid, like a chat wallpaper. */
+.chat-wall {
+  background-color: var(--bg);
+  background-image: radial-gradient(color-mix(in srgb, var(--accent) 14%, transparent) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+}

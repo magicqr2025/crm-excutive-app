@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertCircle, Ban, Check, CheckCheck, CornerDownLeft, Inbox as InboxIcon, Megaphone } from 'lucide-react'
+import { AlertCircle, Ban, Check, CheckCheck, ChevronDown, CornerDownLeft, Inbox as InboxIcon, Megaphone, MessageCirclePlus, MessagesSquare, Search } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
+import { Dialog } from '@/components/ui/Dialog'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { PageLoader } from '@/components/ui/Spinner'
 import { SearchBox } from '@/components/ui/SearchBox'
 import { useToast } from '@/components/ui/useToast'
 import { cn } from '@/lib/utils'
 import { useCampaignLeadsPage, useMyLeadCampaigns, useStaffList } from '@/api/queries'
-import type { CrmLead } from '@/api/crmApi'
+import type { CrmLead, CrmMyLeadCampaign } from '@/api/crmApi'
 import type { Conversation } from '@/api/inboxApi'
 import { formatListTime } from './inboxFormat'
 import { useConversations, useStartConversation } from './useInbox'
@@ -68,25 +68,36 @@ function DeliveryTick({ status }: { status: NonNullable<Conversation['lastMessag
   return <Check size={13} className="shrink-0" />
 }
 
+// Same card shell as the lead cards (LeadCard): soft ring + shadow, rounded-2xl.
+const CARD =
+  'flex w-full gap-3 rounded-2xl bg-[var(--surface)] p-3.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 transition-[box-shadow,background-color] hover:shadow-[0_10px_24px_-14px_rgba(29,22,56,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]'
+
 function ConversationRow({ conversation: c, agentName, onOpen }: { conversation: Conversation; agentName?: string; onOpen: () => void }) {
   const last = c.lastMessage
   const awaiting = isAwaiting(c)
+  const unread = c.unreadCount > 0
   const tags = c.tags ?? []
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-start gap-3 border-b border-[var(--border)] px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-[var(--surface-hover)]"
+      className={cn(CARD, 'items-start', unread ? 'bg-[color-mix(in_srgb,var(--accent)_5%,var(--surface))] ring-[var(--accent-border)]' : 'ring-[var(--border)]')}
     >
-      <Avatar name={c.contactName} size={44} />
+      {/* Avatar with a dot while the customer is waiting for an answer. */}
+      <span className="relative shrink-0">
+        <Avatar name={c.contactName} size={46} />
+        {awaiting && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-[var(--success)] ring-2 ring-[var(--surface)]" />}
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[14px] font-medium text-[var(--text-h)]">{c.contactName}</span>
-          <span className="shrink-0 text-[11px] text-[var(--text-muted)]">{formatListTime(c.lastMessageAt)}</span>
+          <span className={cn('truncate text-[14.5px] leading-tight tracking-[-0.01em] text-[var(--text-h)]', unread ? 'font-bold' : 'font-semibold')}>{c.contactName}</span>
+          <span className={cn('shrink-0 font-mono-num text-[11px]', unread ? 'font-semibold text-[var(--accent-strong)]' : 'text-[var(--text-muted)]')}>
+            {formatListTime(c.lastMessageAt)}
+          </span>
         </div>
-        <div className="mt-0.5 flex items-center justify-between gap-2">
-          {/* Who spoke last: "You:" + delivery ticks for ours, bold when it is the customer's turn. */}
-          <p className={cn('flex min-w-0 items-center gap-1 text-[12.5px]', awaiting ? 'font-medium text-[var(--text-h)]' : 'text-[var(--text-muted)]')}>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          {/* Who spoke last: "You:" + delivery ticks for ours, darker when it is the customer's turn. */}
+          <p className={cn('flex min-w-0 items-center gap-1 text-[13px]', unread || awaiting ? 'font-medium text-[var(--text-h)]' : 'text-[var(--text-muted)]')}>
             {last?.direction === 'out' && (
               <>
                 <DeliveryTick status={last.status} />
@@ -95,27 +106,36 @@ function ConversationRow({ conversation: c, agentName, onOpen }: { conversation:
             )}
             <span className="truncate">{last ? last.body || EMPTY_PREVIEW[last.kind ?? ''] || 'Attachment' : 'No messages yet'}</span>
           </p>
-          {c.unreadCount > 0 && (
-            <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-1 text-[10.5px] font-semibold text-[var(--ink)]">
+          {unread && (
+            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-1.5 font-mono-num text-[11px] font-bold text-[var(--ink)]">
               {c.unreadCount}
             </span>
           )}
         </div>
-        {(c.blocked || (awaiting && c.unreadCount === 0) || agentName || tags.length > 0) && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        {(c.blocked || (awaiting && !unread) || agentName || tags.length > 0) && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px]">
             {c.blocked && (
-              <Badge tone="error">
-                <Ban size={10} /> Blocked
-              </Badge>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--error-bg)] px-2 py-0.5 font-semibold text-[var(--error)]">
+                <Ban size={11} /> Blocked
+              </span>
             )}
-            {awaiting && c.unreadCount === 0 && (
-              <Badge tone="success">
-                <CornerDownLeft size={10} /> Awaiting reply
-              </Badge>
+            {awaiting && !unread && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2 py-0.5 font-semibold text-[var(--success)]">
+                <CornerDownLeft size={11} /> Awaiting reply
+              </span>
             )}
-            {agentName && <Badge tone="info">{agentName}</Badge>}
+            {/* Whose chat it is: the same owner pill as the lead cards. */}
+            {agentName && (
+              <span className="inline-flex max-w-[140px] items-center gap-1.5 rounded-full bg-[var(--surface-hover)] py-0.5 pl-0.5 pr-2 font-medium text-[var(--text-h)]">
+                <Avatar name={agentName} size={18} />
+                <span className="truncate">{agentName.split(' ')[0]}</span>
+              </span>
+            )}
             {tags.map((tag) => (
-              <Badge key={tag}>{tag}</Badge>
+              <span key={tag} className="inline-flex max-w-full items-center gap-0.5 px-1 py-0.5 text-[var(--text-muted)]">
+                <span className="opacity-60">#</span>
+                <span className="truncate">{tag}</span>
+              </span>
             ))}
           </div>
         )}
@@ -127,19 +147,134 @@ function ConversationRow({ conversation: c, agentName, onOpen }: { conversation:
 /** A pipeline lead nobody has chatted with yet: tap to start the conversation. */
 function LeadRow({ lead, disabled, onOpen }: { lead: CrmLead; disabled: boolean; onOpen: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={disabled}
-      className="flex w-full items-center gap-3 border-b border-[var(--border)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-60"
-    >
-      <Avatar name={lead.contact_name ?? 'Unknown'} size={40} />
+    <button type="button" onClick={onOpen} disabled={disabled} className={cn(CARD, 'items-center ring-[var(--border)] disabled:opacity-60')}>
+      <Avatar name={lead.contact_name ?? 'Unknown'} size={42} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-medium text-[var(--text-h)]">{lead.contact_name ?? 'Unknown contact'}</p>
-        <p className="truncate text-[12.5px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
+        <p className="truncate text-[14.5px] font-semibold leading-tight text-[var(--text-h)]">{lead.contact_name ?? 'Unknown contact'}</p>
+        <p className="mt-1 truncate font-mono-num text-[12.5px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
+        {lead.lead_status && (
+          <span
+            className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-semibold text-[var(--text-h)]"
+            style={{ background: `color-mix(in srgb, ${lead.lead_status_color || 'var(--accent)'} 16%, transparent)` }}
+          >
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: lead.lead_status_color || 'var(--accent)' }} />
+            <span className="truncate">{lead.lead_status}</span>
+          </span>
+        )}
       </div>
-      {lead.lead_status && <Badge tone="accent">{lead.lead_status}</Badge>}
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--accent-bg)] px-3 py-1.5 text-[12px] font-semibold text-[var(--accent-strong)]">
+        <MessageCirclePlus size={14} /> Start chat
+      </span>
     </button>
+  )
+}
+
+/**
+ * Pipeline chooser: a button that looks like the rest of the page, opening a sheet (bottom on a phone,
+ * centred card on desktop) with a search once the list is long. Replaces the browser's native <select>,
+ * whose drop-down can't be styled and spilled past the phone frame.
+ */
+function PipelinePicker({ pipelines, value, onChange }: { pipelines: CrmMyLeadCampaign[]; value: CrmMyLeadCampaign | null; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const shown = q ? pipelines.filter((p) => p.name.toLowerCase().includes(q)) : pipelines
+
+  function close() {
+    setOpen(false)
+    setQuery('')
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={pipelines.length === 0}
+        aria-haspopup="dialog"
+        className="flex h-12 w-full items-center gap-3 rounded-2xl bg-[var(--surface)] pl-2 pr-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[var(--border)] transition-shadow hover:ring-[var(--accent-border)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-60"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-bg)] text-[var(--accent-strong)]">
+          <Megaphone size={15} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Pipeline</span>
+          <span className="block truncate text-[14px] font-semibold leading-tight text-[var(--text-h)]">{value?.name ?? 'No pipelines yet'}</span>
+        </span>
+        {value && <span className="shrink-0 font-mono-num text-[11.5px] text-[var(--text-muted)]">{value.lead_count} leads</span>}
+        <ChevronDown size={17} className="shrink-0 text-[var(--text-muted)]" />
+      </button>
+
+      <Dialog open={open} onClose={close} variant="sheet">
+        <Dialog.Header>
+          <Dialog.Title>Choose a pipeline</Dialog.Title>
+          <Dialog.CloseButton onClose={close} />
+        </Dialog.Header>
+        {pipelines.length > 6 && (
+          <div className="border-b border-[var(--border)] px-4 py-3">
+            <label className="relative block">
+              <span className="sr-only">Search pipelines</span>
+              <Search size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search pipelines"
+                className="h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] pl-9 pr-3 text-[14px] text-[var(--text-h)] outline-none focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-bg)]"
+              />
+            </label>
+          </div>
+        )}
+        <div role="listbox" aria-label="Pipelines" className="flex-1 overflow-y-auto p-2">
+          {shown.length === 0 ? (
+            <p className="px-3 py-6 text-center text-[13px] text-[var(--text-muted)]">No pipeline matches “{query}”.</p>
+          ) : (
+            shown.map((p) => {
+              const on = p.id === value?.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  onClick={() => {
+                    onChange(p.id)
+                    close()
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors',
+                    on ? 'bg-[var(--accent-bg)]' : 'hover:bg-[var(--surface-hover)]',
+                  )}
+                >
+                  <span className={cn('min-w-0 flex-1 truncate text-[14px]', on ? 'font-bold text-[var(--accent-strong)]' : 'font-medium text-[var(--text-h)]')}>{p.name}</span>
+                  <span className="shrink-0 font-mono-num text-[11.5px] text-[var(--text-muted)]">{p.lead_count}</span>
+                  <span
+                    className={cn(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+                      on ? 'bg-[var(--accent)] text-[var(--ink)]' : 'ring-1 ring-[var(--border)]',
+                    )}
+                  >
+                    {on && <Check size={12} strokeWidth={3} />}
+                  </span>
+                </button>
+              )
+            })
+          )}
+        </div>
+      </Dialog>
+    </>
+  )
+}
+
+/** An empty or error list: an icon, one line on what is going on, and what to do next. */
+function ListNote({ icon: Icon, title, hint, tone = 'muted' }: { icon: typeof InboxIcon; title: string; hint?: string; tone?: 'muted' | 'error' }) {
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+      <span className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', tone === 'error' ? 'bg-[var(--error-bg)] text-[var(--error)]' : 'bg-[var(--accent-bg)] text-[var(--accent-strong)]')}>
+        <Icon size={22} />
+      </span>
+      <p className="text-[14px] font-semibold text-[var(--text-h)]">{title}</p>
+      {hint && <p className="max-w-xs text-[12.5px] text-[var(--text-muted)]">{hint}</p>}
+    </div>
   )
 }
 
@@ -208,9 +343,10 @@ export function InboxPage() {
   const renderChat = (c: Conversation) => <ConversationRow key={c.id} conversation={c} agentName={agentFor(c)} onOpen={() => navigate(`/inbox/${c.id}`)} />
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-lg flex-col border-x border-[var(--border)] bg-[var(--surface)]">
-      <div className="shrink-0 space-y-2.5 border-b border-[var(--border)] p-3">
-        <div role="tablist" className="flex rounded-lg bg-[var(--surface-hover)] p-1">
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col bg-[var(--bg)]">
+      <div className="shrink-0 space-y-3 px-3 pb-3 pt-3 sm:px-4">
+        {/* Inbox / Pipeline: a pill switch, the active side filled violet. */}
+        <div role="tablist" className="flex rounded-full bg-[var(--surface)] p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-[var(--border)]">
           {PANEL_TABS.map((t) => (
             <button
               key={t.value}
@@ -219,73 +355,80 @@ export function InboxPage() {
               aria-selected={panelTab === t.value}
               onClick={() => setPanelTab(t.value)}
               className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors',
-                panelTab === t.value ? 'bg-[var(--surface)] text-[var(--accent-strong)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-h)]',
+                'flex h-10 flex-1 items-center justify-center gap-2 rounded-full px-3 text-[13.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
+                panelTab === t.value
+                  ? 'bg-[var(--accent)] text-[var(--ink)] shadow-[0_8px_18px_-10px_var(--accent)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-h)]',
               )}
             >
-              <t.icon size={13} /> {t.label}
+              <t.icon size={15} /> {t.label}
             </button>
           ))}
         </div>
 
         {panelTab === 'pipeline' && (
-          <select
-            aria-label="Pipeline"
-            value={pipeline?.id ?? ''}
-            onChange={(e) => choosePipeline(e.target.value)}
-            className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2.5 text-[13px] font-medium text-[var(--text-h)] outline-none focus:border-[var(--accent-border)]"
-          >
-            {pipelines.length === 0 && <option value="">No pipelines yet</option>}
-            {pipelines.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <PipelinePicker pipelines={pipelines} value={pipeline} onChange={choosePipeline} />
         )}
 
         <SearchBox value={search} onSubmit={setSearch} placeholder="Search name or number" />
-        <div className="scrollbar-thin flex gap-1.5 overflow-x-auto" role="tablist" aria-label="Filter chats">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.value}
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                'flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-colors',
-                filter === f.value
-                  ? 'border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent-strong)]'
-                  : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)]',
-              )}
-            >
-              {f.label} <span className="tabular-nums opacity-70">{counts[f.value]}</span>
-            </button>
-          ))}
+        {/* Filters: chips with their own count bubble; the chosen one is filled violet. */}
+        <div className="scrollbar-thin -mx-3 flex gap-2 overflow-x-auto px-3 sm:-mx-4 sm:px-4" role="tablist" aria-label="Filter chats">
+          {FILTERS.map((f) => {
+            const on = filter === f.value
+            return (
+              <button
+                key={f.value}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setFilter(f.value)}
+                className={cn(
+                  'flex h-9 shrink-0 items-center gap-2 rounded-full pl-3.5 pr-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
+                  on
+                    ? 'bg-[var(--accent)] text-[var(--ink)]'
+                    : 'bg-[var(--surface)] text-[var(--text-muted)] ring-1 ring-[var(--border)] hover:text-[var(--text-h)]',
+                )}
+              >
+                {f.label}
+                <span
+                  className={cn(
+                    'min-w-6 rounded-full px-1.5 py-0.5 text-center font-mono-num text-[11px] font-bold',
+                    on ? 'bg-white/20' : f.value === 'unread' && counts.unread > 0 ? 'bg-[var(--accent-bg)] text-[var(--accent-strong)]' : 'bg-[var(--surface-hover)]',
+                  )}
+                >
+                  {counts[f.value]}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 sm:px-4">
         {isLoading ? (
           <PageLoader />
         ) : isError ? (
-          <p className="py-8 text-center text-[13px] text-[var(--error)]">Couldn't load your chats. Pull down to try again.</p>
+          <ListNote icon={AlertCircle} tone="error" title="Couldn't load your chats" hint="Check your connection, then pull down or reopen Inbox to try again." />
         ) : panelTab === 'pipeline' ? (
           !pipeline ? (
-            <p className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">You aren't on any pipeline yet.</p>
+            <ListNote icon={Megaphone} title="You aren't on any pipeline yet" hint="Ask your admin to add you to a pipeline." />
           ) : visible.length === 0 && (filter !== 'all' || pipelineView.noChat.length === 0) ? (
-            <p className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">
-              {leadsPage.isLoading ? 'Loading…' : search ? `No one in “${pipeline.name}” matches “${search}”.` : `No chats in “${pipeline.name}”.`}
-            </p>
+            leadsPage.isLoading ? (
+              <PageLoader />
+            ) : (
+              <ListNote
+                icon={search ? Search : MessagesSquare}
+                title={search ? `No one in “${pipeline.name}” matches “${search}”` : `No chats in “${pipeline.name}”`}
+              />
+            )
           ) : (
-            <>
+            <div className="flex flex-col gap-2">
               {visible.map(renderChat)}
               {/* Filters are about chats, so with one on, leads who never chatted are left out. */}
               {filter === 'all' && pipelineView.noChat.length > 0 && (
                 <>
-                  <p className="sticky top-0 z-[1] border-b border-[var(--border)] bg-[var(--surface-hover)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                    No chat yet · {pipelineView.noChat.length}
+                  <p className="sticky top-0 z-[1] -mx-3 mt-2 bg-[var(--bg)]/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)] backdrop-blur sm:-mx-4 sm:px-5">
+                    No chat yet · <span className="font-mono-num">{pipelineView.noChat.length}</span>
                   </p>
                   {pipelineView.noChat.map((lead) => (
                     <LeadRow key={lead.id} lead={lead} disabled={startConversation.isPending} onOpen={() => openLead(lead.contact_id)} />
@@ -293,18 +436,18 @@ export function InboxPage() {
                 </>
               )}
               <InfiniteScrollFooter hasNextPage={Boolean(leadsPage.hasNextPage)} isFetchingNextPage={leadsPage.isFetchingNextPage} onLoadMore={() => void leadsPage.fetchNextPage()} />
-            </>
+            </div>
           )
         ) : visible.length === 0 ? (
-          <p className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">
-            {search
-              ? `No chats match “${search}”.`
-              : filter !== 'all'
-                ? 'No chats in this view.'
-                : 'No chats yet. Open one of your leads and tap Company WhatsApp to start a chat.'}
-          </p>
+          search ? (
+            <ListNote icon={Search} title={`No chats match “${search}”`} hint="Try a name or the last digits of the number." />
+          ) : filter !== 'all' ? (
+            <ListNote icon={CheckCheck} title={filter === 'unread' ? 'All caught up' : 'Nobody is waiting for a reply'} hint="Switch to All to see every chat." />
+          ) : (
+            <ListNote icon={MessagesSquare} title="No chats yet" hint="Open one of your leads and tap Inbox to start a WhatsApp chat." />
+          )
         ) : (
-          visible.map(renderChat)
+          <div className="flex flex-col gap-2">{visible.map(renderChat)}</div>
         )}
       </div>
     </div>

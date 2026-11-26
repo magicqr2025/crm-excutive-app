@@ -190,7 +190,7 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
       {sessionOpen ? (
         // WhatsApp-style: one rounded box with the tools inside it, and a round send button beside it.
         <div className="flex items-end gap-2 px-2 py-2">
-          <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-[22px] border border-[var(--border)] bg-[var(--bg)] px-1">
+          <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-[22px] bg-[var(--bg)] px-1 ring-1 ring-[var(--border)] transition-shadow focus-within:ring-2 focus-within:ring-[var(--accent)]">
             <PillButton label="Quick replies" onClick={() => setQuickOpen(true)} disabled={isSending}>
               <MessageSquareText size={21} />
             </PillButton>
@@ -221,7 +221,7 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
             onClick={send}
             disabled={(!value.trim() && !pendingFile) || isSending}
             aria-label="Send"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--success)] text-white shadow-sm transition-opacity disabled:opacity-50"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] text-white dark:from-[#6d4cff] dark:to-[#4c32d9] shadow-[0_8px_18px_-8px_var(--accent)] transition-[opacity,transform] active:scale-95 disabled:opacity-50 disabled:shadow-none"
           >
             <Send size={19} className="-ml-0.5" />
           </button>
@@ -259,7 +259,7 @@ export function Composer({ sessionOpen, isSending, onSend, onSendTemplate, onSen
                   onClick={() => (item.id === 'location' || item.id === 'contact' ? openShare(item.id) : pickFile(item.id))}
                   className="flex flex-col items-center gap-1.5"
                 >
-                  <span className="flex h-12 w-[68px] items-center justify-center rounded-full border border-[var(--border)]" style={{ color: item.color }}>
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ color: item.color, background: `color-mix(in srgb, ${item.color} 13%, transparent)` }}>
                     <item.icon size={24} strokeWidth={2.2} />
                   </span>
                   <span className="text-[12.5px] text-[var(--text-h)]">{item.label}</span>
