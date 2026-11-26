@@ -3,51 +3,51 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* text-on-bright-fill -- constant across both themes (amber/green fills
-     stay light either way, so button/badge text on them stays near-black) */
-  --ink: #15181c;
+  /* Text on a filled accent / success button. White now that the accent is violet (was near-black on amber). */
+  --ink: #ffffff;
 
-  /* console housing -- light ("daylight") */
+  /* Violet theme -- same palette as the sign-in page (primary #6d4cff, deep #4c32d9, ink #1d1638, lavender #f4f1ff). */
   --paper: #ffffff;
-  --line: #e3ded2;
+  --line: #e6e2f3;
 
-  --text: #4b463c;
-  --text-h: #1e1b16;
-  --text-muted: #8a8371;
+  --text: #4a4566;
+  --text-h: #1d1638;
+  --text-muted: #7c7798;
 
-  --bg: #f6f3ec;
-  --page-bg: #f6f3ec;
+  --bg: #f6f4fd;
+  --page-bg: #f6f4fd;
   --surface: var(--paper);
-  --surface-hover: #f1ede3;
+  --surface-hover: #f1eefb;
   --border: var(--line);
 
-  /* "dial" amber -- the console's primary accent (nav, CTAs, focus) */
-  --accent: #e08e22;
-  --accent-strong: #c97a1a;
-  --accent-bg: rgba(224, 142, 34, 0.12);
-  --accent-border: rgba(224, 142, 34, 0.4);
+  /* violet -- the primary accent (nav, CTAs, focus) */
+  --accent: #6d4cff;
+  --accent-strong: #4c32d9;
+  --accent-bg: rgba(109, 76, 255, 0.1);
+  --accent-border: rgba(109, 76, 255, 0.35);
 
-  --accent-ai: #7c63e0;
-  --accent-ai-strong: #6650c4;
-  --accent-ai-bg: rgba(124, 99, 224, 0.12);
-  --accent-ai-border: rgba(124, 99, 224, 0.35);
+  /* AI features: fuchsia, so they stay distinct from the violet accent */
+  --accent-ai: #c026d3;
+  --accent-ai-strong: #a21caf;
+  --accent-ai-bg: rgba(192, 38, 211, 0.1);
+  --accent-ai-border: rgba(192, 38, 211, 0.32);
 
-  --shadow-sm: 0 1px 2px rgba(28, 26, 22, 0.06);
-  --shadow-md: 0 6px 20px rgba(28, 26, 22, 0.08);
-  --shadow-lg: 0 16px 40px rgba(28, 26, 22, 0.12);
+  --shadow-sm: 0 1px 2px rgba(29, 22, 56, 0.06);
+  --shadow-md: 0 6px 20px rgba(29, 22, 56, 0.08);
+  --shadow-lg: 0 16px 40px rgba(29, 22, 56, 0.12);
 
   --info: #1e86b0;
   --info-bg: rgba(30, 134, 176, 0.1);
   --info-border: rgba(30, 134, 176, 0.3);
 
   /* signal green -- call connected / live status */
-  --success: #1fa971;
-  --success-bg: rgba(31, 169, 113, 0.12);
-  --success-border: rgba(31, 169, 113, 0.35);
+  --success: #16a36a;
+  --success-bg: rgba(22, 163, 106, 0.12);
+  --success-border: rgba(22, 163, 106, 0.35);
 
-  --warning: #c4901e;
-  --warning-bg: rgba(196, 144, 30, 0.12);
-  --warning-border: rgba(196, 144, 30, 0.35);
+  --warning: #c4861e;
+  --warning-bg: rgba(196, 134, 30, 0.12);
+  --warning-border: rgba(196, 134, 30, 0.35);
 
   /* signal red -- call missed / error */
   --error: #d6493d;
@@ -66,29 +66,32 @@
 }
 
 :root.dark {
-  /* console housing -- dark */
-  --paper: #1d2125;
-  --line: #33393f;
+  /* On dark, accent fills are light violet, so their text goes dark again (keeps contrast on hover too). */
+  --ink: #100d1c;
 
-  --text: #9aa0a6;
-  --text-h: #edeeee;
-  --text-muted: #6b7178;
+  /* deep violet-black, same as the sign-in page in dark mode */
+  --paper: #1a1628;
+  --line: #2f2a45;
 
-  --bg: #15181c;
-  --page-bg: #15181c;
+  --text: #aaa5c4;
+  --text-h: #efedf8;
+  --text-muted: #77718f;
+
+  --bg: #100d1c;
+  --page-bg: #100d1c;
   --surface: var(--paper);
-  --surface-hover: #262b30;
+  --surface-hover: #241f38;
   --border: var(--line);
 
-  --accent: #f4a93b;
-  --accent-strong: #ffbb5c;
-  --accent-bg: rgba(244, 169, 59, 0.14);
-  --accent-border: rgba(244, 169, 59, 0.4);
+  --accent: #7f63ff;
+  --accent-strong: #a593ff;
+  --accent-bg: rgba(127, 99, 255, 0.18);
+  --accent-border: rgba(127, 99, 255, 0.45);
 
-  --accent-ai: #8f7cf0;
-  --accent-ai-strong: #a695f5;
-  --accent-ai-bg: rgba(143, 124, 240, 0.16);
-  --accent-ai-border: rgba(143, 124, 240, 0.4);
+  --accent-ai: #e879f9;
+  --accent-ai-strong: #f0abfc;
+  --accent-ai-bg: rgba(232, 121, 249, 0.16);
+  --accent-ai-border: rgba(232, 121, 249, 0.4);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4);
@@ -98,9 +101,9 @@
   --info-bg: rgba(79, 176, 216, 0.14);
   --info-border: rgba(79, 176, 216, 0.35);
 
-  --success: #35d08c;
-  --success-bg: rgba(53, 208, 140, 0.14);
-  --success-border: rgba(53, 208, 140, 0.38);
+  --success: #22b877;
+  --success-bg: rgba(34, 184, 119, 0.16);
+  --success-border: rgba(34, 184, 119, 0.4);
 
   --warning: #e8b94a;
   --warning-bg: rgba(232, 185, 74, 0.14);
