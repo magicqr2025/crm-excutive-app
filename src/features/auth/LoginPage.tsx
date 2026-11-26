@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FocusEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, BellRing, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -70,6 +70,12 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // The keyboard takes a moment to open and shrink the screen; then scroll the field to the middle.
+  function revealField(e: FocusEvent<HTMLInputElement>) {
+    const el = e.currentTarget
+    window.setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -88,12 +94,14 @@ export function LoginPage() {
     'login-field h-[52px] w-full rounded-2xl border border-[#e4defc] bg-white pl-11 text-[15px] text-[#1d1638] outline-none transition-[border-color,box-shadow] placeholder:text-[#9a94b8] focus:border-[#6d4cff] focus:ring-4 focus:ring-[#6d4cff]/15 dark:border-white/10 dark:bg-white/5 dark:text-white'
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-[#f4f1ff] dark:bg-[#0f0b1f]">
+    <div className="relative h-dvh overflow-y-auto overscroll-contain bg-[#f4f1ff] dark:bg-[#0f0b1f]">
       <style>{`
         @keyframes login-bar { 0%,100% { transform: scaleY(.45); } 50% { transform: scaleY(1); } }
         .login-bar { animation: login-bar 1.1s ease-in-out infinite; transform-origin: center; }
         @keyframes login-float { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(-2deg); } }
         .login-float { animation: login-float 5s ease-in-out infinite; transform: rotate(-2deg); }
+        /* Keyboard open (or a very short screen): drop the picture, keep the form. */
+        @media (max-height: 560px) { .login-hero { display: none; } }
         .login-field:-webkit-autofill,
         .login-field:-webkit-autofill:hover,
         .login-field:-webkit-autofill:focus {
@@ -104,9 +112,11 @@ export function LoginPage() {
       `}</style>
 
       {/* Soft colour glows behind everything */}
-      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-[#8b6cff]/35 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -right-20 top-32 h-72 w-72 rounded-full bg-[#ec4899]/20 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-[#6d4cff]/15 blur-3xl" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div className="absolute -left-24 -top-24 h-80 w-80 rounded-full bg-[#8b6cff]/35 blur-3xl" />
+      <div className="absolute -right-20 top-32 h-72 w-72 rounded-full bg-[#ec4899]/20 blur-3xl" />
+      <div className="absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-[#6d4cff]/15 blur-3xl" />
+      </div>
 
       <div className="relative mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] md:grid md:grid-cols-2 md:items-center md:gap-12 md:px-10">
         {/* Brand bar */}
@@ -119,7 +129,7 @@ export function LoginPage() {
         </header>
 
         {/* Hero */}
-        <div className="mt-8 md:mt-0">
+        <div className="login-hero mt-8 md:mt-0">
           <CallPreview />
         </div>
 
@@ -150,6 +160,7 @@ export function LoginPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={revealField}
                 className={`${field} pr-4`}
               />
             </label>
@@ -164,6 +175,7 @@ export function LoginPage() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onFocus={revealField}
                 className={`${field} pr-12`}
               />
               <button
