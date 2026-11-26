@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home, Bell } from 'lucide-react'
-import { useAuthStore } from '@/store/useAuthStore'
+import { grantsAny, useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
@@ -14,16 +14,18 @@ import { useUnreadNotificationCount } from '@/api/queries'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import { LeaveToggle } from '@/features/leave/LeaveToggle'
 
-const NAV_ITEMS = [
+// feature = the role-grid feature(s) an item needs (same names as orm-whatsapp's sidebar). A staff role allowed nothing
+// on it (no view, add, edit or delete) doesn't see the item; admins see everything. Home and Recording are for everyone.
+const NAV_ITEMS: { to: string; label: string; icon: typeof Home; feature?: string | string[] }[] = [
   { to: '/home', label: 'Home', icon: Home },
-  { to: '/campaigns', label: 'Pipelines', icon: Megaphone },
-  { to: '/inbox', label: 'Inbox', icon: MessagesSquare },
-  { to: '/contacts', label: 'Contacts', icon: Users },
-  { to: '/followups', label: 'Follow-ups', icon: CalendarClock },
-  { to: '/deals', label: 'Deals', icon: Handshake },
-  { to: '/meetings', label: 'Meetings', icon: CalendarCheck },
-  { to: '/payments', label: 'Payments', icon: Wallet },
-  { to: '/target', label: 'Target', icon: Target },
+  { to: '/campaigns', label: 'Pipelines', icon: Megaphone, feature: 'lead_campaigns' },
+  { to: '/inbox', label: 'Inbox', icon: MessagesSquare, feature: 'inbox' },
+  { to: '/contacts', label: 'Contacts', icon: Users, feature: 'leads' },
+  { to: '/followups', label: 'Follow-ups', icon: CalendarClock, feature: 'followups' },
+  { to: '/deals', label: 'Deals', icon: Handshake, feature: 'deals' },
+  { to: '/meetings', label: 'Meetings', icon: CalendarCheck, feature: 'meetings' },
+  { to: '/payments', label: 'Payments', icon: Wallet, feature: 'payments' },
+  { to: '/target', label: 'Target', icon: Target, feature: ['deals', 'payments'] },
   { to: '/settings/call-recording', label: 'Recording', icon: Settings },
 ]
 
@@ -48,6 +50,9 @@ function useClock() {
 export function AppShell() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const isAdmin = useAuthStore((s) => s.isAdmin)
+  const permissions = useAuthStore((s) => s.permissions)
+  const navItems = NAV_ITEMS.filter((item) => !item.feature || isAdmin || grantsAny(permissions, item.feature))
   const logout = useAuthStore((s) => s.logout)
   const theme = useThemeStore((s) => s.theme)
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
@@ -86,7 +91,7 @@ export function AppShell() {
       >
         <img src="/logo.png" alt="Staff Crm" className="mb-6 h-9 w-9 rounded-full" />
         <nav className="flex flex-1 flex-col items-center gap-1 px-2">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} title={label} className="relative flex w-full flex-col items-center gap-1 rounded-lg py-2.5">
               {({ isActive }) => (
                 <>
@@ -201,7 +206,7 @@ export function AppShell() {
           </button>
         </div>
         <nav className="mt-2 flex-1 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} onClick={() => setDrawerOpen(false)} className="relative flex items-center gap-3 rounded-lg px-3 py-2.5">
               {({ isActive }) => (
                 <>
@@ -227,7 +232,11 @@ export function AppShell() {
         </nav>
         <button
           type="button"
-          onClick={() => setConfirmLogoutOpen(true)}
+          onClick={() => {
+            // Close the side menu first so the question shows on a clean page.
+            setDrawerOpen(false)
+            setConfirmLogoutOpen(true)
+          }}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--error)]"
         >
           <LogOut size={17} />
@@ -239,20 +248,21 @@ export function AppShell() {
       <Dialog
         open={confirmLogoutOpen}
         onClose={() => setConfirmLogoutOpen(false)}
-        className="max-w-sm self-center !h-auto rounded-[var(--radius-card)] border border-[var(--border)]"
+        // A small centred card with space around it on a phone, not a strip touching both edges.
+        className="!w-[calc(100%-2.5rem)] max-w-sm self-center sm:!w-full !h-auto rounded-[var(--radius-card)] border border-[var(--border)]"
       >
-        <Dialog.Header>
-          <Dialog.Title>Log out</Dialog.Title>
+        <Dialog.Header className="border-b-0 pb-1">
+          <Dialog.Title>Log out?</Dialog.Title>
           <Dialog.CloseButton onClose={() => setConfirmLogoutOpen(false)} />
         </Dialog.Header>
         <Dialog.Body>
-          <p className="text-[13.5px] text-[var(--text)]">Are you sure you want to log out?</p>
+          <p className="text-[14px] text-[var(--text)]">You’ll need to sign in again to use the app.</p>
         </Dialog.Body>
-        <Dialog.Footer>
-          <Button variant="outline" onClick={() => setConfirmLogoutOpen(false)}>
+        <Dialog.Footer className="border-t-0 pt-1">
+          <Button variant="secondary" className="flex-1 justify-center sm:flex-none" onClick={() => setConfirmLogoutOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={confirmLogout} disabled={loggingOut}>
+          <Button variant="danger" className="flex-1 justify-center sm:flex-none" onClick={confirmLogout} disabled={loggingOut}>
             {loggingOut ? 'Logging out…' : 'Yes, log out'}
           </Button>
         </Dialog.Footer>

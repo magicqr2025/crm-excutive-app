@@ -8,12 +8,13 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-[var(--border)] px-5 py-4 md:px-6">
+    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-[var(--border)] px-4 py-3.5 sm:px-5 sm:py-4 md:px-6">
       <div className="flex min-w-[45%] flex-1 items-start gap-3">
         <span className="mt-1.5 h-4 w-[3px] shrink-0 rounded-full bg-[var(--accent)]" />
         <div className="min-w-0">
           <h1 className="text-[19px] font-semibold leading-tight text-[var(--text-h)]">{title}</h1>
-          {subtitle && <p className="mt-0.5 truncate text-[13px] text-[var(--text-muted)]">{subtitle}</p>}
+          {/* Two lines on a phone rather than cut off mid-sentence; one line from a tablet up. */}
+          {subtitle && <p className="mt-0.5 line-clamp-2 text-[13px] text-[var(--text-muted)] sm:line-clamp-1">{subtitle}</p>}
         </div>
       </div>
       {action && <div className="shrink-0">{action}</div>}

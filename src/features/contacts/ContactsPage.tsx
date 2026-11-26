@@ -2,15 +2,12 @@ import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { CalendarClock, CheckSquare, Filter, MailPlus, Plus, Tag, X } from 'lucide-react'
+import { CalendarClock, CheckSquare, Filter, MailPlus, Plus, X } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
-import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
 import { useActiveProducts, useContactGroups, useLabels, useLeadFlags, useLeadStageTypes, useLeadStatuses, useLeadsPage, useMyLeadCampaigns, useMyOpenFollowupsByContact, useStaffList } from '@/api/queries'
 import { fetchLeadsPage, type CrmFollowup, type CrmLead } from '@/api/crmApi'
 import { formatDate, formatTime } from '@/lib/followupFormat'
@@ -28,6 +25,7 @@ import { CONTACT_TABS, contactsQuery, type ContactsTab } from './contactFilters'
 import { useToast } from '@/components/ui/useToast'
 import { BulkEmailDialog } from './BulkEmailDialog'
 import { AddNewLeadDialog } from './AddNewLeadDialog'
+import { LeadCard } from './LeadCard'
 
 const MAX_BULK_SELECT = 500
 
@@ -188,8 +186,8 @@ export function ContactsPage() {
         onQueued={() => setSelected(new Map())}
       />
       <div className="space-y-4 p-4">
-        {/* Wraps on a phone so every tab stays visible. */}
-        <div role="tablist" className="flex w-fit max-w-full flex-wrap gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
+        {/* One row; on a phone it swipes sideways instead of wrapping into an uneven block. */}
+        <div role="tablist" className="scroll-x-quiet flex w-fit max-w-full gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
           {CONTACT_TABS.map(({ value: v, label }) => {
             const n = counts?.[v]
             // Unassigned and Overdue get a coloured count when there are any; the rest a plain one.
@@ -201,7 +199,7 @@ export function ContactsPage() {
                 role="tab"
                 aria-selected={view === v}
                 onClick={() => switchView(v)}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium sm:px-3 sm:text-[13px] ${
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12.5px] font-medium sm:px-3 sm:text-[13px] ${
                   view === v ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)]'
                 }`}
               >
@@ -313,73 +311,22 @@ export function ContactsPage() {
             {search ? `No results for “${search}”.` : chips.length > 0 ? 'No contacts match these filters.' : TAB_EMPTY[view]}
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {contacts.map((lead) => (
-              // A div, not a <button>: the WhatsApp links inside can't be nested in one.
-              <div
-                key={lead.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate(`/contacts/${lead.id}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') navigate(`/contacts/${lead.id}`)
-                }}
-                className="cursor-pointer rounded-xl border border-[var(--border)] p-3.5 text-left hover:bg-[var(--surface-hover)]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(lead.id)}
-                    onChange={() => toggleLead(lead)}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    aria-label={`Select ${lead.contact_name ?? 'contact'}`}
-                    className="h-4 w-4 shrink-0 accent-[var(--accent)]"
-                  />
-                  <Avatar name={lead.contact_name ?? 'Unknown'} size={32} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
-                    <p className="text-[12px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
-                  </div>
-                  <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                    <LeadWhatsAppButtons
-                      contactId={lead.contact_id}
-                      phone={lead.contact_phone}
-                      countryCode={lead.contact_country_code}
-                      ownerStaffId={lead.assign_to_staff_id}
-                    />
-                  </div>
-                </div>
+              <LeadCard key={lead.id} lead={lead} onOpen={() => navigate(`/contacts/${lead.id}`)} selection={{ checked: selected.has(lead.id), onToggle: () => toggleLead(lead) }}>
                 {(() => {
                   // Built from your own follow-ups, so it would be misleading on other staff's contacts: hidden for admins.
                   const fu = isAdmin ? undefined : openFollowups?.get(lead.contact_id)
                   if (!fu) return null
                   const line = followupLine(fu)
                   return (
-                    <p className={`mt-2 flex items-center gap-1.5 font-mono-num text-[12px] ${line.overdue ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
+                    <p className={`flex items-center gap-1.5 font-mono-num text-[12px] ${line.overdue ? 'font-semibold text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
                       <CalendarClock size={12} className="shrink-0" />
                       {line.text}
                     </p>
                   )
                 })()}
-                {(lead.lead_status || lead.lead_campaigns.length > 0 || !lead.assign_to_staff_id || (lead.labels?.length ?? 0) > 0) && (
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    {!lead.assign_to_staff_id && <Badge tone="warning">Unassigned</Badge>}
-                    {lead.lead_status && <Badge tone="accent">{lead.lead_status}</Badge>}
-                    {lead.lead_campaigns.map((campaign) => (
-                      <Badge key={campaign.id} tone="neutral">
-                        Pipeline: {campaign.name}
-                      </Badge>
-                    ))}
-                    {lead.labels?.map((l) => (
-                      <Badge key={l.id} tone="neutral">
-                        <Tag size={10} className="mr-0.5 inline" />
-                        {l.name}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              </LeadCard>
             ))}
           </div>
         )}

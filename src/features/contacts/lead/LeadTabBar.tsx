@@ -2,7 +2,20 @@ import { cn } from '@/lib/utils'
 import { LEAD_TAB_LABEL as LABEL, type LeadTab } from './leadConstants'
 
 /** Underlined tabs with counts. Swipes sideways on a phone or tablet in portrait; sticks under the header while scrolling. */
-export function LeadTabBar({ tabs, value, onChange, counts }: { tabs: LeadTab[]; value: LeadTab; onChange: (tab: LeadTab) => void; counts: Partial<Record<LeadTab, number>> }) {
+export function LeadTabBar({
+  tabs,
+  value,
+  onChange,
+  counts,
+  alerts,
+}: {
+  tabs: LeadTab[]
+  value: LeadTab
+  onChange: (tab: LeadTab) => void
+  counts: Partial<Record<LeadTab, number>>
+  /** A red pill after the tab name, e.g. "₹5,000 due" on Payment. */
+  alerts?: Partial<Record<LeadTab, string>>
+}) {
   return (
     <div className="sticky top-0 z-10 -mx-3 border-b border-[var(--border)] bg-[var(--bg)]/95 px-3 backdrop-blur sm:-mx-5 sm:px-5 lg:mx-0 lg:px-0">
       <div role="tablist" aria-label="Lead sections" className="scroll-x-quiet flex gap-1">
@@ -31,6 +44,9 @@ export function LeadTabBar({ tabs, value, onChange, counts }: { tabs: LeadTab[];
                 >
                   {count}
                 </span>
+              )}
+              {alerts?.[tab] && (
+                <span className="font-mono-num rounded-full bg-[var(--error-bg)] px-1.5 text-[11px] font-semibold leading-[18px] text-[var(--error)]">{alerts[tab]}</span>
               )}
               {active && <span aria-hidden className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[var(--accent)]" />}
             </button>

@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Funnel, Lock, X } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
+import { ArrowLeft, Funnel, X } from 'lucide-react'
 import { SearchBox } from '@/components/ui/SearchBox'
 import { InfiniteScrollFooter } from '@/components/ui/InfiniteScrollFooter'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -12,7 +10,7 @@ import type { CampaignLeadListFilters, CampaignLeadScope } from '@/api/crmApi'
 import { CampaignLeadFilterDialog } from './CampaignLeadFilterDialog'
 import { NO_LEAD_FILTERS, UNASSIGNED, activeFilterCount, createdRangeFor, filtersFromParams, filtersToParams, type CampaignLeadFilters } from './campaignLeadFilters'
 import { cn } from '@/lib/utils'
-import { LeadWhatsAppButtons } from '@/components/LeadWhatsAppButtons'
+import { LeadCard } from '@/features/contacts/LeadCard'
 
 export function CampaignLeadsPage() {
   const { campaignId = '' } = useParams<{ campaignId: string }>()
@@ -162,7 +160,7 @@ export function CampaignLeadsPage() {
                 : 'No leads for you in this pipeline yet.'}
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {leads.map((lead) => {
               // Another executive's lead: view-only, can't be called from here.
               const ownedByOther = Boolean(lead.assign_to_staff_id) && lead.assign_to_staff_id !== userId
@@ -176,58 +174,7 @@ export function CampaignLeadsPage() {
                 params.set('from', 'list')
                 navigate(`/campaigns/${campaignId}/call/${lead.id}?${params}`)
               }
-              return (
-                // A div, not a <button>: the WhatsApp links inside can't be nested in one.
-                <div
-                  key={lead.id}
-                  role="button"
-                  tabIndex={othersLead ? -1 : 0}
-                  aria-disabled={othersLead}
-                  onClick={() => {
-                    if (!othersLead) open()
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !othersLead) open()
-                  }}
-                  className={cn(
-                    'rounded-xl border border-[var(--border)] p-3.5 text-left',
-                    othersLead ? 'cursor-default opacity-75' : 'cursor-pointer hover:bg-[var(--surface-hover)]',
-                  )}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={lead.contact_name ?? 'Unknown'} size={32} />
-                    <div className="min-w-0 flex-1">
-                      {/* Name, then the lead's status right after it. */}
-                      <div className="flex min-w-0 items-center gap-2">
-                        <p className="truncate text-[13px] font-semibold text-[var(--text-h)]">{lead.contact_name ?? 'Unknown'}</p>
-                        <span className="shrink-0">
-                          <Badge tone={lead.lead_status ? 'accent' : 'warning'}>{lead.lead_status ?? 'Fresh Inquiry'}</Badge>
-                        </span>
-                      </div>
-                      <p className="text-[12px] text-[var(--text-muted)]">{lead.contact_phone ?? '—'}</p>
-                    </div>
-                    {othersLead ? (
-                      <Lock size={14} className="shrink-0 text-[var(--text-muted)]" />
-                    ) : (
-                      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                        <LeadWhatsAppButtons
-                          contactId={lead.contact_id}
-                          phone={lead.contact_phone}
-                          countryCode={lead.contact_country_code}
-                          ownerStaffId={lead.assign_to_staff_id}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  {(lead.tag_name || !lead.assign_to_staff_id || ownedByOther) && (
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                      {lead.tag_name && <Badge tone="neutral">{lead.tag_name}</Badge>}
-                      {!lead.assign_to_staff_id && <Badge tone="warning">Unassigned</Badge>}
-                      {ownedByOther && <Badge tone="neutral">{lead.assign_staff_name || 'Another executive'}</Badge>}
-                    </div>
-                  )}
-                </div>
-              )
+              return <LeadCard key={lead.id} lead={lead} onOpen={open} locked={othersLead} statusFallback="Fresh Inquiry" hidePipelines />
             })}
           </div>
         )}
