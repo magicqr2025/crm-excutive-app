@@ -26,6 +26,8 @@ const PipelineFormPage = lazy(() => import('@/features/campaigns/admin/PipelineF
 const PipelineSettingsPage = lazy(() => import('@/features/campaigns/admin/PipelineSettingsPage').then((m) => ({ default: m.PipelineSettingsPage })))
 const UploadLeadsPage = lazy(() => import('@/features/campaigns/admin/UploadLeadsPage').then((m) => ({ default: m.UploadLeadsPage })))
 const AddExistingLeadsPage = lazy(() => import('@/features/campaigns/admin/AddExistingLeadsPage').then((m) => ({ default: m.AddExistingLeadsPage })))
+const PipelineCallLogsPage = lazy(() => import('@/features/campaigns/reports/PipelineCallLogsPage').then((m) => ({ default: m.PipelineCallLogsPage })))
+const CampaignPerformancePage = lazy(() => import('@/features/campaigns/reports/CampaignPerformancePage').then((m) => ({ default: m.CampaignPerformancePage })))
 const HomePage = lazy(() => import('@/features/home/HomePage').then((m) => ({ default: m.HomePage })))
 const CampaignsPage = lazy(() => import('@/features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignLeadsPage = lazy(() => import('@/features/campaigns/CampaignLeadsPage').then((m) => ({ default: m.CampaignLeadsPage })))
@@ -72,6 +74,8 @@ export default function App() {
             <Route element={<RequireAdmin />}>
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/campaigns/new" element={<PipelineFormPage />} />
+              <Route path="/campaigns/performance" element={<CampaignPerformancePage />} />
+              <Route path="/campaigns/:campaignId/call-logs" element={<PipelineCallLogsPage />} />
               <Route path="/campaigns/:campaignId/edit" element={<PipelineFormPage />} />
               <Route path="/campaigns/:campaignId/settings" element={<PipelineSettingsPage />} />
               <Route path="/campaigns/:campaignId/upload" element={<UploadLeadsPage />} />
