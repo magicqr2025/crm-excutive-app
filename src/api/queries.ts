@@ -20,6 +20,9 @@ import {
   updateLead,
   claimLead,
   quickCreateLead,
+  quickEditLead,
+  setLeadAltPhone,
+  type QuickEditLeadInput,
   type QuickCreateLeadInput,
   fetchLeadActivity,
   fetchLeadStageTypes,
@@ -394,8 +397,8 @@ export function useDeals(contactId?: string) {
   return useQuery({ queryKey: contactId ? ['deals', 'contact', contactId] : ['deals'], queryFn: () => fetchDeals(contactId) })
 }
 
-export function useActiveProducts() {
-  return useQuery({ queryKey: ['products', 'active'], queryFn: fetchActiveProducts })
+export function useActiveProducts(enabled = true) {
+  return useQuery({ queryKey: ['products', 'active'], queryFn: fetchActiveProducts, enabled })
 }
 
 export function useDealsPage(search: string, paymentStatus?: DealPaymentStatus) {
@@ -955,7 +958,7 @@ function useTicketMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
 }
 
 export const useCreateTicket = () => useTicketMutation((input: CreateTicketInput) => createTicket(input))
-export const useSetTicketStatus = () => useTicketMutation(({ id, status }: { id: string; status: TicketStatus }) => setTicketStatus(id, status))
+export const useSetTicketStatus = () => useTicketMutation(({ id, status, reason }: { id: string; status: TicketStatus; reason?: string }) => setTicketStatus(id, status, reason))
 export const useTriageTicket = () =>
   useTicketMutation(({ id, patch }: { id: string; patch: { priority?: TicketPriority; assignToStaffId?: string | null } }) => triageTicket(id, patch))
 export const useAddTicketComment = () =>
@@ -1045,5 +1048,32 @@ export function useSearchPipelines(search: string, excludeCampaignId: string) {
     queryKey: ['search-pipelines', search, excludeCampaignId],
     queryFn: () => fetchSearchPipelines(search, excludeCampaignId),
     enabled: Boolean(search),
+  })
+}
+
+/** A contact's name and numbers show on lead lists, the lead's page and the calling queue. */
+function useRefreshContact() {
+  const queryClient = useQueryClient()
+  return (leadId: string) => {
+    queryClient.invalidateQueries({ queryKey: ['my-leads'] })
+    queryClient.invalidateQueries({ queryKey: ['campaign-leads'] })
+    queryClient.invalidateQueries({ queryKey: ['next-queue-lead'] })
+    queryClient.invalidateQueries({ queryKey: ['lead-activity', leadId] })
+  }
+}
+
+export function useQuickEditLead() {
+  const refresh = useRefreshContact()
+  return useMutation({
+    mutationFn: (input: QuickEditLeadInput) => quickEditLead(input),
+    onSuccess: (_data, { id }) => refresh(id),
+  })
+}
+
+export function useSetLeadAltPhone() {
+  const refresh = useRefreshContact()
+  return useMutation({
+    mutationFn: ({ leadId, altPhone }: { leadId: string; altPhone: string | null }) => setLeadAltPhone(leadId, altPhone),
+    onSuccess: (_data, { leadId }) => refresh(leadId),
   })
 }

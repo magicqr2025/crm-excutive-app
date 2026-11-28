@@ -1,4 +1,4 @@
-import { BellOff, CalendarPlus, Copy, Mail, Phone, PhoneForwarded } from 'lucide-react'
+import { BellOff, CalendarPlus, Copy, Mail, Pencil, Phone, PhoneForwarded, Plus } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/useToast'
@@ -18,6 +18,10 @@ interface LeadHeroProps {
   addedAt?: string | null
   /** The contact's second number, when one was saved. */
   altPhone?: string | null
+  /** Opens the contact's details to edit; omitted when this person may not. */
+  onEdit?: () => void
+  /** Opens the alternative number; omitted when this person may not add or change it. */
+  onAltNumber?: () => void
   /** The client unsubscribed from WhatsApp messages. */
   unsubscribed?: boolean
   /** Stage and status, e.g. "Opportunity" + "Meeting Schedule". */
@@ -44,6 +48,8 @@ export function LeadHero({
   email,
   addedAt,
   altPhone,
+  onEdit,
+  onAltNumber,
   unsubscribed = false,
   stage,
   status,
@@ -69,7 +75,19 @@ export function LeadHero({
         <div className="flex min-w-0 items-start gap-3">
           <Avatar name={name} size={48} />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[20px] font-semibold leading-tight tracking-[-0.01em] text-[var(--text-h)] sm:text-[22px]">{name}</h1>
+            <div className="flex items-start gap-2">
+              <h1 className="min-w-0 flex-1 truncate text-[20px] font-semibold leading-tight tracking-[-0.01em] text-[var(--text-h)] sm:text-[22px]">{name}</h1>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label="Edit contact"
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] px-3 text-[13px] font-medium text-[var(--text-h)] hover:bg-[var(--surface-hover)]"
+                >
+                  <Pencil size={13} /> Edit
+                </button>
+              )}
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[var(--text-muted)]">
               {phone && (
                 <span className="inline-flex items-center gap-1">
@@ -89,7 +107,7 @@ export function LeadHero({
                 </span>
               )}
             </div>
-            {(email || addedAt || altPhone || unsubscribed) && (
+            {(email || addedAt || altPhone || onAltNumber || unsubscribed) && (
               <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-[var(--text-muted)]">
                 {email && (
                   <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
@@ -100,7 +118,17 @@ export function LeadHero({
                 {altPhone && (
                   <span className="inline-flex items-center gap-1.5">
                     <PhoneForwarded size={13} className="shrink-0" /> Alt. <span className="font-mono-num text-[var(--text)]">{altPhone}</span>
+                    {onAltNumber && (
+                      <button type="button" onClick={onAltNumber} aria-label="Change alternative number" className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-[var(--surface-hover)]">
+                        <Pencil size={13} />
+                      </button>
+                    )}
                   </span>
+                )}
+                {!altPhone && onAltNumber && (
+                  <button type="button" onClick={onAltNumber} className="inline-flex h-8 items-center gap-1 font-semibold text-[var(--accent-strong)]">
+                    <Plus size={14} /> Add alt. number
+                  </button>
                 )}
                 {addedAt && (
                   <span className="inline-flex items-center gap-1.5">
