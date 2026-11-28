@@ -57,6 +57,8 @@ export interface CrmLead {
   contact_email: string | null
   contact_phone: string | null
   contact_country_code?: string | null
+  /** The number with its country code, as used for WhatsApp. */
+  contact_phone_with_country_code?: string | null
   /** Second number for the contact, when one was saved. */
   contact_alt_phone?: string | null
   /** Set (ISO time) once the contact unsubscribed from WhatsApp messages. */
