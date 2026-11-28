@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import { staffLogin, staffMe, staffLogout, type FeaturePermission } from '@/lib/staffAuthClient'
 import { getCrmSessionToken } from '@/lib/crmSessionClient'
+import { ownerLogin, ownerLogout, restoreOwnerSession, getBossToken, clearOwnerSession, type OwnerSession } from '@/lib/ownerAuthClient'
+import { ApiError } from '@/lib/apiClient'
+import { queryClient } from '@/lib/queryClient'
 import { teardownPushNotifications } from '@/features/notifications/usePushNotifications'
 
 export interface AuthUser {
@@ -33,7 +36,10 @@ interface AuthState {
   /** The role's feature grid (view / add / edit / delete per feature); an admin bypasses it. */
   permissions: Record<string, FeaturePermission>
   hydrated: boolean
+  /** Staff login (crmbackend). */
   login: (payload: LoginPayload) => Promise<void>
+  /** Business Admin login (boss service). */
+  loginAsOwner: (payload: LoginPayload) => Promise<void>
   hydrate: () => Promise<void>
   logout: () => Promise<void>
 }
@@ -77,6 +83,12 @@ function toAuthBusinesses(me: Awaited<ReturnType<typeof staffMe>>): AuthBusiness
   return me.businesses.map((b) => ({ id: b.id, name: b.name, role: b.role }))
 }
 
+/** The signed-in state of a business owner: always an admin, so the role grid doesn't apply. */
+function ownerState({ user, businesses }: OwnerSession) {
+  persistSession(user, businesses)
+  return { user, businesses, activeBusinessId: businesses[0].id, isAuthenticated: true, isAdmin: true, seesAll: true, permissions: {}, hydrated: true }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: loadStoredUser(),
   businesses: loadStoredBusinesses(),
@@ -87,7 +99,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   permissions: {},
   hydrated: false,
 
+  loginAsOwner: async (payload) => {
+    const session = await ownerLogin(payload)
+    queryClient.clear()
+    set(ownerState(session))
+  },
+
   login: async (payload) => {
+    clearOwnerSession()
+    queryClient.clear()
     await staffLogin(payload)
     const me = await staffMe()
     const user = toAuthUser(me)
@@ -97,6 +117,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   hydrate: async () => {
+    if (getBossToken()) {
+      try {
+        set(ownerState(await restoreOwnerSession()))
+      } catch (err) {
+        // Only a rejected session is thrown away; after a network problem a reload can still restore it.
+        if (err instanceof ApiError && err.status === 401) {
+          clearOwnerSession()
+          staffLogout()
+          clearSession()
+          set({ user: null, businesses: [], activeBusinessId: null })
+        }
+        set({ hydrated: true })
+      }
+      return
+    }
     if (!getCrmSessionToken()) {
       set({ hydrated: true })
       return
@@ -126,8 +161,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     // Before clearing the session — the unregister call needs it.
     await teardownPushNotifications()
+    ownerLogout()
     staffLogout()
     clearSession()
+    queryClient.clear()
     set({ user: null, businesses: [], activeBusinessId: null, isAuthenticated: false, isAdmin: false, seesAll: false, permissions: {} })
   },
 }))
