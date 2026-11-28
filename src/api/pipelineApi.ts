@@ -16,6 +16,8 @@ export interface Pipeline {
   priority: PipelinePriority
   lead_count: number
   created_at: string
+  /** Bulk uploads into this pipeline, newest first. */
+  uploaded_files?: { id: string; file_name: string; status: string; created_count: number; duplicate_count: number; created_at: string }[]
 }
 
 /** One staff member on a pipeline, and whether new leads reach them. */

@@ -11,6 +11,8 @@ import { CampaignLeadFilterDialog } from './CampaignLeadFilterDialog'
 import { NO_LEAD_FILTERS, UNASSIGNED, activeFilterCount, createdRangeFor, filtersFromParams, filtersToParams, type CampaignLeadFilters } from './campaignLeadFilters'
 import { cn } from '@/lib/utils'
 import { LeadCard } from '@/features/contacts/LeadCard'
+import { MoveLeadsBar } from './admin/MoveLeads'
+import { PipelineLeadTools } from './admin/PipelineLeadTools'
 
 export function CampaignLeadsPage() {
   const { campaignId = '' } = useParams<{ campaignId: string }>()
@@ -70,6 +72,10 @@ export function CampaignLeadsPage() {
     fetchNextPage,
   } = useCampaignLeadsPage({ campaignId, staffId: isAdmin ? adminStaffId : userId, anyStaff: isAdmin, scope, search, filters: listFilters })
   const campaign = campaigns.find((c) => c.id === campaignId)
+  // Leads an admin ticked to move. Tied to the pipeline, so following "Also found in" starts with none.
+  const [ticked, setTicked] = useState<{ pipelineId: string; ids: string[] }>({ pipelineId: campaignId, ids: [] })
+  const selectedIds = ticked.pipelineId === campaignId ? ticked.ids : []
+  const setSelectedIds = (ids: string[]) => setTicked({ pipelineId: campaignId, ids })
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
@@ -87,6 +93,7 @@ export function CampaignLeadsPage() {
       </div>
 
       <div className="space-y-4 p-4">
+        {isAdmin && <PipelineLeadTools pipelineId={campaignId} />}
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1 [&>form]:max-w-none">
             <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
@@ -174,11 +181,23 @@ export function CampaignLeadsPage() {
                 params.set('from', 'list')
                 navigate(`/campaigns/${campaignId}/call/${lead.id}?${params}`)
               }
-              return <LeadCard key={lead.id} lead={lead} onOpen={open} locked={othersLead} statusFallback="Fresh Inquiry" hidePipelines />
+              const checked = selectedIds.includes(lead.id)
+              return (
+                <LeadCard
+                  key={lead.id}
+                  lead={lead}
+                  onOpen={open}
+                  locked={othersLead}
+                  statusFallback="Fresh Inquiry"
+                  hidePipelines
+                  selection={isAdmin ? { checked, onToggle: () => setSelectedIds(checked ? selectedIds.filter((x) => x !== lead.id) : [...selectedIds, lead.id]) } : undefined}
+                />
+              )
             })}
           </div>
         )}
         <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
+        {isAdmin && <MoveLeadsBar pipelineId={campaignId} leadIds={selectedIds} onClear={() => setSelectedIds([])} onMoved={() => setSelectedIds([])} />}
       </div>
     </div>
   )
