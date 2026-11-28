@@ -1,9 +1,15 @@
-import { BarChart3, Bot, Filter, ListChecks, Send, Settings2, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { BarChart3, Bot, ChevronRight, Filter, ListChecks, Send, Settings2, ShieldCheck, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 
-// The admin areas still to be built. Each one becomes a link when its page exists.
+// Pages that are built.
+const READY: { to: string; label: string; hint: string; icon: LucideIcon }[] = [
+  { to: '/admin/staff', label: 'Staff', hint: 'Logins, access and new leads', icon: UserCog },
+  { to: '/admin/roles', label: 'Roles & Permissions', hint: 'What each role can see and do', icon: ShieldCheck },
+]
+
+// The admin areas still to be built. Each one moves up to READY when its page exists.
 const UPCOMING: { label: string; hint: string; icon: LucideIcon }[] = [
-  { label: 'Team', hint: 'Staff, roles and permissions', icon: UserCog },
   { label: 'Team reports', hint: 'Performance, targets and salary', icon: BarChart3 },
   { label: 'Contacts & lead setup', hint: 'Import, export, bulk assign, lead status', icon: Users },
   { label: 'Sales pipeline', hint: 'Create pipelines and upload leads', icon: Filter },
@@ -18,7 +24,26 @@ export function AdminPage() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <PageHeader title="Admin" subtitle="Manage your team and business." />
-      <ul className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3 px-4 pb-10 pt-5 sm:grid-cols-2 md:px-6 lg:grid-cols-3">
+      <ul className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3 px-4 pt-5 sm:grid-cols-2 md:px-6 lg:grid-cols-3">
+        {READY.map(({ to, label, hint, icon: Icon }) => (
+          <li key={to}>
+            <Link
+              to={to}
+              className="flex h-full items-center gap-3 rounded-2xl bg-[var(--surface)] p-3.5 shadow-[var(--shadow-sm)] ring-1 ring-[var(--accent-border)] hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
+                <Icon size={20} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14.5px] font-semibold leading-tight text-[var(--text-h)]">{label}</span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-[var(--text-muted)]">{hint}</span>
+              </span>
+              <ChevronRight size={17} aria-hidden className="shrink-0 text-[var(--text-muted)]" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <ul className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3 px-4 pb-10 pt-3 sm:grid-cols-2 md:px-6 lg:grid-cols-3">
         {UPCOMING.map(({ label, hint, icon: Icon }) => (
           <li key={label} className="flex items-center gap-3 rounded-2xl bg-[var(--surface)] p-3.5 ring-1 ring-[var(--border)]">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-bg)] text-[var(--accent-strong)]">
