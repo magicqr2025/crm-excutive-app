@@ -14,7 +14,7 @@ import { rupees } from '@/features/performance/performanceUtils'
 import { TeamHeader } from '@/features/team/teamParts'
 import { useTeam } from '@/features/team/teamQueries'
 import { SELECT_CLASSES, errorText, staffName } from '@/features/team/teamUtils'
-import { NO_LEAD_FILTERS, filtersToParams } from '../campaignLeadFilters'
+import { notStartedLink } from './notStartedLink'
 import { conversion, isStuck, pipelineNumbers, revenuePeriod, untouchedShare, type PipelineNumbers, type ReportFilters } from './performanceData'
 
 interface Row {
@@ -84,19 +84,6 @@ export function CampaignPerformancePage() {
   const period = revenuePeriod(filters.from, filters.to)
   const stageStatuses = (statuses.data ?? []).filter((s) => s.stage_id === filters.stageId)
   const newStage = stages.data?.find((s) => s.lead_stage.trim().toLowerCase() === 'new')
-  // The pipeline's own leads list, narrowed to its New stage with this report's staff and dates.
-  const notStartedLink = (id: string) => {
-    const query = filtersToParams(
-      {
-        ...NO_LEAD_FILTERS,
-        stageId: newStage?.id ?? '',
-        staffId: filters.staffId,
-        ...(filters.from || filters.to ? { datePreset: 'custom' as const, from: filters.from, to: filters.to } : {}),
-      },
-      new URLSearchParams(),
-    )
-    return `/campaigns/${id}/leads?${query}`
-  }
   const filtered = Object.values(filters).some(Boolean)
 
   return (
@@ -206,7 +193,7 @@ export function CampaignPerformancePage() {
                   <LinkButton to={`/campaigns/${id}/leads`}>
                     <List size={14} /> Leads
                   </LinkButton>
-                  {n.notStarted > 0 && newStage && <LinkButton to={notStartedLink(id)}>Not started</LinkButton>}
+                  {n.notStarted > 0 && newStage && <LinkButton to={notStartedLink(id, newStage.id, filters)}>Not started</LinkButton>}
                   <LinkButton to={`/campaigns/${id}/call-logs`}>
                     <PhoneCall size={14} /> Calls
                   </LinkButton>

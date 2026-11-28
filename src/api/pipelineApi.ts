@@ -25,6 +25,8 @@ export interface PipelineAgent {
   agent_id: string
   agent_name: string | null
   total: number
+  /** This person's leads still in New. */
+  uncontacted?: number
   /** false = skipped for new leads right now (on leave, leads stopped, or off in this pipeline). */
   takes_new_leads?: boolean
   pipeline_enabled?: boolean

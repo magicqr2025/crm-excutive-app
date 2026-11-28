@@ -59,13 +59,13 @@ export function revenuePeriod(from: string, to: string, now = new Date()): { fro
 }
 
 // A plain date is already a local day; reading it as a timestamp would shift it by the time zone.
-const paymentDay = (p: ReportPayment) => {
+export const paymentDay = (p: ReportPayment) => {
   const raw = p.payment_date ?? p.created_at
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : localDay(raw)
 }
 
 /** Refunds subtract; voided payments count as nothing. */
-const netAmount = (p: ReportPayment) => (p.status !== 1 ? 0 : (p.kind === 'refund' ? -1 : 1) * Number(p.amount))
+export const netAmount = (p: ReportPayment) => (p.status !== 1 ? 0 : (p.kind === 'refund' ? -1 : 1) * Number(p.amount))
 
 const empty = (): PipelineNumbers => ({ total: 0, notStarted: 0, inProgress: 0, closed: 0, converted: 0, revenue: 0 })
 
