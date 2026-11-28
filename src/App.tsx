@@ -10,6 +10,11 @@ import { AppShell } from '@/components/layout/AppShell'
 // Pages are loaded on demand so each one ships as its own small JS chunk.
 // The <Suspense> boundary lives in AppShell around <Outlet />.
 const AdminPage = lazy(() => import('@/features/admin/AdminPage').then((m) => ({ default: m.AdminPage })))
+const StaffListPage = lazy(() => import('@/features/team/StaffListPage').then((m) => ({ default: m.StaffListPage })))
+const StaffAddPage = lazy(() => import('@/features/team/StaffAddPage').then((m) => ({ default: m.StaffAddPage })))
+const StaffEditPage = lazy(() => import('@/features/team/StaffEditPage').then((m) => ({ default: m.StaffEditPage })))
+const RolesPage = lazy(() => import('@/features/team/RolesPage').then((m) => ({ default: m.RolesPage })))
+const RolePermissionsPage = lazy(() => import('@/features/team/RolePermissionsPage').then((m) => ({ default: m.RolePermissionsPage })))
 const HomePage = lazy(() => import('@/features/home/HomePage').then((m) => ({ default: m.HomePage })))
 const CampaignsPage = lazy(() => import('@/features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignLeadsPage = lazy(() => import('@/features/campaigns/CampaignLeadsPage').then((m) => ({ default: m.CampaignLeadsPage })))
@@ -55,6 +60,11 @@ export default function App() {
             {/* Admin pages go inside this guard. */}
             <Route element={<RequireAdmin />}>
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/staff" element={<StaffListPage />} />
+              <Route path="/admin/staff/new" element={<StaffAddPage />} />
+              <Route path="/admin/staff/:staffId" element={<StaffEditPage />} />
+              <Route path="/admin/roles" element={<RolesPage />} />
+              <Route path="/admin/roles/:roleId" element={<RolePermissionsPage />} />
             </Route>
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/campaigns/:campaignId/leads" element={<CampaignLeadsPage />} />
