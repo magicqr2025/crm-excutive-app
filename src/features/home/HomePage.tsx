@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Activity, KanbanSquare, ArrowUpRight, CalendarCheck, CalendarClock, Handshake, Inbox, ListChecks, MessageCircle, Phone, Repeat, Target, Ticket, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Activity, KanbanSquare, ArrowUpRight, CalendarCheck, CalendarClock, Handshake, Inbox, ListChecks, ShieldCheck, MessageCircle, Phone, Repeat, Target, Ticket, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { grantsAny, useAuthStore } from '@/store/useAuthStore'
 import { RaisedForYou } from './RaisedForYou'
@@ -109,6 +109,22 @@ export function HomePage() {
       </div>
 
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-4 pb-10 pt-5 md:px-6">
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="group flex items-center gap-3 rounded-2xl bg-[var(--accent-bg)] p-3.5 ring-1 ring-[var(--accent-border)] transition-[filter] hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--surface)] text-[var(--accent-strong)]">
+              <ShieldCheck size={20} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14.5px] font-semibold leading-tight text-[var(--text-h)]">Admin</span>
+              <span className="mt-0.5 block truncate text-[12px] text-[var(--text-muted)]">Manage your team and business</span>
+            </span>
+            <ArrowUpRight size={16} aria-hidden className="shrink-0 text-[var(--text-muted)] group-hover:text-[var(--text-h)]" />
+          </Link>
+        )}
+
         {/* Today */}
         <section aria-labelledby="home-today" className="flex flex-col gap-3">
           <h2 id="home-today" className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">

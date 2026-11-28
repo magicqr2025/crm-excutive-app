@@ -2,12 +2,14 @@ import { lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RequireAuth } from '@/features/auth/RequireAuth'
+import { RequireAdmin } from '@/features/auth/RequireAdmin'
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { useAndroidBackButton } from '@/lib/useAndroidBackButton'
 import { AppShell } from '@/components/layout/AppShell'
 
 // Pages are loaded on demand so each one ships as its own small JS chunk.
 // The <Suspense> boundary lives in AppShell around <Outlet />.
+const AdminPage = lazy(() => import('@/features/admin/AdminPage').then((m) => ({ default: m.AdminPage })))
 const HomePage = lazy(() => import('@/features/home/HomePage').then((m) => ({ default: m.HomePage })))
 const CampaignsPage = lazy(() => import('@/features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignLeadsPage = lazy(() => import('@/features/campaigns/CampaignLeadsPage').then((m) => ({ default: m.CampaignLeadsPage })))
@@ -50,6 +52,10 @@ export default function App() {
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
             <Route path="/home" element={<HomePage />} />
+            {/* Admin pages go inside this guard. */}
+            <Route element={<RequireAdmin />}>
+              <Route path="/admin" element={<AdminPage />} />
+            </Route>
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/campaigns/:campaignId/leads" element={<CampaignLeadsPage />} />
             <Route path="/campaigns/:campaignId/call/:leadId" element={<LeadCallingPage />} />

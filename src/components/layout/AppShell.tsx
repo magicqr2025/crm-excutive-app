@@ -1,12 +1,14 @@
 import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home, Bell } from 'lucide-react'
+import { LogOut, Megaphone, CalendarClock, Sun, Moon, Menu, X, Handshake, CalendarCheck, Wallet, Users, Settings, MessagesSquare, Target, Home, Bell, ShieldCheck, Building2, ChevronsUpDown } from 'lucide-react'
 import { grantsAny, useAuthStore } from '@/store/useAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { RouteFetchBar } from '@/components/layout/RouteFetchBar'
+import { PlanBanner } from '@/components/layout/PlanBanner'
+import { BusinessSwitchDialog } from '@/components/layout/BusinessSwitchDialog'
 import { cn } from '@/lib/utils'
 import { APP_VERSION } from '@/config/appVersion'
 import { startDeviceCallSync } from '@/features/callLogs/deviceCallSync'
@@ -16,8 +18,9 @@ import { LeaveToggle } from '@/features/leave/LeaveToggle'
 
 // feature = the role-grid feature(s) an item needs (same names as orm-whatsapp's sidebar). A staff role allowed nothing
 // on it (no view, add, edit or delete) doesn't see the item; admins see everything. Home and Recording are for everyone.
-const NAV_ITEMS: { to: string; label: string; icon: typeof Home; feature?: string | string[] }[] = [
+const NAV_ITEMS: { to: string; label: string; icon: typeof Home; feature?: string | string[]; adminOnly?: boolean }[] = [
   { to: '/home', label: 'Home', icon: Home },
+  { to: '/admin', label: 'Admin', icon: ShieldCheck, adminOnly: true },
   { to: '/campaigns', label: 'Pipelines', icon: Megaphone, feature: 'lead_campaigns' },
   { to: '/inbox', label: 'Inbox', icon: MessagesSquare, feature: 'inbox' },
   { to: '/contacts', label: 'Contacts', icon: Users, feature: 'leads' },
@@ -52,7 +55,14 @@ export function AppShell() {
   const user = useAuthStore((s) => s.user)
   const isAdmin = useAuthStore((s) => s.isAdmin)
   const permissions = useAuthStore((s) => s.permissions)
-  const navItems = NAV_ITEMS.filter((item) => !item.feature || isAdmin || grantsAny(permissions, item.feature))
+  const navItems = NAV_ITEMS.filter((item) => isAdmin || (!item.adminOnly && (!item.feature || grantsAny(permissions, item.feature))))
+  // The owner's business name, with a switcher when there is more than one. Staff see neither.
+  const isOwner = useAuthStore((s) => s.isOwner)
+  const businesses = useAuthStore((s) => s.businesses)
+  const activeBusinessId = useAuthStore((s) => s.activeBusinessId)
+  const businessName = businesses.find((b) => b.id === activeBusinessId)?.name
+  const canSwitch = businesses.length > 1
+  const [switcherOpen, setSwitcherOpen] = useState(false)
   const logout = useAuthStore((s) => s.logout)
   const theme = useThemeStore((s) => s.theme)
   const toggleTheme = useThemeStore((s) => s.toggleTheme)
@@ -90,9 +100,10 @@ export function AppShell() {
         style={{ width: 'var(--rail-width)' }}
       >
         <img src="/logo.png" alt="Staff Crm" className="mb-6 h-9 w-9 rounded-full" />
-        <nav className="flex flex-1 flex-col items-center gap-1 px-2">
+        {/* Scrolls on a short screen, so no item (or the logout button below) is cut off. */}
+        <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto px-2 [scrollbar-width:none]">
           {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} title={label} className="relative flex w-full flex-col items-center gap-1 rounded-lg py-2.5">
+            <NavLink key={to} to={to} title={label} className="relative flex w-full shrink-0 flex-col items-center gap-1 rounded-lg py-2.5">
               {({ isActive }) => (
                 <>
                   <span
@@ -137,6 +148,20 @@ export function AppShell() {
             </button>
             <Avatar name={user?.name ?? 'Executive'} size={26} />
             <p className="truncate text-[13px] font-medium text-[var(--text-h)]">{user?.name ?? 'Executive'}</p>
+            {/* Tablet and desktop; on a phone this lives in the side menu. */}
+            {isOwner && businessName && (
+              <button
+                type="button"
+                onClick={() => setSwitcherOpen(true)}
+                disabled={!canSwitch}
+                title={canSwitch ? 'Switch business' : businessName}
+                className="hidden h-9 min-w-0 max-w-[260px] items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 text-[12.5px] font-medium text-[var(--text-h)] enabled:hover:bg-[var(--surface-hover)] md:flex"
+              >
+                <Building2 size={14} aria-hidden className="shrink-0 text-[var(--accent-strong)]" />
+                <span className="truncate">{businessName}</span>
+                {canSwitch && <ChevronsUpDown size={13} aria-hidden className="shrink-0 text-[var(--text-muted)]" />}
+              </button>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <LeaveToggle />
@@ -171,6 +196,7 @@ export function AppShell() {
           </div>
         </header>
         <RouteFetchBar />
+        <PlanBanner />
 
         <main className="min-h-0 flex-1 overflow-hidden">
           <Suspense
@@ -205,6 +231,24 @@ export function AppShell() {
             <X size={16} />
           </button>
         </div>
+        {isOwner && businessName && (
+          <button
+            type="button"
+            onClick={() => {
+              setDrawerOpen(false)
+              setSwitcherOpen(true)
+            }}
+            disabled={!canSwitch}
+            className="mt-1 flex min-h-12 items-center gap-2.5 rounded-xl border border-[var(--border)] px-3 py-2 text-left enabled:hover:bg-[var(--surface-hover)]"
+          >
+            <Building2 size={17} aria-hidden className="shrink-0 text-[var(--accent-strong)]" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] text-[var(--text-muted)]">{canSwitch ? 'Switch business' : 'Business'}</span>
+              <span className="block truncate text-[13.5px] font-semibold text-[var(--text-h)]">{businessName}</span>
+            </span>
+            {canSwitch && <ChevronsUpDown size={15} aria-hidden className="shrink-0 text-[var(--text-muted)]" />}
+          </button>
+        )}
         <nav className="mt-2 flex-1 space-y-1 overflow-y-auto">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} onClick={() => setDrawerOpen(false)} className="relative flex items-center gap-3 rounded-lg px-3 py-2.5">
@@ -244,6 +288,8 @@ export function AppShell() {
         </button>
         <p className="px-3 pb-1 pt-2 text-[11.5px] text-[var(--text-muted)]">Version {APP_VERSION}</p>
       </aside>
+
+      <BusinessSwitchDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
 
       <Dialog
         open={confirmLogoutOpen}

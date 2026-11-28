@@ -1,5 +1,6 @@
 import { apiRequest } from './apiClient'
 import { setCrmSessionToken, crmSessionAuthHeaders } from './crmSessionClient'
+import type { PlanAccess } from './planAccess'
 
 // crmbackend's own local staff login (POST /api/v1/users/login) — separate from
 // any boss-identity login. Staff accounts are created by an admin via
@@ -43,6 +44,8 @@ export interface StaffMeResponse {
   sees_all?: boolean
   /** The person's own "On leave" switch: true = skipped for new leads. */
   on_leave?: boolean
+  /** What the business's plan allows (view-only when limited). */
+  plan_access?: PlanAccess
 }
 
 export async function staffLogin(payload: { email: string; password: string }): Promise<StaffAuthUser> {
