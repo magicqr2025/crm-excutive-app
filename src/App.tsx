@@ -18,6 +18,10 @@ const RolePermissionsPage = lazy(() => import('@/features/team/RolePermissionsPa
 const TeamPerformancePage = lazy(() => import('@/features/reports/TeamPerformancePage').then((m) => ({ default: m.TeamPerformancePage })))
 const StaffReportPage = lazy(() => import('@/features/reports/StaffReportPage').then((m) => ({ default: m.StaffReportPage })))
 const BusinessOverviewPage = lazy(() => import('@/features/reports/BusinessOverviewPage').then((m) => ({ default: m.BusinessOverviewPage })))
+const LeadStatusPage = lazy(() => import('@/features/leadSetup/LeadStatusPage').then((m) => ({ default: m.LeadStatusPage })))
+const FlagsPage = lazy(() => import('@/features/leadSetup/FlagsPage').then((m) => ({ default: m.FlagsPage })))
+const LabelsPage = lazy(() => import('@/features/leadSetup/LabelsPage').then((m) => ({ default: m.LabelsPage })))
+const GroupsPage = lazy(() => import('@/features/leadSetup/GroupsPage').then((m) => ({ default: m.GroupsPage })))
 const HomePage = lazy(() => import('@/features/home/HomePage').then((m) => ({ default: m.HomePage })))
 const CampaignsPage = lazy(() => import('@/features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignLeadsPage = lazy(() => import('@/features/campaigns/CampaignLeadsPage').then((m) => ({ default: m.CampaignLeadsPage })))
@@ -66,6 +70,10 @@ export default function App() {
               <Route path="/admin/performance" element={<TeamPerformancePage />} />
               <Route path="/admin/performance/:staffId" element={<StaffReportPage />} />
               <Route path="/admin/overview" element={<BusinessOverviewPage />} />
+              <Route path="/admin/lead-status" element={<LeadStatusPage />} />
+              <Route path="/admin/flags" element={<FlagsPage />} />
+              <Route path="/admin/labels" element={<LabelsPage />} />
+              <Route path="/admin/groups" element={<GroupsPage />} />
               <Route path="/admin/staff" element={<StaffListPage />} />
               <Route path="/admin/staff/new" element={<StaffAddPage />} />
               <Route path="/admin/staff/:staffId" element={<StaffEditPage />} />

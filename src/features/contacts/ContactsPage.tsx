@@ -27,6 +27,8 @@ import { useToast } from '@/components/ui/useToast'
 import { BulkEmailDialog } from './BulkEmailDialog'
 import { AddNewLeadDialog } from './AddNewLeadDialog'
 import { LeadCard } from './LeadCard'
+import { BulkActionBar } from './admin/BulkActions'
+import { ImportExportButtons } from './admin/ImportExportButtons'
 
 const MAX_BULK_SELECT = 500
 
@@ -187,6 +189,7 @@ export function ContactsPage() {
         onQueued={() => setSelected(new Map())}
       />
       <div className="space-y-4 p-4">
+        {isAdmin && <ImportExportButtons />}
         {/* One row; on a phone it swipes sideways — fade + arrows show there's more. */}
         <SwipeRow activeKey={view} ariaLabel="Contact views" className="flex w-fit max-w-full gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
           {CONTACT_TABS.map(({ value: v, label }) => {
@@ -332,6 +335,9 @@ export function ContactsPage() {
           </div>
         )}
         <InfiniteScrollFooter hasNextPage={Boolean(hasNextPage)} isFetchingNextPage={isFetchingNextPage} onLoadMore={() => void fetchNextPage()} />
+        {isAdmin && (
+          <BulkActionBar leadIds={[...selected.keys()]} group={groups.find((g) => g.id === panel.groupId) ?? null} onDone={() => setSelected(new Map())} />
+        )}
       </div>
     </div>
   )
