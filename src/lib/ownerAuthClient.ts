@@ -1,5 +1,6 @@
 import { ApiError, apiRequest } from './apiClient'
 import { setCrmSessionToken } from './crmSessionClient'
+import type { PlanAccess } from './planAccess'
 
 // Business Admin (owner) login — same flow as orm-whatsapp. The password is checked by the boss service
 // (backend.magicqr.in); crmbackend then trades the boss token for its own session (ensure-self), which every
@@ -11,6 +12,8 @@ const BOSS_BASE_URL = (
 
 // A saved boss token is also what marks the saved session as an owner's.
 const BOSS_TOKEN_STORAGE_KEY = 'exec_boss_token'
+// The business last chosen on this device. Kept through logout; ignored if the account doesn't have it.
+const BUSINESS_STORAGE_KEY = 'exec_owner_business'
 
 export function getBossToken(): string | null {
   return localStorage.getItem(BOSS_TOKEN_STORAGE_KEY)
@@ -57,9 +60,30 @@ export interface OwnerSession {
   /** The owner's crmbackend user (not the boss user id), so "mine" lists and assignments match. */
   user: { id: string; email: string; name: string; role?: string }
   businesses: { id: string; name: string; role: string }[]
+  activeBusinessId: string
+  planAccess: PlanAccess | null
 }
 
-// Loads the owner's businesses and opens a crmbackend session for the first-created one.
+// A crmbackend session belongs to one business. The saved token is replaced only when this succeeds.
+async function ensureSelf(businessId: string) {
+  // No `host` is sent: it would update the business's saved agency, which staff logins are checked against.
+  const me = await apiRequest<{
+    token: string
+    user_id: string
+    first_name?: string | null
+    last_name?: string | null
+    user_email?: string | null
+    plan_access?: PlanAccess
+  }>('/crm/users/ensure-self?cookie=false', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getBossToken()}` },
+    body: JSON.stringify({ business_id: businessId }),
+  })
+  setCrmSessionToken(me.token)
+  return me
+}
+
+// Loads the owner's businesses and opens a session for the one last chosen here, otherwise the first-created one.
 async function openCrmSession(): Promise<OwnerSession> {
   const list = await bossRequest<BossBusiness[]>('/businesses')
   const businesses = [...list]
@@ -67,20 +91,19 @@ async function openCrmSession(): Promise<OwnerSession> {
     .map((b) => ({ id: String(b.id), name: b.name, role: 'Business Admin' }))
   if (businesses.length === 0) throw new Error('This account has no business yet. Add one in the web CRM first.')
 
-  // No `host` is sent: it would update the business's saved agency, which staff logins are checked against.
-  const me = await apiRequest<{ token: string; user_id: string; first_name?: string | null; last_name?: string | null; user_email?: string | null }>(
-    '/crm/users/ensure-self?cookie=false',
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${getBossToken()}` },
-      body: JSON.stringify({ business_id: businesses[0].id }),
-    },
-  )
-  setCrmSessionToken(me.token)
+  const saved = localStorage.getItem(BUSINESS_STORAGE_KEY)
+  const activeBusinessId = (businesses.find((b) => b.id === saved) ?? businesses[0]).id
+  const me = await ensureSelf(activeBusinessId)
 
   const email = me.user_email ?? ''
   const name = [me.first_name, me.last_name].filter(Boolean).join(' ') || email
-  return { user: { id: me.user_id, email, name, role: 'Business Admin' }, businesses }
+  return { user: { id: me.user_id, email, name, role: 'Business Admin' }, businesses, activeBusinessId, planAccess: me.plan_access ?? null }
+}
+
+/** Opens a session for another business. The caller reloads the app afterwards. */
+export async function ownerSwitchBusiness(businessId: string): Promise<void> {
+  await ensureSelf(businessId)
+  localStorage.setItem(BUSINESS_STORAGE_KEY, businessId)
 }
 
 export async function ownerLogin(payload: { email: string; password: string }): Promise<OwnerSession> {

@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
  */
 export function LeaveToggle() {
   const user = useAuthStore((s) => s.user)
+  const isOwner = useAuthStore((s) => s.isOwner)
   const activeBusinessId = useAuthStore((s) => s.activeBusinessId)
   const queryClient = useQueryClient()
   const { show } = useToast()
@@ -39,7 +40,8 @@ export function LeaveToggle() {
     onError: (err) => show({ title: err instanceof Error ? err.message : 'Something went wrong', tone: 'error' }),
   })
 
-  if (!isSuccess) return null
+  // The owner doesn't take calling shifts: shown to them only while "on leave" is on, so they can switch back.
+  if (!isSuccess || (isOwner && !onLeave)) return null
   return (
     <>
     <button
