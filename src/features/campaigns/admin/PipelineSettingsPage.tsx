@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { List, Pencil } from 'lucide-react'
+import { List, Pencil, PhoneCall } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/useToast'
@@ -68,6 +68,9 @@ export function PipelineSettingsPage() {
             </dl>
             <Button variant="secondary" className="w-full justify-center" onClick={() => navigate(`/campaigns/${campaignId}/leads`)}>
               <List size={15} /> View leads
+            </Button>
+            <Button variant="secondary" className="w-full justify-center" onClick={() => navigate(`/campaigns/${campaignId}/call-logs`)}>
+              <PhoneCall size={15} /> Call logs
             </Button>
           </Section>
 

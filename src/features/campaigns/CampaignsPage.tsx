@@ -1,7 +1,7 @@
 import { PageLoader } from '@/components/ui/Spinner'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { BarChart3, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { useMyLeadCampaigns } from '@/api/queries'
@@ -42,6 +42,12 @@ export function CampaignsPage() {
       />
       {addLeadOpen && <AddNewLeadDialog onClose={() => setAddLeadOpen(false)} />}
       <div className="p-6">
+        {isAdmin && (
+          <Button size="sm" variant="secondary" className="mb-4" onClick={() => navigate('/campaigns/performance')}>
+            <BarChart3 size={14} />
+            Campaign performance
+          </Button>
+        )}
         {isLoading ? (
           <PageLoader />
         ) : campaigns.length === 0 ? (
