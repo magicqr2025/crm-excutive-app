@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 // Support-desk tickets served by crmbackend's /crm/tickets (the same system the admin app uses).
 
 export type TicketType = 'issue' | 'error' | 'feature_request' | 'suggestion'
-export type TicketStatus = 'open' | 'in_progress' | 'on_hold' | 'resolved' | 'closed'
+export type TicketStatus = 'open' | 'in_progress' | 'on_hold' | 'resolved' | 'closed' | 'declined'
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
 /** List filter: a status, or 'active' = open + in progress + on hold. */
 export type TicketStatusFilter = TicketStatus | 'active'
@@ -79,6 +79,9 @@ export interface Ticket {
   assigned_to_name: string | null
   resolved_at: string | null
   closed_at: string | null
+  /** set only while declined; the customer can read the reason */
+  declined_at: string | null
+  decline_reason: string | null
   created_at: string
   updated_at: string
 }
@@ -173,8 +176,8 @@ export function createTicket(input: CreateTicketInput): Promise<TicketDetail> {
   return apiRequestForm<TicketDetail>('/crm/tickets/add', form, authHeaders())
 }
 
-export const setTicketStatus = (id: string, status: TicketStatus) =>
-  apiRequest<TicketDetail>(`${base(id)}/status`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ status }) })
+export const setTicketStatus = (id: string, status: TicketStatus, reason?: string) =>
+  apiRequest<TicketDetail>(`${base(id)}/status`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ status, reason }) })
 
 export const triageTicket = (id: string, patch: { priority?: TicketPriority; assignToStaffId?: string | null }) =>
   apiRequest<TicketDetail>(`${base(id)}/triage`, {

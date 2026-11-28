@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Lock, RotateCcw, Send, XCircle } from 'lucide-react'
+import { ArrowLeft, Ban, CheckCircle2, Lock, RotateCcw, Send, XCircle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -11,12 +11,12 @@ import { useAddTicketComment, useSetTicketStatus, useStaffList, useTicket, useTr
 import type { TicketComment, TicketDetail, TicketPriority, TicketStatus } from '@/api/ticketsApi'
 import { useAuthStore } from '@/store/useAuthStore'
 import { AttachmentLink, AttachmentPicker, CloudImages } from './TicketAttachments'
+import { DeclineTicketDialog } from './DeclineTicketDialog'
 import {
   SELECT_CLASS,
   TICKET_PRIORITY_LABEL,
   TICKET_PRIORITY_OPTIONS,
   TICKET_PRIORITY_TONE,
-  TICKET_STATUSES,
   TICKET_STATUS_LABEL,
   TICKET_STATUS_TONE,
   TICKET_TYPE_LABEL,
@@ -24,6 +24,7 @@ import {
   formatDateTime,
   getTicketPermissions,
   isActiveTicket,
+  statusChoices,
   ticketNumber,
   timeAgo,
 } from './ticketUi'
@@ -159,8 +160,25 @@ function Loaded({ ticket }: { ticket: TicketDetail }) {
 
   const fail = (fallback: string) => (err: unknown) => show({ title: err instanceof Error ? err.message : fallback, tone: 'error' })
 
-  function moveTo(status: TicketStatus, done?: string) {
-    setStatus.mutate({ id: ticket.id, status }, { onSuccess: () => done && show({ title: done, tone: 'success' }), onError: fail('Could not update the status') })
+  const [declining, setDeclining] = useState(false)
+
+  function moveTo(status: TicketStatus, done?: string, reason?: string) {
+    // Declining needs a reason, so it goes through the dialog first.
+    if (status === 'declined' && !reason) {
+      setDeclining(true)
+      return
+    }
+    setStatus.mutate(
+      { id: ticket.id, status, reason },
+      {
+        onSuccess: () => {
+          setDeclining(false)
+          const message = done ?? (status === 'resolved' ? 'Resolved and closed' : undefined)
+          if (message) show({ title: message, tone: 'success' })
+        },
+        onError: fail('Could not update the status'),
+      },
+    )
   }
 
   function triageChange(patch: { priority?: TicketPriority; assignToStaffId?: string | null }) {
@@ -175,6 +193,7 @@ function Loaded({ ticket }: { ticket: TicketDetail }) {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--surface)]">
+      <DeclineTicketDialog open={declining} busy={setStatus.isPending} onClose={() => setDeclining(false)} onDecline={(reason) => moveTo('declined', 'Ticket declined', reason)} />
       <PageHeader
         title={ticketNumber(ticket.number)}
         subtitle={ticket.subject}
@@ -214,6 +233,8 @@ function Loaded({ ticket }: { ticket: TicketDetail }) {
             <Fact label="Last update" value={formatDateTime(ticket.updated_at)} />
             {ticket.resolved_at && <Fact label="Resolved" value={formatDateTime(ticket.resolved_at)} />}
             {ticket.closed_at && <Fact label="Closed" value={formatDateTime(ticket.closed_at)} />}
+            {ticket.declined_at && <Fact label="Declined" value={formatDateTime(ticket.declined_at)} />}
+            {ticket.decline_reason && <Fact label="Decline reason" value={ticket.decline_reason} />}
           </dl>
         </Panel>
 
@@ -222,16 +243,21 @@ function Loaded({ ticket }: { ticket: TicketDetail }) {
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 {can.manage && isActiveTicket(ticket) && ticket.status !== 'resolved' && (
-                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => moveTo('resolved', 'Marked as resolved')}>
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => moveTo('resolved', 'Resolved and closed')}>
                     <CheckCircle2 size={14} /> Mark resolved
                   </Button>
                 )}
-                {(can.manage || can.close) && ticket.status !== 'closed' && (
+                {can.manage && isActiveTicket(ticket) && (
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => setDeclining(true)}>
+                    <Ban size={14} /> Decline
+                  </Button>
+                )}
+                {(can.manage || can.close) && ticket.status !== 'closed' && ticket.status !== 'declined' && (
                   <Button size="sm" variant="danger" disabled={busy} onClick={() => moveTo('closed', 'Ticket closed')}>
                     <XCircle size={14} /> Close ticket
                   </Button>
                 )}
-                {(can.manage || can.reopen) && (ticket.status === 'closed' || ticket.status === 'resolved') && (
+                {(can.manage || (can.reopen && ticket.status !== 'declined')) && (ticket.status === 'closed' || ticket.status === 'resolved' || ticket.status === 'declined') && (
                   <Button size="sm" disabled={busy} onClick={() => moveTo('open', 'Ticket reopened')}>
                     <RotateCcw size={14} /> Reopen
                   </Button>
@@ -241,9 +267,9 @@ function Loaded({ ticket }: { ticket: TicketDetail }) {
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-[var(--text-muted)]">Status</span>
                   <select value={ticket.status} disabled={busy} onChange={(e) => moveTo(e.target.value as TicketStatus)} className={SELECT_CLASS}>
-                    {TICKET_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {TICKET_STATUS_LABEL[s]}
+                    {statusChoices(ticket.status).map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
                       </option>
                     ))}
                   </select>
@@ -293,9 +319,9 @@ function Loaded({ ticket }: { ticket: TicketDetail }) {
             ))}
           </div>
           <div className="mt-4 border-t border-[var(--border)] pt-4">
-            {ticket.status === 'closed' ? (
+            {ticket.status === 'closed' || ticket.status === 'declined' ? (
               <p className="rounded-lg bg-[var(--surface-hover)] px-3 py-2 text-[12.5px] text-[var(--text-muted)]">
-                This ticket is closed.{can.reopen || can.manage ? ' Reopen it to reply.' : ''}
+                This ticket is {ticket.status}.{can.manage || (can.reopen && ticket.status === 'closed') ? ' Reopen it to reply.' : ''}
               </p>
             ) : (
               <ReplyBox ticketId={ticket.id} canInternal={can.internalNote} />

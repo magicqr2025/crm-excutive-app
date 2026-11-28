@@ -958,7 +958,7 @@ function useTicketMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
 }
 
 export const useCreateTicket = () => useTicketMutation((input: CreateTicketInput) => createTicket(input))
-export const useSetTicketStatus = () => useTicketMutation(({ id, status }: { id: string; status: TicketStatus }) => setTicketStatus(id, status))
+export const useSetTicketStatus = () => useTicketMutation(({ id, status, reason }: { id: string; status: TicketStatus; reason?: string }) => setTicketStatus(id, status, reason))
 export const useTriageTicket = () =>
   useTicketMutation(({ id, patch }: { id: string; patch: { priority?: TicketPriority; assignToStaffId?: string | null } }) => triageTicket(id, patch))
 export const useAddTicketComment = () =>

@@ -32,6 +32,7 @@ const STATUS_TABS: { value: TicketStatusFilter | 'all'; label: string }[] = [
   { value: 'active', label: 'Open' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
+  { value: 'declined', label: 'Declined' },
   { value: 'all', label: 'All' },
 ]
 

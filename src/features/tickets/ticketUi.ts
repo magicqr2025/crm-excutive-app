@@ -30,17 +30,34 @@ export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {
   on_hold: 'On hold',
   resolved: 'Resolved',
   closed: 'Closed',
+  declined: 'Declined',
 }
 
-export const TICKET_STATUS_TONE: Record<TicketStatus, 'accent' | 'warning' | 'neutral' | 'success'> = {
+export const TICKET_STATUS_TONE: Record<TicketStatus, 'accent' | 'warning' | 'neutral' | 'success' | 'error'> = {
   open: 'accent',
   in_progress: 'warning',
   on_hold: 'neutral',
   resolved: 'success',
   closed: 'neutral',
+  declined: 'error',
 }
 
-export const TICKET_STATUSES = Object.keys(TICKET_STATUS_LABEL) as TicketStatus[]
+/** What the Status box offers: the current status and the moves the server accepts from it. */
+export function statusChoices(current: TicketStatus): { value: TicketStatus; label: string }[] {
+  const moves: Record<TicketStatus, TicketStatus[]> = {
+    open: ['open', 'in_progress', 'on_hold', 'resolved', 'closed', 'declined'],
+    in_progress: ['open', 'in_progress', 'on_hold', 'resolved', 'closed', 'declined'],
+    on_hold: ['open', 'in_progress', 'on_hold', 'resolved', 'closed', 'declined'],
+    resolved: ['open', 'in_progress', 'on_hold', 'resolved', 'closed'],
+    closed: ['open', 'in_progress', 'on_hold', 'closed'],
+    declined: ['open', 'declined'],
+  }
+  return moves[current].map((value) => ({
+    value,
+    // Picking "Resolved" closes the ticket, so the box says so.
+    label: value === 'resolved' && current !== 'resolved' ? 'Resolved (closes the ticket)' : TICKET_STATUS_LABEL[value],
+  }))
+}
 
 export const TICKET_PRIORITY_OPTIONS: { value: TicketPriority; label: string }[] = [
   { value: 'urgent', label: 'Urgent' },
@@ -102,7 +119,7 @@ export function getTicketPermissions(ticket: Pick<Ticket, 'status' | 'raised_by'
   const manage = isAdmin || isAssignee
   return {
     manage,
-    close: !manage && isRaiser && ticket.status !== 'closed',
+    close: !manage && isRaiser && ticket.status !== 'closed' && ticket.status !== 'declined',
     reopen: !manage && isRaiser && (ticket.status === 'resolved' || ticket.status === 'closed'),
     triage: isAdmin,
     internalNote: manage,
