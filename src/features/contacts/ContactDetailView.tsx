@@ -35,6 +35,8 @@ import type { LeadField } from '@/features/followups/LeadUpdatePanel'
 import { TasksTab } from './lead/TasksTab'
 import { AutomationsTab } from './lead/AutomationsTab'
 import { AiCallsTab } from './lead/AiCallsTab'
+import { AltNumberSheet, EditContactSheet } from './lead/ContactEditDialogs'
+import { useContactAccess } from './lead/useContactAccess'
 import { PaymentLinkDialog } from './lead/PaymentLinkDialog'
 
 export type ContactDetailTab = LeadTab
@@ -96,6 +98,8 @@ export function ContactDetailView({
 
   const { data: fetchedLead } = useLead(leadProp ? '' : (leadId ?? ''))
   const lead = leadProp ?? fetchedLead
+  const { canEditDetails, canChangeAlt } = useContactAccess(lead)
+  const [contactSheet, setContactSheet] = useState<'details' | 'alt' | null>(null)
   const { data: callLogs = [], isLoading: loadingCalls } = useCallLogsForLead(leadId)
   const { data: statuses = [] } = useLeadStatuses()
   const { data: stages = [] } = useLeadStageTypes()
@@ -212,6 +216,8 @@ export function ContactDetailView({
               email={lead?.contact_email}
               addedAt={lead?.created_at}
               altPhone={lead?.contact_alt_phone}
+              onEdit={canEditDetails ? () => setContactSheet('details') : undefined}
+              onAltNumber={canChangeAlt ? () => setContactSheet('alt') : undefined}
               unsubscribed={Boolean(lead?.contact_opted_out_at)}
               stage={stageName}
               status={lead?.lead_status}
@@ -367,6 +373,8 @@ export function ContactDetailView({
         </div>
       )}
 
+      {lead && contactSheet === 'details' && <EditContactSheet lead={lead} onClose={() => setContactSheet(null)} />}
+      {lead && contactSheet === 'alt' && <AltNumberSheet lead={lead} onClose={() => setContactSheet(null)} />}
       <AddFollowupDialog open={form === 'followup'} onClose={() => setForm(null)} contactId={contactId} />
       <AddMeetingDialog open={form === 'meeting'} onClose={() => setForm(null)} contactId={contactId} />
       <AddPaymentDialog open={form === 'payment'} onClose={() => setForm(null)} contactId={contactId} />

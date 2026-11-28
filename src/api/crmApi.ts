@@ -316,6 +316,8 @@ export interface QuickCreateLeadInput {
   email?: string
   leadStatusId?: string
   leadCampaignId: string
+  /** Products the new lead is interested in. */
+  productIds?: string[]
 }
 
 export async function quickCreateLead(input: QuickCreateLeadInput): Promise<CrmLead> {
@@ -331,6 +333,7 @@ export async function quickCreateLead(input: QuickCreateLeadInput): Promise<CrmL
       ...(input.email ? { email: input.email } : {}),
       ...(input.leadStatusId ? { lead_status_id: input.leadStatusId } : {}),
       lead_campaign_id: input.leadCampaignId,
+      ...(input.productIds?.length ? { product_ids: input.productIds } : {}),
     }),
   })
 }
@@ -401,6 +404,8 @@ export interface CrmLeadStatus {
   color: string | null
   /** '1' = in use, '0' = switched off in the main CRM. */
   status?: string
+  /** The status a lead takes by default within its stage. */
+  is_default?: boolean
 }
 
 export async function fetchLeadStatuses(): Promise<CrmLeadStatus[]> {
@@ -2194,5 +2199,42 @@ export async function setMyLeaveStatus(onLeave: boolean): Promise<{ on_leave: bo
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ on_leave: onLeave }),
+  })
+}
+
+// ---- A saved contact's details ----
+
+export interface QuickEditLeadInput {
+  id: string
+  contactId: string
+  name?: string
+  /** null removes the email. */
+  email?: string | null
+  /** Admin only. */
+  phone?: string
+  countryCode?: string
+}
+
+export async function quickEditLead(input: QuickEditLeadInput): Promise<CrmLead> {
+  return apiRequest<CrmLead>('/lead/edit', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      id: input.id,
+      contact_id: input.contactId,
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.email !== undefined ? { email: input.email } : {}),
+      ...(input.phone !== undefined ? { phone: input.phone } : {}),
+      ...(input.countryCode !== undefined ? { country_code: input.countryCode } : {}),
+    }),
+  })
+}
+
+/** Saves, or with null removes, the contact's alternative number. */
+export async function setLeadAltPhone(leadId: string, altPhone: string | null): Promise<{ alt_phone: string | null }> {
+  return apiRequest<{ alt_phone: string | null }>('/crm/cust-res/alt-phone', {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ lead_id: leadId, alt_phone: altPhone }),
   })
 }
