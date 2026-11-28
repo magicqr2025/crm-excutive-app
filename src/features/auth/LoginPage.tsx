@@ -1,6 +1,6 @@
 import { useState, type FocusEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, BellRing, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone } from 'lucide-react'
+import { ArrowRight, BellRing, Building2, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone, UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { APP_VERSION } from '@/config/appVersion'
 
@@ -61,9 +61,18 @@ function CallPreview() {
   )
 }
 
+type LoginMode = 'owner' | 'staff'
+
+const LOGIN_TABS: { value: LoginMode; label: string; icon: typeof Phone }[] = [
+  { value: 'owner', label: 'Business Admin', icon: Building2 },
+  { value: 'staff', label: 'Staff', icon: UserRound },
+]
+
 export function LoginPage() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
+  const loginAsOwner = useAuthStore((s) => s.loginAsOwner)
+  const [mode, setMode] = useState<LoginMode>('staff')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -81,7 +90,7 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login({ email, password })
+      await (mode === 'owner' ? loginAsOwner : login)({ email, password })
       navigate('/home', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
@@ -140,9 +149,48 @@ export function LoginPage() {
             <br />
             <span className="bg-gradient-to-r from-[#6d4cff] to-[#d946ef] bg-clip-text text-transparent">calling shift</span>
           </h1>
-          <p className="mt-2 text-[14px] text-[#6b6590] dark:text-white/60">Sign in with the email and password your admin gave you.</p>
+          <p className="mt-2 text-[14px] text-[#6b6590] dark:text-white/60">
+            {mode === 'owner' ? 'Sign in with your business admin email and password.' : 'Sign in with the email and password your admin gave you.'}
+          </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-3.5">
+          {/* Real radio buttons underneath, so arrow keys and screen readers work without extra code. */}
+          <fieldset disabled={submitting} className="mt-5 disabled:opacity-60">
+            <legend className="sr-only">Sign in as</legend>
+            <div className="relative grid grid-cols-2 rounded-2xl border border-[#e4defc] bg-white/70 p-1 backdrop-blur dark:border-white/10 dark:bg-white/5">
+              {/* The highlight that slides to the chosen side */}
+              <span
+                aria-hidden
+                className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-xl bg-gradient-to-r from-[#6d4cff] to-[#4c32d9] shadow-[0_8px_18px_-10px_rgba(76,50,217,0.9)] transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                  mode === 'staff' ? 'translate-x-full' : 'translate-x-0'
+                }`}
+              />
+              {LOGIN_TABS.map(({ value, label, icon: Icon }) => (
+                <label key={value} className="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="login-mode"
+                    value={value}
+                    checked={mode === value}
+                    onChange={() => {
+                      setMode(value)
+                      setError(null)
+                    }}
+                    className="peer sr-only"
+                  />
+                  <span
+                    className={`flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl text-[13.5px] font-semibold transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#6d4cff] motion-reduce:transition-none ${
+                      mode === value ? 'text-white' : 'text-[#6b6590] hover:text-[#1d1638] dark:text-white/60 dark:hover:text-white'
+                    }`}
+                  >
+                    <Icon size={16} aria-hidden />
+                    {label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3.5">
             {error && (
               <p role="alert" className="rounded-2xl border border-[var(--error-border)] bg-[var(--error-bg)] px-4 py-3 text-[13px] text-[var(--error)]">
                 {error}
