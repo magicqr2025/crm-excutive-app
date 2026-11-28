@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BarChart3, Bot, ChevronRight, CircleDot, Filter, Flag, LayoutDashboard, ListChecks, Send, Settings2, ShieldCheck, Tag, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Bot, ChevronRight, CircleDot, Filter, Flag, LayoutDashboard, ListChecks, Send, Settings2, ShieldCheck, Tag, Upload, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 
 // Pages that are built.
@@ -7,6 +7,7 @@ const READY: { to: string; label: string; hint: string; icon: LucideIcon }[] = [
   { to: '/admin/overview', label: 'Business Overview', hint: 'Today’s work, targets and growth', icon: LayoutDashboard },
   { to: '/admin/performance', label: 'Team Performance', hint: 'Activity, targets and salary', icon: BarChart3 },
   { to: '/admin/staff', label: 'Staff', hint: 'Logins, access and new leads', icon: UserCog },
+  { to: '/campaigns', label: 'Sales Pipelines', hint: 'Create, edit and choose who gets leads', icon: Filter },
   { to: '/admin/roles', label: 'Roles & Permissions', hint: 'What each role can see and do', icon: ShieldCheck },
   { to: '/admin/lead-status', label: 'Lead Status', hint: 'Statuses for each stage', icon: CircleDot },
   { to: '/admin/flags', label: 'Flags', hint: 'Call flags on leads', icon: Flag },
@@ -16,7 +17,7 @@ const READY: { to: string; label: string; hint: string; icon: LucideIcon }[] = [
 
 // The admin areas still to be built. Each one moves up to READY when its page exists.
 const UPCOMING: { label: string; hint: string; icon: LucideIcon }[] = [
-  { label: 'Sales pipeline', hint: 'Create pipelines and upload leads', icon: Filter },
+  { label: 'More pipeline tools', hint: 'Bulk upload, moving leads, call logs and reports', icon: Upload },
   { label: 'Money', hint: 'Payment corrections, payment links, products', icon: Wallet },
   { label: 'Daily work tools', hint: 'Projects, booking setup, ticket masters, chat channels', icon: ListChecks },
   { label: 'Marketing', hint: 'Broadcasts, templates and sequences', icon: Send },

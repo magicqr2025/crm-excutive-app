@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { List, Megaphone, Phone } from "lucide-react";
+import { List, Megaphone, Phone, Settings } from "lucide-react";
 import { useToast } from "@/components/ui/useToast";
 import { useAuthStore } from "@/store/useAuthStore";
 import { fetchNextQueueLead } from "@/api/crmApi";
@@ -23,6 +23,7 @@ export function CampaignCard({ campaign }: { campaign: CrmMyLeadCampaign }) {
   const navigate = useNavigate();
   const { show } = useToast();
   const userId = useAuthStore((s) => s.user?.id ?? "");
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const [starting, setStarting] = useState(false);
 
   const contacted = Math.max(campaign.assigned - campaign.uncontacted, 0);
@@ -82,6 +83,17 @@ export function CampaignCard({ campaign }: { campaign: CrmMyLeadCampaign }) {
           <span className="shrink-0 rounded-full border border-dashed border-[var(--warning)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--warning)]">
             {campaign.unassigned} unassigned
           </span>
+        )}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => navigate(`/campaigns/${campaign.id}/settings`)}
+            aria-label={`Settings for ${campaign.name}`}
+            title="Pipeline settings"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-h)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+          >
+            <Settings size={17} />
+          </button>
         )}
       </div>
 
