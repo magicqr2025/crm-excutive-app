@@ -15,6 +15,9 @@ const StaffAddPage = lazy(() => import('@/features/team/StaffAddPage').then((m) 
 const StaffEditPage = lazy(() => import('@/features/team/StaffEditPage').then((m) => ({ default: m.StaffEditPage })))
 const RolesPage = lazy(() => import('@/features/team/RolesPage').then((m) => ({ default: m.RolesPage })))
 const RolePermissionsPage = lazy(() => import('@/features/team/RolePermissionsPage').then((m) => ({ default: m.RolePermissionsPage })))
+const TeamPerformancePage = lazy(() => import('@/features/reports/TeamPerformancePage').then((m) => ({ default: m.TeamPerformancePage })))
+const StaffReportPage = lazy(() => import('@/features/reports/StaffReportPage').then((m) => ({ default: m.StaffReportPage })))
+const BusinessOverviewPage = lazy(() => import('@/features/reports/BusinessOverviewPage').then((m) => ({ default: m.BusinessOverviewPage })))
 const HomePage = lazy(() => import('@/features/home/HomePage').then((m) => ({ default: m.HomePage })))
 const CampaignsPage = lazy(() => import('@/features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignLeadsPage = lazy(() => import('@/features/campaigns/CampaignLeadsPage').then((m) => ({ default: m.CampaignLeadsPage })))
@@ -60,6 +63,9 @@ export default function App() {
             {/* Admin pages go inside this guard. */}
             <Route element={<RequireAdmin />}>
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/performance" element={<TeamPerformancePage />} />
+              <Route path="/admin/performance/:staffId" element={<StaffReportPage />} />
+              <Route path="/admin/overview" element={<BusinessOverviewPage />} />
               <Route path="/admin/staff" element={<StaffListPage />} />
               <Route path="/admin/staff/new" element={<StaffAddPage />} />
               <Route path="/admin/staff/:staffId" element={<StaffEditPage />} />

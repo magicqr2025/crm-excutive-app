@@ -7,11 +7,11 @@ import { Kpi } from './PerformanceParts'
 import { waitingFor } from './performanceUtils'
 
 /** Leads in an open WhatsApp inbox chat right now; a chat leaves the list when it is marked Resolved. */
-export function ChatsTab() {
-  const { data, isLoading, isError, error } = useMyOpenChats()
+export function ChatsTab({ staffId }: { staffId?: string }) {
+  const { data, isLoading, isError, error } = useMyOpenChats(staffId)
 
   if (isLoading) return <PageLoader />
-  if (isError) return <p className="py-8 text-center text-[13px] text-[var(--error)]">{error instanceof Error ? error.message : "Couldn't load your chats."}</p>
+  if (isError) return <p className="py-8 text-center text-[13px] text-[var(--error)]">{error instanceof Error ? error.message : "Couldn't load the chats."}</p>
   if (!data || data.chats.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-center text-[var(--text-muted)]">

@@ -1,16 +1,17 @@
 import { Link } from 'react-router-dom'
-import { BarChart3, Bot, ChevronRight, Filter, ListChecks, Send, Settings2, ShieldCheck, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Bot, ChevronRight, Filter, LayoutDashboard, ListChecks, Send, Settings2, ShieldCheck, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 
 // Pages that are built.
 const READY: { to: string; label: string; hint: string; icon: LucideIcon }[] = [
+  { to: '/admin/overview', label: 'Business Overview', hint: 'Today’s work, targets and growth', icon: LayoutDashboard },
+  { to: '/admin/performance', label: 'Team Performance', hint: 'Activity, targets and salary', icon: BarChart3 },
   { to: '/admin/staff', label: 'Staff', hint: 'Logins, access and new leads', icon: UserCog },
   { to: '/admin/roles', label: 'Roles & Permissions', hint: 'What each role can see and do', icon: ShieldCheck },
 ]
 
 // The admin areas still to be built. Each one moves up to READY when its page exists.
 const UPCOMING: { label: string; hint: string; icon: LucideIcon }[] = [
-  { label: 'Team reports', hint: 'Performance, targets and salary', icon: BarChart3 },
   { label: 'Contacts & lead setup', hint: 'Import, export, bulk assign, lead status', icon: Users },
   { label: 'Sales pipeline', hint: 'Create pipelines and upload leads', icon: Filter },
   { label: 'Money', hint: 'Payment corrections, payment links, products', icon: Wallet },

@@ -55,7 +55,7 @@ export function TargetView({ target, month, year, monthLabel, name }: Props) {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       {target.carried_forward && target.carried_from_month && target.carried_from_year && (
         <p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2.5 text-[12.5px] text-[var(--accent-strong)]">
-          Your target from {monthName(target.carried_from_month, target.carried_from_year)} continues into {monthLabel} until your admin changes it.
+          The target from {monthName(target.carried_from_month, target.carried_from_year)} continues into {monthLabel} until an admin changes it.
         </p>
       )}
 

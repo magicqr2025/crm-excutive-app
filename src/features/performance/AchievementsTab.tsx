@@ -1,4 +1,7 @@
-import { Target } from 'lucide-react'
+import { useState } from 'react'
+import { Pencil, Target } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { TargetDialog } from '@/features/reports/TargetDialog'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useMySales, useMyTarget } from '@/api/queries'
@@ -23,10 +26,14 @@ function Section({ id, title, note, empty, children }: { id: string; title: stri
 }
 
 /** The month's target, pay and incentive, then the deals closed and the money received. */
-export function AchievementsTab({ month, year, monthLabel }: { month: number; year: number; monthLabel: string }) {
-  const userId = useAuthStore((s) => s.user?.id ?? '')
-  const name = useAuthStore((s) => s.user?.name) || 'You'
-  const target = useMyTarget(month, year)
+export function AchievementsTab({ month, year, monthLabel, staff }: { month: number; year: number; monthLabel: string; staff?: { id: string; name: string } }) {
+  const selfId = useAuthStore((s) => s.user?.id ?? '')
+  const selfName = useAuthStore((s) => s.user?.name) || 'You'
+  const userId = staff?.id ?? selfId
+  const name = staff?.name ?? selfName
+  // Only shown to an admin looking at a staff member, who may set the target.
+  const [editing, setEditing] = useState(false)
+  const target = useMyTarget(month, year, staff?.id)
   const sales = useMySales(userId, month, year)
 
   if (target.isLoading || sales.isLoading) return <PageLoader label="Loading achievements…" />
@@ -39,6 +46,18 @@ export function AchievementsTab({ month, year, monthLabel }: { month: number; ye
 
   return (
     <div className="flex flex-col gap-5">
+      {staff && !target.isError && !sales.isError && (
+        <Button variant="outline" className="self-end" onClick={() => setEditing(true)}>
+          {target.data ? <Pencil size={14} /> : <Target size={14} />}
+          {target.data ? 'Edit target' : 'Set target'}
+        </Button>
+      )}
+      {staff && editing && (
+        <TargetDialog
+          subject={{ staffId: staff.id, name: staff.name, month, year, collected, current: target.data ?? null }}
+          onClose={() => setEditing(false)}
+        />
+      )}
       {target.data ? (
         <TargetView target={target.data} month={month} year={year} monthLabel={monthLabel} name={name} />
       ) : (
@@ -47,7 +66,7 @@ export function AchievementsTab({ month, year, monthLabel }: { month: number; ye
             <Target size={20} />
           </span>
           <p className="text-[14px] font-semibold text-[var(--text-h)]">No target set for {monthLabel}</p>
-          <p className="max-w-sm text-[13px] text-[var(--text-muted)]">Your admin sets a monthly target and incentive slabs. It will show up here once it’s added.</p>
+          <p className="max-w-sm text-[13px] text-[var(--text-muted)]">{staff ? 'Set a monthly target and incentive slabs for them.' : 'Your admin sets a monthly target and incentive slabs. It will show up here once it’s added.'}</p>
         </div>
       )}
 
