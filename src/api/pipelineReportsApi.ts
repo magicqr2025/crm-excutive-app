@@ -1,5 +1,5 @@
 // Read-only pipeline reports. Same data as orm-whatsapp's Call Logs and Campaign Performance pages.
-import type { CrmLead } from '@/api/crmApi'
+import type { CrmFollowup, CrmLead } from '@/api/crmApi'
 import { apiRequest, apiRequestWithMeta } from '@/lib/apiClient'
 import { crmSessionAuthHeaders } from '@/lib/crmSessionClient'
 import { toPageResult, type PageResult } from '@/lib/paging'
@@ -63,6 +63,18 @@ export async function fetchTeamCalls(pipelineId: string, filters: CallFilters, p
   const result = await apiRequestWithMeta<TeamCall[], { summary?: CallSummary }>(`/crm/call-log/team?${query}`, { headers: crmSessionAuthHeaders() })
   // The shared list type expects a summary of plain numbers; the page reads this one back as CallSummary.
   return { ...toPageResult(result.data, result.meta), summary: result.summary as unknown as Record<string, number> | undefined }
+}
+
+/** Every open follow-up the viewer may see. */
+export function fetchOpenFollowups(): Promise<CrmFollowup[]> {
+  const query = new URLSearchParams({ business_id: useAuthStore.getState().activeBusinessId ?? '', status: 'active' })
+  return apiRequest<CrmFollowup[]>(`/crm/followup/list?${query}`, { headers: crmSessionAuthHeaders() })
+}
+
+/** Every lead in one pipeline, whoever owns it. */
+export function fetchPipelineLeads(pipelineId: string): Promise<CrmLead[]> {
+  const query = new URLSearchParams({ business_id: useAuthStore.getState().activeBusinessId ?? '', lead_campaign_id: pipelineId })
+  return apiRequest<CrmLead[]>(`/crm/cust-res/get-list?${query}`, { headers: crmSessionAuthHeaders() })
 }
 
 /** Every lead of the business (or one person's): the performance report counts them in the browser. */

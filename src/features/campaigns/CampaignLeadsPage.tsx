@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { LeadCard } from '@/features/contacts/LeadCard'
 import { MoveLeadsBar } from './admin/MoveLeads'
 import { PipelineLeadTools } from './admin/PipelineLeadTools'
+import { PipelineOverview } from './reports/PipelineOverview'
 
 export function CampaignLeadsPage() {
   const { campaignId = '' } = useParams<{ campaignId: string }>()
@@ -94,6 +95,14 @@ export function CampaignLeadsPage() {
 
       <div className="space-y-4 p-4">
         {isAdmin && <PipelineLeadTools pipelineId={campaignId} />}
+        {isAdmin && (
+          <PipelineOverview
+            pipelineId={campaignId}
+            selectedStaffId={filters.staffId}
+            onPickStaff={(staffId) => applyFilters({ ...filters, staffId })}
+            onPickNotStarted={(stageId) => applyFilters({ ...filters, stageId, statusId: '' })}
+          />
+        )}
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1 [&>form]:max-w-none">
             <SearchBox value={search} onSubmit={setSearch} placeholder="Search by name or phone…" />
