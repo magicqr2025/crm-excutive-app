@@ -694,8 +694,8 @@ export function useUpdateMeetingDetails() {
   )
 }
 
-export function useMyTarget(month: number, year: number) {
-  return useQuery({ queryKey: ['my-target', month, year], queryFn: () => fetchMyTarget(month, year) })
+export function useMyTarget(month: number, year: number, staffId?: string) {
+  return useQuery({ queryKey: ['my-target', month, year, staffId ?? null], queryFn: () => fetchMyTarget(month, year, staffId) })
 }
 
 // ---- Email (ZeptoMail) ----
@@ -833,8 +833,8 @@ export function useMySales(staffId: string, month: number, year: number) {
   })
 }
 
-export function useMyOpenChats() {
-  return useQuery({ queryKey: ['my-open-chats'], queryFn: fetchMyOpenChats, refetchInterval: 60_000 })
+export function useMyOpenChats(staffId?: string) {
+  return useQuery({ queryKey: ['my-open-chats', staffId ?? null], queryFn: () => fetchMyOpenChats(staffId), refetchInterval: 60_000 })
 }
 
 // ---- Chat info panel (one conversation's contact) ----

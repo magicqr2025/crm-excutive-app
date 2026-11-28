@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
 import { PageHeader } from '@/components/layout/PageHeader'
 import type { PerformancePeriod } from '@/api/crmApi'
@@ -38,18 +40,30 @@ const chipClass = (active: boolean) =>
  * The signed-in staff member's own numbers, laid out like the admin app's staff page: client interactions,
  * monthly achievements (target, pay, deals, payments) and open WhatsApp chats — plus an activity summary.
  */
-export function MyPerformancePage() {
-  const months = useMemo(() => monthOptions(), [])
-  const [tab, setTab] = useState<TabId>('interactions')
+export function MyPerformancePage({
+  viewing,
+}: {
+  /** An admin looking at a staff member, opened on a month and tab. Leave out for your own page. */
+  viewing?: { id: string; name: string; monthKey: string; tab: 'interactions' | 'achievements'; backTo: string }
+}) {
+  const months = useMemo(() => {
+    const list = monthOptions()
+    const wanted = viewing?.monthKey
+    if (!wanted || list.some((m) => m.value === wanted)) return list
+    // A month outside the last 12 (e.g. next month, for setting a target) is added to the list.
+    const [y, m] = wanted.split('-').map(Number)
+    return [{ value: wanted, label: new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) }, ...list]
+  }, [viewing?.monthKey])
+  const [tab, setTab] = useState<TabId>(viewing?.tab ?? 'interactions')
   // 'YYYY-MM', or 'all' for the last 12 months added together.
-  const [monthKey, setMonthKey] = useState(months[0].value)
+  const [monthKey, setMonthKey] = useState(viewing?.monthKey ?? monthOptions()[0].value)
   const [sub, setSub] = useState<Sub>('month')
   const today = toDay(new Date())
   const [custom, setCustom] = useState({ from: today, to: today })
 
   const isAll = monthKey === 'all'
   // Achievements are always one calendar month; "all months" shows the current one there.
-  const achievementsKey = isAll ? months[0].value : monthKey
+  const achievementsKey = isAll ? monthOptions()[0].value : monthKey
   const [achYear, achMonth] = achievementsKey.split('-').map(Number)
   const monthName = (key: string) => months.find((m) => m.value === key)?.label ?? key
   const wholeLabel = isAll ? 'All months' : `Whole ${new Date(achYear, achMonth - 1, 1).toLocaleDateString(undefined, { month: 'long' })}`
@@ -77,9 +91,14 @@ export function MyPerformancePage() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
+      {viewing && (
+        <Link to={viewing.backTo} className="flex h-10 shrink-0 items-center gap-1.5 self-start px-4 pt-1 text-[13px] font-medium text-[var(--accent-strong)] md:px-6">
+          <ArrowLeft size={15} /> Team Performance
+        </Link>
+      )}
       <PageHeader
-        title="My Performance"
-        subtitle={tab === 'achievements' ? monthName(achievementsKey) : periodLabel}
+        title={viewing ? viewing.name : "My Performance"}
+        subtitle={viewing ? 'Interactions, achievements and chats.' : tab === 'achievements' ? monthName(achievementsKey) : periodLabel}
         action={
           <select
             aria-label="Month"
@@ -154,15 +173,15 @@ export function MyPerformancePage() {
           </div>
         )}
 
-        {tab === 'interactions' && <InteractionsTab period={period} periodLabel={periodLabel} onOpenSales={() => setTab('achievements')} />}
+        {tab === 'interactions' && <InteractionsTab period={period} periodLabel={periodLabel} onOpenSales={() => setTab('achievements')} staffId={viewing?.id} />}
         {tab === 'achievements' && (
           <>
             {isAll && <p className="text-[12px] text-[var(--text-muted)]">Targets are per month, so this shows {monthName(achievementsKey)}. Pick a month above to see another.</p>}
-            <AchievementsTab month={achMonth} year={achYear} monthLabel={monthName(achievementsKey)} />
+            <AchievementsTab month={achMonth} year={achYear} monthLabel={monthName(achievementsKey)} staff={viewing} />
           </>
         )}
-        {tab === 'whatsapp' && <ChatsTab />}
-        {tab === 'activity' && <ActivityTab range={range} />}
+        {tab === 'whatsapp' && <ChatsTab staffId={viewing?.id} />}
+        {tab === 'activity' && <ActivityTab range={range} staffId={viewing?.id} />}
       </div>
     </div>
   )

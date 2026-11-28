@@ -129,12 +129,16 @@ export function InteractionsTab({
   period,
   periodLabel,
   onOpenSales,
+  staffId,
 }: {
   period: PerformancePeriod
   periodLabel: string
   onOpenSales: () => void
+  /** Another staff member (admins); leave out for your own. */
+  staffId?: string
 }) {
-  const userId = useAuthStore((s) => s.user?.id ?? '')
+  const selfId = useAuthStore((s) => s.user?.id ?? '')
+  const userId = staffId ?? selfId
   const perf = useMyPerformance(period, userId)
   const interactions = useMyInteractions(period, userId)
   const [kind, setKind] = useState<InteractionKind | 'all'>('all')
@@ -169,7 +173,7 @@ export function InteractionsTab({
       {mine && (
         <>
           <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
-            <Kpi icon={UserPlus} label="New leads" value={String(mine.leads.new_this_month)} sub={`${mine.leads.total} assigned now`} to="/contacts" />
+            <Kpi icon={UserPlus} label="New leads" value={String(mine.leads.new_this_month)} sub={`${mine.leads.total} assigned now`} to={staffId ? undefined : '/contacts'} />
             <Kpi
               icon={PhoneCall}
               label="Calls"
@@ -208,7 +212,7 @@ export function InteractionsTab({
           <Card title="Sales pipeline" icon={Handshake}>
             <div className="px-4 py-4">
               <PipelineBar pipeline={mine.leads.pipeline} stages={perf.data?.stages ?? []} />
-              <p className="mt-2 text-[11.5px] text-[var(--text-muted)]">Your assigned leads by stage, as of today.</p>
+              <p className="mt-2 text-[11.5px] text-[var(--text-muted)]">{staffId ? 'Their' : 'Your'} assigned leads by stage, as of today.</p>
             </div>
           </Card>
         </>

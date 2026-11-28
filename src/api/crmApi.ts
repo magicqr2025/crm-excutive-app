@@ -1142,9 +1142,12 @@ export interface CrmStaffTarget {
   pending_amount: number
 }
 
+/** The signed-in person's id. "My" requests name it: without it the server sends an admin everyone's rows. */
+const myStaffId = () => useAuthStore.getState().user?.id ?? ''
+
 export async function fetchMyTargets(): Promise<CrmStaffTarget[]> {
-  const businessId = getActiveBusinessId()
-  return apiRequest<CrmStaffTarget[]>(`/crm/staff-targets/list?business_id=${encodeURIComponent(businessId)}`, { headers: authHeaders() })
+  const params = new URLSearchParams({ business_id: getActiveBusinessId(), staff_id: myStaffId() })
+  return apiRequest<CrmStaffTarget[]>(`/crm/staff-targets/list?${params}`, { headers: authHeaders() })
 }
 
 // ---- Payments ----
@@ -1499,8 +1502,9 @@ export interface CrmStaffTarget {
   carried_from_year?: number
 }
 
-export async function fetchMyTarget(month: number, year: number): Promise<CrmStaffTarget | null> {
-  const params = new URLSearchParams({ business_id: getActiveBusinessId(), month: String(month), year: String(year) })
+/** One person's target for a month (your own unless another id is given; others need an admin). */
+export async function fetchMyTarget(month: number, year: number, staffId = myStaffId()): Promise<CrmStaffTarget | null> {
+  const params = new URLSearchParams({ business_id: getActiveBusinessId(), staff_id: staffId, month: String(month), year: String(year) })
   const rows = await apiRequest<CrmStaffTarget[]>(`/crm/staff-targets/list?${params}`, { headers: authHeaders() })
   return rows.find((t) => t.target_month === month && t.target_year === year) ?? null
 }
@@ -2032,8 +2036,8 @@ export interface CrmOpenChats {
   chats: CrmOpenChat[]
 }
 
-export async function fetchMyOpenChats(): Promise<CrmOpenChats> {
-  return apiRequest<CrmOpenChats>('/crm/performance/whatsapp-chats', { headers: authHeaders() })
+export async function fetchMyOpenChats(staffId = myStaffId()): Promise<CrmOpenChats> {
+  return apiRequest<CrmOpenChats>(`/crm/performance/whatsapp-chats?staff_id=${encodeURIComponent(staffId)}`, { headers: authHeaders() })
 }
 
 // ---- Lead notes (the chat info panel) ----

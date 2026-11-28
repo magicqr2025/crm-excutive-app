@@ -120,14 +120,16 @@ function GroupCard({ group, stats }: { group: Group; stats: Stats }) {
 
 
 /** Everything created and completed in the period: total actions, then calls, follow-ups, meetings, tasks and sales. */
-export function ActivityTab({ range }: { range: { from: string; to: string } }) {
-  const userId = useAuthStore((s) => s.user?.id)
+export function ActivityTab({ range, staffId }: { range: { from: string; to: string }; staffId?: string }) {
+  const selfId = useAuthStore((s) => s.user?.id)
+  const userId = staffId ?? selfId
   const { data, isLoading, isError, error } = useMyActivity(range)
   // The backend returns only the caller's own row; fall back to the totals if ids don't line up.
-  const stats: Stats | undefined = data ? (data.staff.find((s) => s.staff_id === userId) ?? (data.staff.length <= 1 ? data.totals : undefined)) : undefined
+  // For someone else only their own row will do.
+  const stats: Stats | undefined = data ? (data.staff.find((s) => s.staff_id === userId) ?? (!staffId && data.staff.length <= 1 ? data.totals : undefined)) : undefined
 
   if (isLoading) return <PageLoader />
-  if (isError) return <p className="py-8 text-center text-[13px] text-[var(--error)]">{error instanceof Error ? error.message : "Couldn't load your activity."}</p>
+  if (isError) return <p className="py-8 text-center text-[13px] text-[var(--error)]">{error instanceof Error ? error.message : "Couldn't load the activity."}</p>
   if (!stats) return <p className="py-8 text-center text-[13px] text-[var(--text-muted)]">No activity to show for this period.</p>
   return (
     <div className="space-y-4">
