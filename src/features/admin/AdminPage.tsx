@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BarChart3, Bot, ChevronRight, CircleDot, Filter, Flag, LayoutDashboard, ListChecks, Send, Settings2, ShieldCheck, Tag, Upload, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Bot, ChevronRight, CircleDot, Filter, Flag, LayoutDashboard, ListChecks, Send, Settings2, ShieldCheck, Tag, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 
 // Pages that are built.
@@ -17,7 +17,7 @@ const READY: { to: string; label: string; hint: string; icon: LucideIcon }[] = [
 
 // The admin areas still to be built. Each one moves up to READY when its page exists.
 const UPCOMING: { label: string; hint: string; icon: LucideIcon }[] = [
-  { label: 'More pipeline tools', hint: 'Bulk upload, moving leads, call logs and reports', icon: Upload },
+  { label: 'Pipeline reports', hint: 'Call logs, performance and the sales dashboard', icon: BarChart3 },
   { label: 'Money', hint: 'Payment corrections, payment links, products', icon: Wallet },
   { label: 'Daily work tools', hint: 'Projects, booking setup, ticket masters, chat channels', icon: ListChecks },
   { label: 'Marketing', hint: 'Broadcasts, templates and sequences', icon: Send },

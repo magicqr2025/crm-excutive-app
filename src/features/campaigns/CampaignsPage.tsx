@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { useMyLeadCampaigns } from '@/api/queries'
 import { useAuthStore } from '@/store/useAuthStore'
 import { CampaignCard } from '@/features/campaigns/CampaignCard'
+import { BulkUploadPicker } from '@/features/campaigns/admin/BulkUploadPicker'
 import { AddNewLeadDialog } from '@/features/contacts/AddNewLeadDialog'
 
 export function CampaignsPage() {
@@ -21,12 +22,16 @@ export function CampaignsPage() {
         title={isAdmin ? 'Pipelines' : 'My Pipelines'}
         subtitle={isAdmin ? 'Create and manage your sales pipelines.' : 'Campaigns assigned to you.'}
         action={
-          <div className="flex items-center gap-2">
+          // Wraps on a narrow phone, where the admin's three buttons don't fit in one row.
+          <div className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2">
             {isAdmin && (
-              <Button size="sm" variant="secondary" onClick={() => navigate('/campaigns/new')}>
-                <Plus size={14} />
-                New pipeline
-              </Button>
+              <>
+                <Button size="sm" variant="secondary" onClick={() => navigate('/campaigns/new')}>
+                  <Plus size={14} />
+                  New pipeline
+                </Button>
+                <BulkUploadPicker pipelines={campaigns} />
+              </>
             )}
             <Button size="sm" onClick={() => setAddLeadOpen(true)}>
               <Plus size={14} />
